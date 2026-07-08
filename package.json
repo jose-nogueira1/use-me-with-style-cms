@@ -1,0 +1,45 @@
+{
+  "name": "use-me-with-style-cms",
+  "version": "0.1.0",
+  "description": "Payload CMS backend (products, orders, customers, market/payment/delivery settings) for the Use Me With Style platform. Phase 1: data/admin-API layer behind the existing React+Vite SPA, per the JOS-20 architecture decision.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
+    "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "3.85.2",
+    "@payloadcms/db-sqlite": "3.85.2",
+    "@payloadcms/next": "3.85.2",
+    "@payloadcms/richtext-lexical": "3.85.2",
+    "@payloadcms/storage-s3": "3.85.2",
+    "@payloadcms/ui": "3.85.2",
+    "cross-env": "^10.1.0",
+    "dotenv": "^16.4.7",
+    "graphql": "^16.8.1",
+    "next": "16.2.10",
+    "payload": "3.85.2",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
