@@ -16,6 +16,7 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { MarketSettings } from './globals/MarketSettings'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
+import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -27,8 +28,13 @@ const isPostgres = databaseUrl.startsWith('postgres://') || databaseUrl.startsWi
 // production. Locally, developers shouldn't need Docker/a Postgres install
 // just to run this service, so a `file:./...` DATABASE_URL transparently
 // uses SQLite instead -- same collections, same API shape either way.
+// prodMigrations wires up the checked-in src/migrations so production boots
+// apply any pending ones automatically (payload tracks applied migrations by
+// name in the `payload-migrations` collection, so this is a no-op once a
+// migration has already run) -- no need to SSH in and run `payload migrate`
+// by hand on every deploy.
 const db = isPostgres
-  ? postgresAdapter({ pool: { connectionString: databaseUrl } })
+  ? postgresAdapter({ pool: { connectionString: databaseUrl }, prodMigrations: migrations })
   : sqliteAdapter({ client: { url: databaseUrl } })
 
 const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
