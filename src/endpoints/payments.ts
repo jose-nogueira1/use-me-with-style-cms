@@ -222,10 +222,22 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 
     try {
       const result = await capturePaypalOrder(body.paypalOrderId)
+      // `orderNumber` here originally came straight from PayPal's capture
+      // response (purchase_units[].invoice_id) -- but PayPal doesn't
+      // reliably echo invoice_id back on capture, so it can come back
+      // undefined even though the capture (and custom_id, which is all
+      // markOrderPaidIfNeeded needs) succeeded. That left real, fully-paid
+      // orders showing "Pagamento não confirmado" on the confirmation page,
+      // because the frontend's success check requires orderNumber to be
+      // truthy too. Fix: once we have our own orderId (custom_id, always
+      // present), look the orderNumber up from our own DB record -- it's
+      // authoritative and doesn't depend on PayPal round-tripping anything.
+      let orderNumber = result.orderNumber
       if (result.status === 'COMPLETED' && result.orderId) {
-        await markOrderPaidIfNeeded(req, result.orderId)
+        const updated = await markOrderPaidIfNeeded(req, result.orderId)
+        orderNumber = updated.orderNumber ?? orderNumber
       }
-      return Response.json({ status: result.status, orderNumber: result.orderNumber })
+      return Response.json({ status: result.status, orderNumber })
     } catch (err) {
       req.payload.logger.error({ err }, '[payments:paypal:capture-failed]')
       return Response.json({ error: 'Could not capture PayPal payment.' }, { status: 500 })
