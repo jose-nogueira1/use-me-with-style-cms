@@ -222,20 +222,37 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 
     try {
       const result = await capturePaypalOrder(body.paypalOrderId)
-      // `orderNumber` here originally came straight from PayPal's capture
-      // response (purchase_units[].invoice_id) -- but PayPal doesn't
-      // reliably echo invoice_id back on capture, so it can come back
-      // undefined even though the capture (and custom_id, which is all
-      // markOrderPaidIfNeeded needs) succeeded. That left real, fully-paid
-      // orders showing "Pagamento não confirmado" on the confirmation page,
-      // because the frontend's success check requires orderNumber to be
-      // truthy too. Fix: once we have our own orderId (custom_id, always
-      // present), look the orderNumber up from our own DB record -- it's
-      // authoritative and doesn't depend on PayPal round-tripping anything.
-      let orderNumber = result.orderNumber
-      if (result.status === 'COMPLETED' && result.orderId) {
-        const updated = await markOrderPaidIfNeeded(req, result.orderId)
-        orderNumber = updated.orderNumber ?? orderNumber
+      // Previous attempt: matched our order via result.orderId (PayPal's
+      // echoed purchase_units[].custom_id) and filled orderNumber from our
+      // own DB. Still broken in production -- every real PayPal test this
+      // session left the order stuck on status "New" (markOrderPaidIfNeeded
+      // never ran), proving PayPal doesn't reliably echo custom_id back on
+      // /capture either, same unreliable-echo problem as invoice_id, just a
+      // different field. Real fix: don't depend on PayPal echoing ANYTHING
+      // back to identify our order. `body.paypalOrderId` (the id the client
+      // got from PayPal's own SDK onApprove callback -- always reliable,
+      // it's what we just captured) was already stored as `paymentReference`
+      // on our order at create-order time. Look our order up by that --
+      // entirely within our own control, no dependency on PayPal's response
+      // shape at all.
+      let orderNumber: string | undefined
+      if (result.status === 'COMPLETED') {
+        const matches = await req.payload.find({
+          collection: 'orders',
+          where: { paymentReference: { equals: body.paypalOrderId } },
+          limit: 1,
+          overrideAccess: true,
+        })
+        const order = matches.docs[0]
+        if (order) {
+          const updated = await markOrderPaidIfNeeded(req, String(order.id))
+          orderNumber = updated.orderNumber ?? undefined
+        } else {
+          req.payload.logger.error(
+            { paypalOrderId: body.paypalOrderId },
+            '[payments:paypal:capture-order-not-found]',
+          )
+        }
       }
       return Response.json({ status: result.status, orderNumber })
     } catch (err) {
