@@ -1,0 +1,103 @@
+import Stripe from 'stripe'
+
+// Real Stripe integration (JOS-61). Only used for Portugal/EUR orders --
+// Angola payments go through SWEG/AppyPay (JOS-57), never Stripe. Follows
+// the same "env decides, gracefully degrade" pattern as media storage
+// (S3_BUCKET) and messaging (WHATSAPP_ACCESS_TOKEN): if STRIPE_SECRET_KEY
+// isn't set, the create-session endpoint returns a clear 501 instead of the
+// storefront silently pretending to take payment.
+
+let cachedClient: Stripe | null | undefined
+
+export function isStripeConfigured(): boolean {
+  return Boolean(process.env.STRIPE_SECRET_KEY)
+}
+
+export function getStripeClient(): Stripe | null {
+  if (cachedClient !== undefined) return cachedClient
+  const key = process.env.STRIPE_SECRET_KEY
+  cachedClient = key ? new Stripe(key) : null
+  return cachedClient
+}
+
+type CheckoutItemInput = {
+  productName: string
+  size: string
+  color?: string
+  qty: number
+  unitPrice: number
+}
+
+type CreateCheckoutSessionInput = {
+  orderId: string
+  orderNumber: string
+  currency: string
+  items: CheckoutItemInput[]
+  shippingCost: number
+  customerEmail: string
+}
+
+function siteUrl(): string {
+  return (process.env.PUBLIC_SITE_URL || 'http://localhost:5173').replace(/\/$/, '')
+}
+
+export async function createCheckoutSession(
+  input: CreateCheckoutSessionInput,
+): Promise<{ url: string; sessionId: string }> {
+  const stripe = getStripeClient()
+  if (!stripe) throw new Error('Stripe is not configured (STRIPE_SECRET_KEY missing)')
+
+  const currency = input.currency.toLowerCase()
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = input.items.map((item) => ({
+    quantity: item.qty,
+    price_data: {
+      currency,
+      unit_amount: Math.round(item.unitPrice * 100),
+      product_data: {
+        name: `${item.productName} (${item.size}${item.color ? `, ${item.color}` : ''})`,
+      },
+    },
+  }))
+
+  if (input.shippingCost > 0) {
+    lineItems.push({
+      quantity: 1,
+      price_data: {
+        currency,
+        unit_amount: Math.round(input.shippingCost * 100),
+        product_data: { name: 'Shipping' },
+      },
+    })
+  }
+
+  const base = siteUrl()
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    customer_email: input.customerEmail,
+    line_items: lineItems,
+    success_url: `${base}/encomenda-confirmada/${input.orderNumber}?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${base}/checkout?stripe=cancelled`,
+    metadata: {
+      orderId: input.orderId,
+      orderNumber: input.orderNumber,
+    },
+  })
+
+  if (!session.url) throw new Error('Stripe did not return a checkout URL')
+  return { url: session.url, sessionId: session.id }
+}
+
+export function constructWebhookEvent(rawBody: string, signature: string): Stripe.Event {
+  const stripe = getStripeClient()
+  const secret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!stripe || !secret) throw new Error('Stripe webhook is not configured')
+  return stripe.webhooks.constructEvent(rawBody, signature, secret)
+}
+
+export async function retrieveSession(sessionId: string): Promise<Stripe.Checkout.Session | null> {
+  const stripe = getStripeClient()
+  if (!stripe) return null
+  return stripe.checkout.sessions.retrieve(sessionId)
+}

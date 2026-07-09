@@ -131,5 +131,14 @@ export const Orders: CollectionConfig = {
       required: true,
       options: [...DELIVERY_METHODS],
     },
+    {
+      name: 'paymentReference',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description:
+          'Stripe Checkout Session ID or PayPal Order ID for this payment (JOS-61) -- set automatically, for admin troubleshooting only.',
+      },
+    },
   ],
 }

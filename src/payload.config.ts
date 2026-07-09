@@ -16,6 +16,7 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { MarketSettings } from './globals/MarketSettings'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
+import { paymentsEndpoints } from './endpoints/payments'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -81,7 +82,7 @@ export default buildConfig({
   },
   collections: [Users, Media, Products, Orders, Customers, Messages],
   globals: [MarketSettings],
-  endpoints: [...messagingWebhookEndpoints],
+  endpoints: [...messagingWebhookEndpoints, ...paymentsEndpoints],
   editor: lexicalEditor(),
   plugins,
   secret: process.env.PAYLOAD_SECRET || '',
