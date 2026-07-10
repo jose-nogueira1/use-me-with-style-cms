@@ -86,6 +86,19 @@ export const Orders: CollectionConfig = {
     { name: 'customerName', type: 'text', required: true },
     { name: 'customerPhone', type: 'text', required: true, label: 'Phone / WhatsApp' },
     { name: 'customerEmail', type: 'email', required: true },
+    {
+      name: 'lang',
+      type: 'select',
+      defaultValue: 'pt',
+      options: [
+        { label: 'Português', value: 'pt' },
+        { label: 'English', value: 'en' },
+      ],
+      admin: {
+        description:
+          'Storefront language the customer had selected at checkout -- determines the language of the order-confirmation email.',
+      },
+    },
     { name: 'address', type: 'text', required: true },
     { name: 'city', type: 'text', required: true },
     { name: 'country', type: 'text', required: true },

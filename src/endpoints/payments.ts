@@ -33,6 +33,10 @@ type CreateOrderBody = {
   total: number
   paymentMethod: string
   deliveryMethod: string
+  // Storefront language at checkout (falls back to 'pt' -- same default as
+  // the frontend's own AppContext -- if an older client omits it). Drives
+  // the language of the order-confirmation email in notifyOrderEvent.ts.
+  lang?: 'pt' | 'en'
 }
 
 async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
