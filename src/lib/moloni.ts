@@ -91,7 +91,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function findOrCreateCustomer(companyId: number, input: { name: string; email: string }): Promise<number> {
+async function findOrCreateCustomer(
+  companyId: number,
+  input: { name: string; email: string; taxId?: string },
+): Promise<number> {
   const searchResult = await moloniRequest<{ customers: MoloniOperationResult<{ customerId: number }[]> }>(
     `query($companyId: Int!, $email: String!) {
       customers(companyId: $companyId, options: { search: { field: email, value: $email }, pagination: { page: 1, qty: 1 } }) {
@@ -125,6 +128,13 @@ async function findOrCreateCustomer(companyId: number, input: { name: string; em
         number,
         name: input.name,
         email: input.email,
+        // NIF collected at PT checkout (2026-07-10 addition, optional field)
+        // -- Moloni's `vat` is exactly the customer's tax number, per the
+        // customerCreate example in their Getting Started guide. Omitted
+        // entirely (not sent as "") when the shopper didn't provide one, so
+        // Moloni falls back to its own default ("Consumidor Final"-style)
+        // handling rather than us guessing a placeholder value.
+        ...(input.taxId ? { vat: input.taxId } : {}),
         countryId: Number(process.env.MOLONI_COUNTRY_ID),
         languageId: Number(process.env.MOLONI_LANGUAGE_ID),
       },
@@ -230,6 +240,7 @@ type MoloniInvoiceResult = {
 async function createMoloniInvoice(input: {
   customerName: string
   customerEmail: string
+  customerTaxId?: string
   items: MoloniInvoiceLineInput[]
   shippingCost: number
 }): Promise<MoloniInvoiceResult> {
@@ -239,6 +250,7 @@ async function createMoloniInvoice(input: {
   const customerId = await findOrCreateCustomer(companyId, {
     name: input.customerName,
     email: input.customerEmail,
+    taxId: input.customerTaxId,
   })
   const merchandiseProductId = await findOrCreateGenericProduct(companyId, 'merchandise')
 
@@ -305,6 +317,9 @@ export type OrderForInvoicing = {
   orderNumber: string
   customerName: string
   customerEmail: string
+  /** Optional NIF collected at PT checkout (2026-07-10) -- passed to Moloni
+   * as the customer's `vat` so it appears on the issued invoice. */
+  customerTaxId?: string
   currency: string
   shippingCost: number
   items: { productName: string; size: string; color?: string | null; qty: number; unitPrice: number }[]
@@ -335,6 +350,7 @@ export async function generateMoloniInvoiceForOrder(
     const result = await createMoloniInvoice({
       customerName: order.customerName,
       customerEmail: order.customerEmail,
+      customerTaxId: order.customerTaxId,
       shippingCost: order.shippingCost,
       items: order.items.map((item) => ({
         name: `${item.productName} (${item.size}${item.color ? `, ${item.color}` : ''})`,

@@ -78,6 +78,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
         orderNumber: doc.orderNumber,
         customerName: doc.customerName,
         customerEmail: doc.customerEmail,
+        customerTaxId: doc.taxId || undefined,
         currency: doc.currency,
         shippingCost: doc.shippingCost,
         items: doc.items,

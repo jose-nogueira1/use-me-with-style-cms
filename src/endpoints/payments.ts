@@ -33,8 +33,11 @@ type CreateOrderBody = {
   customerPhone: string
   customerEmail: string
   address: string
+  addressLine2?: string
+  postalCode?: string
   city: string
   country: string
+  taxId?: string
   notes?: string
   items: { product: string; productName: string; size: string; color?: string; qty: number; unitPrice: number }[]
   currency: 'Kz' | 'EUR'

@@ -106,8 +106,29 @@ export const Orders: CollectionConfig = {
       },
     },
     { name: 'address', type: 'text', required: true },
+    {
+      name: 'addressLine2',
+      type: 'text',
+      label: 'Floor / Door (Andar / Porta)',
+      admin: { description: 'Optional PT address line -- not collected for Angola orders.' },
+    },
+    {
+      name: 'postalCode',
+      type: 'text',
+      label: 'Postal Code (PT)',
+      admin: { description: 'CTT format 0000-000 -- validated client-side on the PT storefront, not collected for Angola.' },
+    },
     { name: 'city', type: 'text', required: true },
     { name: 'country', type: 'text', required: true },
+    {
+      name: 'taxId',
+      type: 'text',
+      label: 'NIF / Tax ID (PT)',
+      admin: {
+        description:
+          'Portuguese tax number, optional -- when present, passed through to Moloni so it appears on the issued invoice (see lib/moloni.ts).',
+      },
+    },
     { name: 'notes', type: 'textarea' },
     {
       name: 'items',
