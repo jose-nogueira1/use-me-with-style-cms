@@ -25,6 +25,10 @@ type OrderConfirmationInput = {
   // Defaults to 'pt' if the order predates this field or omitted it, to
   // match the frontend's own default language.
   lang?: EmailLang
+  // PT-market Moloni invoice PDF (see lib/moloni.ts), attached to this same
+  // email rather than sent separately -- undefined for AO orders or when
+  // invoicing isn't configured/failed (see generateMoloniInvoiceForOrder).
+  attachment?: { filename: string; content: Buffer }
 }
 
 // Small, self-contained PT/EN dictionary -- deliberately separate from the
@@ -120,6 +124,9 @@ export async function sendOrderConfirmationEmail(
       to: input.to,
       subject,
       html,
+      ...(input.attachment
+        ? { attachments: [{ filename: input.attachment.filename, content: input.attachment.content }] }
+        : {}),
     })
   } catch (err) {
     // Never let an email failure break the order write itself.

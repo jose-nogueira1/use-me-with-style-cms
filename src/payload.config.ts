@@ -15,6 +15,7 @@ import { Products } from './collections/Products'
 import { Orders } from './collections/Orders'
 import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
+import { Invoices } from './collections/Invoices'
 import { MarketSettings } from './globals/MarketSettings'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
@@ -56,6 +57,7 @@ const plugins = s3Bucket
       s3Storage({
         collections: {
           media: { disableLocalStorage: true },
+          invoices: { disableLocalStorage: true },
         },
         bucket: s3Bucket,
         config: {
@@ -97,7 +99,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Orders, Customers, Messages],
+  collections: [Users, Media, Products, Orders, Customers, Messages, Invoices],
   globals: [MarketSettings],
   endpoints: [...messagingWebhookEndpoints, ...paymentsEndpoints],
   editor: lexicalEditor(),

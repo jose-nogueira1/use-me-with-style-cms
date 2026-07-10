@@ -2,6 +2,7 @@ import type { CollectionAfterChangeHook } from 'payload'
 
 import { sendWhatsAppMessage } from '../lib/messaging'
 import { sendOrderConfirmationEmail } from '../lib/email'
+import { generateMoloniInvoiceForOrder, type InvoiceAttachment } from '../lib/moloni'
 
 // WhatsApp/Instagram messaging automation FOUNDATION (Phase 1 scope per
 // JOS-58) -- this is deliberately not a marketing automation engine (that's
@@ -63,6 +64,27 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
   }
 
   if (justPaid) {
+    // PT-market invoicing via Moloni ON (JOS-?? -- see lib/moloni.ts). Runs
+    // BEFORE the email send so the invoice PDF can be attached to the same
+    // order-confirmation email rather than sent separately. Angola invoicing
+    // is SWEG, handled outside this codebase for now, so this only fires for
+    // market === 'PT'. Never throws -- a Moloni failure is recorded as a
+    // Failed `invoices` row (for admin visibility/retry) and the
+    // confirmation email still goes out without an attachment.
+    let invoiceAttachment: InvoiceAttachment | undefined
+    if (doc.market === 'PT') {
+      const attachment = await generateMoloniInvoiceForOrder(req.payload, {
+        id: doc.id,
+        orderNumber: doc.orderNumber,
+        customerName: doc.customerName,
+        customerEmail: doc.customerEmail,
+        currency: doc.currency,
+        shippingCost: doc.shippingCost,
+        items: doc.items,
+      })
+      if (attachment) invoiceAttachment = attachment
+    }
+
     await sendOrderConfirmationEmail(req.payload, {
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,
@@ -74,6 +96,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       // itself if this is somehow missing (e.g. an order written before this
       // field existed).
       lang: doc.lang,
+      attachment: invoiceAttachment,
     })
   }
 

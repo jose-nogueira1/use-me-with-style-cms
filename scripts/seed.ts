@@ -53,7 +53,9 @@ async function seed() {
     data: {
       angolaPaymentLive: false,
       angolaBankTransferInstructions:
-        'Transferência bancária BAI -- dados enviados por WhatsApp após a confirmação da encomenda.',
+        'Instruções de pagamento Multicaixa Express enviadas por WhatsApp após a confirmação da encomenda.',
+      angolaPaymentMethods: ['multicaixa_express', 'stripe', 'paypal'],
+      angolaDeliveryMethods: ['courier_ao'],
       portugalPaymentMethods: ['paypal', 'stripe', 'mbway'],
       portugalDeliveryMethods: ['ctt', 'courier_pt'],
       returnsPolicyText: 'TODO: confirm returns policy with Raisa before launch (open per blueprint appendix).',

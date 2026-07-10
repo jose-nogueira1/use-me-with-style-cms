@@ -8,14 +8,24 @@ import {
 } from '../lib/payments/stripe'
 import { createPaypalOrder, capturePaypalOrder, isPaypalConfigured } from '../lib/payments/paypal'
 
-// Real Stripe + PayPal integration (JOS-61), Portugal/international only --
-// Angola stays on SWEG/AppyPay + manual bank transfer (JOS-57). Both
-// gateways share the same shape: the order is created up-front (status
+// Real Stripe + PayPal integration (JOS-61). Both gateways only support EUR
+// here -- enforced below -- which covers Portugal directly and, since
+// 2026-07-10, Angola too: neither Stripe nor PayPal support AOA (and Stripe
+// has no Angola merchant accounts), so AO orders paid by Stripe/PayPal are
+// built by the frontend with `currency: 'EUR'` and EUR-converted item prices
+// (see Checkout.tsx) even though the storefront displayed Kz to the shopper.
+// `market` on the order stays 'AO' regardless -- it identifies the
+// storefront/customer, not the settlement currency. Angola's Multicaixa
+// Express (via AppyPay, JOS-57) isn't integrated with a gateway here yet; it
+// still goes through the plain `/api/orders` create, same as MB WAY.
+//
+// Both gateways share the same shape: the order is created up-front (status
 // `new`, paymentStatus `pending`, same as the existing plain `/api/orders`
-// create used by MB WAY / bank transfer), then the gateway session/order is
-// created and linked back to it. The order only flips to `paymentStatus:
-// paid` once the gateway confirms payment (Stripe via webhook, PayPal via
-// the capture call) -- never optimistically on the frontend.
+// create used by MB WAY / Multicaixa Express), then the gateway session/
+// order is created and linked back to it. The order only flips to
+// `paymentStatus: paid` once the gateway confirms payment (Stripe via
+// webhook, PayPal via the capture call) -- never optimistically on the
+// frontend.
 
 type CreateOrderBody = {
   market: 'AO' | 'PT'
@@ -91,7 +101,7 @@ const stripeCreateSession: Endpoint = {
     const body = await readJsonBody<CreateOrderBody>(req)
     if (!body) return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
     if (body.currency !== 'EUR') {
-      return Response.json({ error: 'Stripe is only available for EUR (Portugal) orders.' }, { status: 400 })
+      return Response.json({ error: 'Stripe only supports EUR orders (Portugal, or Angola settling in EUR).' }, { status: 400 })
     }
 
     try {
@@ -191,7 +201,7 @@ const paypalCreateOrderEndpoint: Endpoint = {
     const body = await readJsonBody<CreateOrderBody>(req)
     if (!body) return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
     if (body.currency !== 'EUR') {
-      return Response.json({ error: 'PayPal is only available for EUR (Portugal) orders.' }, { status: 400 })
+      return Response.json({ error: 'PayPal only supports EUR orders (Portugal, or Angola settling in EUR).' }, { status: 400 })
     }
 
     try {

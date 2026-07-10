@@ -13,24 +13,30 @@ export const ORDER_STATUSES = [
   { label: 'Cancelled', value: 'cancelled' },
 ] as const
 
-// Angola's real payment path (SWEG/AppyPay, JOS-57) is still unconfirmed.
-// `bank_transfer_ao` is the documented fallback (manual bank transfer +
-// manual admin Payment Review) and is the only AO method actually wired up
-// in the storefront today. `sweg_appypay` exists here so the schema doesn't
-// need a migration the day JOS-57 closes, but it is NOT implemented in the
-// checkout flow yet -- see MarketSettings global to flip it on later.
+// 2026-07-10 decision: Angola's payment methods are Multicaixa Express (via
+// AppyPay), Stripe, and PayPal -- Stripe/PayPal for Angola settle in EUR
+// (neither gateway supports AOA). `multicaixa_express` is wired into
+// checkout the same way `mbway` already was: a plain order create that lands
+// in Payment Review until real AppyPay API integration ships (JOS-57 --
+// credentials/API docs still pending). `bank_transfer_ao` / `sweg_appypay`
+// are kept only so any existing order rows using those values stay valid;
+// they're no longer offered at checkout.
 export const PAYMENT_METHODS = [
-  { label: 'PayPal (PT)', value: 'paypal' },
-  { label: 'Stripe (PT)', value: 'stripe' },
+  { label: 'PayPal', value: 'paypal' },
+  { label: 'Stripe', value: 'stripe' },
   { label: 'MB WAY (PT)', value: 'mbway' },
-  { label: 'Bank transfer -- manual review (AO)', value: 'bank_transfer_ao' },
-  { label: 'SWEG / AppyPay (AO) -- not yet integrated', value: 'sweg_appypay' },
+  { label: 'Multicaixa Express -- via AppyPay (AO)', value: 'multicaixa_express' },
+  { label: 'Bank transfer -- manual review (AO, legacy)', value: 'bank_transfer_ao' },
+  { label: 'SWEG / AppyPay (AO, legacy) -- not implemented', value: 'sweg_appypay' },
 ] as const
 
+// `courier_ao` is Angola's only delivery method (local courier, per the
+// 2026-07-10 decision). `manual_ao` is kept only for existing order rows.
 export const DELIVERY_METHODS = [
   { label: 'CTT (PT)', value: 'ctt' },
   { label: 'Courier (PT)', value: 'courier_pt' },
-  { label: 'Manual coordination (AO)', value: 'manual_ao' },
+  { label: 'Local courier (AO)', value: 'courier_ao' },
+  { label: 'Manual coordination (AO, legacy)', value: 'manual_ao' },
 ] as const
 
 export const Orders: CollectionConfig = {

@@ -14,7 +14,7 @@ export const Products: CollectionConfig = {
   slug: 'products',
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'category', 'priceAOKz', 'pricePTEur', 'active'],
+    defaultColumns: ['name', 'category', 'priceAOKz', 'pricePTEur', 'active', 'availableAO', 'availablePT'],
     group: 'Catalogue',
   },
   access: {
@@ -128,6 +128,25 @@ export const Products: CollectionConfig = {
       type: 'checkbox',
       defaultValue: true,
       admin: { description: 'Unpublish to hide from the storefront without deleting it.' },
+    },
+    // Market separation (2026-07-10): the Angola and Portugal storefronts are
+    // now fully separate sites (ao./pt. subdomains), each only ever
+    // requesting products flagged available in its own market. Both default
+    // to true so every existing product keeps shipping everywhere until an
+    // admin deliberately restricts one.
+    {
+      name: 'availableAO',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Available in Angola',
+      admin: { description: 'Uncheck to hide this product from the Angola storefront entirely.', position: 'sidebar' },
+    },
+    {
+      name: 'availablePT',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Available in Portugal',
+      admin: { description: 'Uncheck to hide this product from the Portugal storefront entirely.', position: 'sidebar' },
     },
   ],
 }
