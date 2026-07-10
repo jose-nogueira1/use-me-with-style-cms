@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url'
 
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
+import { resendAdapter } from '@payloadcms/email-resend'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { buildConfig } from 'payload'
@@ -73,6 +74,22 @@ const plugins = s3Bucket
     ]
   : []
 
+// Order-confirmation email (JOS-61 follow-up), via Resend -- same "env
+// decides, no code change" pattern as the S3/Postgres switches above. While
+// RESEND_API_KEY is unset (local dev, or before the Resend account exists),
+// no adapter is configured at all; lib/email.ts's sendOrderConfirmationEmail
+// already logs-instead-of-throwing in that case, so this stays optional
+// without special-casing Payload's own internal emails (password
+// reset/verification use whatever adapter is configured here too).
+const resendApiKey = process.env.RESEND_API_KEY
+const email = resendApiKey
+  ? resendAdapter({
+      apiKey: resendApiKey,
+      defaultFromAddress: process.env.RESEND_FROM_EMAIL || 'orders@usemewithstyle.com',
+      defaultFromName: process.env.RESEND_FROM_NAME || 'Use Me With Style',
+    })
+  : undefined
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -90,6 +107,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db,
+  email,
   sharp,
   // The SPA (dev on Vite, staging/production on Vercel) calls this API
   // cross-origin, so it needs to be explicitly allow-listed.
