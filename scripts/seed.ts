@@ -9,7 +9,18 @@ import 'dotenv/config'
 import { getPayload } from 'payload'
 import config from '../src/payload.config'
 
-const PRODUCTS = [
+type SeedProduct = {
+  name: string
+  slug: string
+  category: 'vestidos' | 'tops' | 'leggings' | 'conjuntos'
+  priceAOKz: number
+  pricePTEur: number
+  tag?: 'NOVIDADE' | 'BESTSELLER' | 'QUASE ESGOTADO'
+  colors: string[]
+  sizes: { size: 'XS' | 'S' | 'M' | 'L' | 'XL'; stockAO: number; stockPT: number }[]
+}
+
+const PRODUCTS: SeedProduct[] = [
   { name: 'Vestido Aurora', slug: 'vestido-aurora', category: 'vestidos', priceAOKz: 18500, pricePTEur: 22, tag: 'NOVIDADE', colors: ['Areia', 'Noite', 'Coral'], sizes: [{ size: 'S', stockAO: 4, stockPT: 2 }, { size: 'M', stockAO: 8, stockPT: 4 }, { size: 'L', stockAO: 12, stockPT: 5 }] },
   { name: 'Vestido Solene', slug: 'vestido-solene', category: 'vestidos', priceAOKz: 22000, pricePTEur: 26, colors: ['Preto', 'Marfim'], sizes: [{ size: 'S', stockAO: 2, stockPT: 1 }, { size: 'M', stockAO: 6, stockPT: 3 }, { size: 'L', stockAO: 9, stockPT: 4 }] },
   { name: 'Vestido Marés', slug: 'vestido-mares', category: 'vestidos', priceAOKz: 16500, pricePTEur: 20, tag: 'QUASE ESGOTADO', colors: ['Azul', 'Areia'], sizes: [{ size: 'S', stockAO: 0, stockPT: 0 }, { size: 'M', stockAO: 4, stockPT: 2 }, { size: 'L', stockAO: 7, stockPT: 3 }] },
