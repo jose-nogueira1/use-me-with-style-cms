@@ -313,7 +313,7 @@ async function createMoloniInvoice(input: {
 }
 
 export type OrderForInvoicing = {
-  id: string | number
+  id: number
   orderNumber: string
   customerName: string
   customerEmail: string
