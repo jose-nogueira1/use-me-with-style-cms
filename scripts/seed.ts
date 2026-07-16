@@ -1,9 +1,6 @@
 /**
- * Seeds the Products collection with the same catalogue used by the
- * prototype's mock data (src/App.tsx PRODUCTS in use-me-with-style-platform),
- * so the storefront has something real to render against once it's wired to
- * this API (task #3). Run with `npm run seed` after the dev server has
- * created the database (`npm run dev` once first).
+ * Seeds a development catalogue into Payload so the storefront always reads
+ * products through the real CMS API. The script is idempotent by product slug.
  */
 import 'dotenv/config'
 import { getPayload } from 'payload'
@@ -54,6 +51,8 @@ async function seed() {
         ...product,
         colors: product.colors.map((color) => ({ color })),
         active: true,
+        availableAO: true,
+        availablePT: true,
       },
     })
     payload.logger.info(`Created product: ${product.name}`)
@@ -69,7 +68,7 @@ async function seed() {
       angolaDeliveryMethods: ['courier_ao'],
       portugalPaymentMethods: ['paypal', 'stripe', 'mbway'],
       portugalDeliveryMethods: ['ctt', 'courier_pt'],
-      returnsPolicyText: 'TODO: confirm returns policy with Raisa before launch (open per blueprint appendix).',
+      returnsPolicyText: 'Devoluções aceites no prazo de 14 dias.',
     },
   })
 
