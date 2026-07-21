@@ -17,8 +17,11 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
 import { MarketSettings } from './globals/MarketSettings'
+import { InvoiceSettings } from './globals/InvoiceSettings'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
+import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
+import { metaConversionEndpoints } from './endpoints/metaConversions'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -100,8 +103,8 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Products, Orders, Customers, Messages, Invoices],
-  globals: [MarketSettings],
-  endpoints: [...messagingWebhookEndpoints, ...paymentsEndpoints],
+  globals: [MarketSettings, InvoiceSettings],
+  endpoints: [...messagingWebhookEndpoints, ...paymentsEndpoints, ...internalInvoiceEndpoints, ...metaConversionEndpoints],
   editor: lexicalEditor(),
   plugins,
   secret: process.env.PAYLOAD_SECRET || '',

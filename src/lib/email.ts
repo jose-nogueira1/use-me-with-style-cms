@@ -15,6 +15,8 @@ import type { Payload } from 'payload'
 // never fails because email isn't configured yet.
 export type EmailLang = 'pt' | 'en'
 
+export type InvoiceAttachment = { filename: string; content: Buffer }
+
 type OrderConfirmationInput = {
   to: string
   orderNumber: string
@@ -25,10 +27,9 @@ type OrderConfirmationInput = {
   // Defaults to 'pt' if the order predates this field or omitted it, to
   // match the frontend's own default language.
   lang?: EmailLang
-  // PT-market Moloni invoice PDF (see lib/moloni.ts), attached to this same
-  // email rather than sent separately -- undefined for AO orders or when
-  // invoicing isn't configured/failed (see generateMoloniInvoiceForOrder).
-  attachment?: { filename: string; content: Buffer }
+  // Internal commercial invoice PDF, attached to the confirmation email for
+  // both markets when generation succeeds.
+  attachment?: InvoiceAttachment
 }
 
 // Small, self-contained PT/EN dictionary -- deliberately separate from the

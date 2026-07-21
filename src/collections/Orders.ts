@@ -93,6 +93,15 @@ export const Orders: CollectionConfig = {
     { name: 'customerPhone', type: 'text', required: true, label: 'Phone / WhatsApp' },
     { name: 'customerEmail', type: 'email', required: true },
     {
+      name: 'analyticsConsent',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { hidden: true },
+    },
+    { name: 'metaFbp', type: 'text', admin: { hidden: true } },
+    { name: 'metaFbc', type: 'text', admin: { hidden: true } },
+    { name: 'metaEventSourceUrl', type: 'text', admin: { hidden: true } },
+    {
       name: 'lang',
       type: 'select',
       defaultValue: 'pt',
@@ -126,7 +135,7 @@ export const Orders: CollectionConfig = {
       label: 'NIF / Tax ID (PT)',
       admin: {
         description:
-          'Portuguese tax number, optional -- when present, passed through to Moloni so it appears on the issued invoice (see lib/moloni.ts).',
+          'Customer tax number, optional -- snapshotted onto the internal commercial invoice for accounting review.',
       },
     },
     { name: 'notes', type: 'textarea' },
@@ -177,7 +186,18 @@ export const Orders: CollectionConfig = {
       admin: {
         readOnly: true,
         description:
-          'Stripe Checkout Session ID or PayPal Order ID for this payment (JOS-61) -- set automatically, for admin troubleshooting only.',
+          'Provider transaction ID (Stripe, PayPal or AppyPay) -- set automatically for admin troubleshooting.',
+      },
+    },
+    {
+      name: 'appyPayMerchantTransactionId',
+      type: 'text',
+      unique: true,
+      index: true,
+      admin: {
+        readOnly: true,
+        description:
+          'Our <=15 character alphanumeric transaction ID sent to the AppyPay widget and echoed by its webhook.',
       },
     },
   ],

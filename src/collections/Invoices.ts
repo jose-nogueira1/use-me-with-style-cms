@@ -1,54 +1,85 @@
 import type { CollectionConfig } from 'payload'
 
-// PT-market invoices issued through Moloni ON (see lib/moloni.ts). One record
-// per order, written automatically by hooks/notifyOrderEvent when an order's
-// paymentStatus flips to 'paid' -- same trigger as the order-confirmation
-// email/WhatsApp automation already wired up there. This collection is
-// upload-enabled so the invoice PDF itself is stored and downloadable
-// directly from the admin dashboard, independent of whether the email send
-// succeeded. `status: failed` rows (with `errorMessage`) surface Moloni
-// errors -- e.g. misconfiguration, AT rejection -- so an issue is visible in
-// admin instead of only in server logs.
+// Immutable phase-one commercial invoice snapshots. The generated PDF and
+// every value used to produce it live together here so later settings edits
+// never rewrite the accounting record that was handed to the customer.
 export const Invoices: CollectionConfig = {
   slug: 'invoices',
+  labels: { singular: 'Internal Invoice', plural: 'Internal Invoices' },
   admin: {
-    useAsTitle: 'moloniNumber',
-    defaultColumns: ['moloniNumber', 'relatedOrder', 'status', 'total', 'createdAt'],
+    useAsTitle: 'invoiceNumber',
+    defaultColumns: ['invoiceNumber', 'market', 'customerName', 'status', 'total', 'issuedAt'],
     group: 'Sales',
+    description: 'Commercial documents for accounting support. Not certified fiscal invoices.',
+  },
+  access: {
+    read: ({ req }) => Boolean(req.user),
+    create: ({ req }) => Boolean(req.user),
+    update: () => false,
+    delete: ({ req }) => Boolean(req.user),
   },
   upload: {
     staticDir: 'invoices',
     mimeTypes: ['application/pdf'],
   },
   fields: [
-    { name: 'relatedOrder', type: 'relationship', relationTo: 'orders', required: true },
+    { name: 'relatedOrder', type: 'relationship', relationTo: 'orders', required: true, unique: true },
+    { name: 'invoiceNumber', type: 'text', required: true, unique: true, admin: { readOnly: true } },
+    { name: 'sequence', type: 'number', required: true, min: 1, admin: { readOnly: true } },
+    { name: 'year', type: 'number', required: true, admin: { readOnly: true } },
     {
       name: 'status',
       type: 'select',
       required: true,
+      defaultValue: 'issued',
       options: [
-        { label: 'Issued', value: 'issued' },
-        { label: 'Failed', value: 'failed' },
+        { label: 'Issued internally', value: 'issued' },
+        { label: 'Generation failed', value: 'failed' },
       ],
     },
+    { name: 'market', type: 'select', required: true, options: ['AO', 'PT'] },
+    { name: 'issuedAt', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayAndTime' } } },
+    { name: 'orderNumber', type: 'text', required: true },
+    { name: 'issuerName', type: 'text', required: true },
+    { name: 'issuerTaxId', type: 'text' },
+    { name: 'issuerAddress', type: 'textarea' },
+    { name: 'customerName', type: 'text', required: true },
+    { name: 'customerEmail', type: 'email', required: true },
+    { name: 'customerPhone', type: 'text' },
+    { name: 'customerTaxId', type: 'text' },
+    { name: 'customerAddress', type: 'textarea' },
     {
-      name: 'moloniDocumentId',
-      type: 'number',
-      admin: { readOnly: true, description: 'Moloni ON internal document ID.' },
+      name: 'lines',
+      type: 'array',
+      required: true,
+      minRows: 1,
+      fields: [
+        { name: 'description', type: 'text', required: true },
+        { name: 'quantity', type: 'number', required: true },
+        { name: 'unitPrice', type: 'number', required: true },
+        { name: 'netAmount', type: 'number', required: true },
+        { name: 'taxAmount', type: 'number', required: true },
+        { name: 'grossAmount', type: 'number', required: true },
+      ],
     },
-    {
-      name: 'moloniNumber',
-      type: 'text',
-      admin: { readOnly: true, description: 'Sequential invoice number assigned by Moloni ON.' },
-    },
-    { name: 'total', type: 'number' },
-    { name: 'currency', type: 'text' },
-    { name: 'customerName', type: 'text' },
-    { name: 'customerEmail', type: 'email' },
+    { name: 'currency', type: 'select', required: true, options: ['Kz', 'EUR'] },
+    { name: 'vatRate', type: 'number', required: true, min: 0 },
+    { name: 'taxNote', type: 'text' },
+    { name: 'subtotal', type: 'number', required: true },
+    { name: 'shipping', type: 'number', required: true },
+    { name: 'netTotal', type: 'number', required: true },
+    { name: 'taxTotal', type: 'number', required: true },
+    { name: 'total', type: 'number', required: true },
+    { name: 'paymentMethod', type: 'text' },
+    { name: 'paymentReference', type: 'text' },
+    { name: 'disclaimer', type: 'textarea', required: true },
+    { name: 'footer', type: 'textarea' },
+    { name: 'pdfFilename', type: 'text', admin: { readOnly: true } },
+    { name: 'pdfData', type: 'json', admin: { hidden: true } },
     {
       name: 'errorMessage',
       type: 'textarea',
-      admin: { readOnly: true, description: 'Populated when status is Failed, for admin troubleshooting.' },
+      admin: { readOnly: true },
     },
   ],
 }

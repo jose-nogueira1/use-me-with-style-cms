@@ -2,7 +2,9 @@ import type { CollectionAfterChangeHook } from 'payload'
 
 import { sendWhatsAppMessage } from '../lib/messaging'
 import { sendOrderConfirmationEmail } from '../lib/email'
-import { generateMoloniInvoiceForOrder, type InvoiceAttachment } from '../lib/moloni'
+import { generateInternalInvoiceForOrder } from '../lib/internalInvoice'
+import type { InvoiceAttachment } from '../lib/email'
+import { sendMetaPurchase } from '../endpoints/metaConversions'
 
 // WhatsApp/Instagram messaging automation FOUNDATION (Phase 1 scope per
 // JOS-58) -- this is deliberately not a marketing automation engine (that's
@@ -64,27 +66,31 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
   }
 
   if (justPaid) {
-    // PT-market invoicing via Moloni ON (JOS-?? -- see lib/moloni.ts). Runs
-    // BEFORE the email send so the invoice PDF can be attached to the same
-    // order-confirmation email rather than sent separately. Angola invoicing
-    // is SWEG, handled outside this codebase for now, so this only fires for
-    // market === 'PT'. Never throws -- a Moloni failure is recorded as a
-    // Failed `invoices` row (for admin visibility/retry) and the
-    // confirmation email still goes out without an attachment.
+    await sendMetaPurchase(doc, req.payload.logger)
+    // Generate the immutable commercial-document snapshot before sending the
+    // confirmation so the same PDF is stored in admin and attached to email.
+    // The PDF is explicitly marked non-fiscal during this phase.
     let invoiceAttachment: InvoiceAttachment | undefined
-    if (doc.market === 'PT') {
-      const attachment = await generateMoloniInvoiceForOrder(req.payload, {
-        id: doc.id,
-        orderNumber: doc.orderNumber,
-        customerName: doc.customerName,
-        customerEmail: doc.customerEmail,
-        customerTaxId: doc.taxId || undefined,
-        currency: doc.currency,
-        shippingCost: doc.shippingCost,
-        items: doc.items,
-      })
-      if (attachment) invoiceAttachment = attachment
-    }
+    const addressParts = [doc.address, doc.addressLine2, doc.postalCode, doc.city, doc.country].filter(Boolean)
+    const attachment = await generateInternalInvoiceForOrder(req.payload, {
+      id: doc.id,
+      orderNumber: doc.orderNumber,
+      market: doc.market,
+      lang: doc.lang,
+      customerName: doc.customerName,
+      customerEmail: doc.customerEmail,
+      customerPhone: doc.customerPhone,
+      customerTaxId: doc.taxId || undefined,
+      customerAddress: addressParts.join(', '),
+      currency: doc.currency,
+      subtotal: doc.subtotal,
+      shippingCost: doc.shippingCost,
+      total: doc.total,
+      paymentMethod: doc.paymentMethod,
+      paymentReference: doc.paymentReference || undefined,
+      items: doc.items,
+    })
+    if (attachment) invoiceAttachment = attachment
 
     await sendOrderConfirmationEmail(req.payload, {
       to: doc.customerEmail,

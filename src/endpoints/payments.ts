@@ -1,4 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 
 import {
   createCheckoutSession,
@@ -50,6 +51,10 @@ type CreateOrderBody = {
   // the frontend's own AppContext -- if an older client omits it). Drives
   // the language of the order-confirmation email in notifyOrderEvent.ts.
   lang?: 'pt' | 'en'
+  analyticsConsent?: boolean
+  metaFbp?: string
+  metaFbc?: string
+  metaEventSourceUrl?: string
 }
 
 async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
@@ -92,6 +97,149 @@ async function markOrderPaidIfNeeded(req: PayloadRequest, orderId: string) {
       status: existing.status === 'new' || existing.status === 'payment_review' ? 'processing' : existing.status,
     },
   })
+}
+
+function newAppyPayMerchantTransactionId(): string {
+  // AppyPay requires 1-15 alphanumeric characters. Timestamp + entropy is
+  // compact, traceable, and independent of Payload's UUID/string DB ids.
+  return `UM${Date.now().toString(36)}${randomBytes(2).toString('hex')}`.slice(0, 15)
+}
+
+function safeEqual(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual)
+  const expectedBuffer = Buffer.from(expected)
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
+}
+
+function isAppyPayWebhookAuthorized(req: PayloadRequest): boolean {
+  const username = process.env.APPY_PAY_WEBHOOK_USERNAME
+  const password = process.env.APPY_PAY_WEBHOOK_PASSWORD
+  if (!username || !password) return false
+
+  const authorization = req.headers.get('authorization') || ''
+  if (!authorization.startsWith('Basic ')) return false
+  try {
+    const decoded = Buffer.from(authorization.slice(6), 'base64').toString('utf8')
+    return safeEqual(decoded, `${username}:${password}`)
+  } catch {
+    return false
+  }
+}
+
+type AppyPayWebhookBody = {
+  id?: string
+  merchantTransactionId?: string
+  amount?: number
+  responseStatus?: {
+    successful?: boolean
+    status?: 'Requested' | 'Pending' | 'Success' | 'Failed'
+    code?: number
+    message?: string
+    source?: string
+  }
+}
+
+const appyPayCreateOrder: Endpoint = {
+  path: '/payments/appypay/create-order',
+  method: 'post',
+  handler: async (req) => {
+    const body = await readJsonBody<CreateOrderBody>(req)
+    if (!body) return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
+    if (body.market !== 'AO' || body.currency !== 'Kz' || body.paymentMethod !== 'multicaixa_express') {
+      return Response.json({ error: 'AppyPay only accepts Angola Multicaixa Express orders in Kz.' }, { status: 400 })
+    }
+
+    try {
+      const merchantTransactionId = newAppyPayMerchantTransactionId()
+      const order = await createPendingOrder(req, body)
+      const updated = await req.payload.update({
+        collection: 'orders',
+        id: order.id,
+        overrideAccess: true,
+        data: { appyPayMerchantTransactionId: merchantTransactionId },
+      })
+      return Response.json({
+        orderNumber: updated.orderNumber ?? String(updated.id),
+        merchantTransactionId,
+      })
+    } catch (err) {
+      req.payload.logger.error({ err }, '[payments:appypay:create-order-failed]')
+      return Response.json({ error: 'Could not start AppyPay checkout.' }, { status: 500 })
+    }
+  },
+}
+
+const appyPayWebhook: Endpoint = {
+  path: '/payments/appypay/webhook',
+  method: 'post',
+  handler: async (req) => {
+    if (!isAppyPayWebhookAuthorized(req)) {
+      return new Response('Unauthorized', { status: 401 })
+    }
+
+    const body = await readJsonBody<AppyPayWebhookBody>(req)
+    if (!body?.id || !body.merchantTransactionId || !body.responseStatus?.status) {
+      return new Response('Invalid payload', { status: 400 })
+    }
+
+    const matches = await req.payload.find({
+      collection: 'orders',
+      where: { appyPayMerchantTransactionId: { equals: body.merchantTransactionId } },
+      limit: 1,
+      overrideAccess: true,
+    })
+    const order = matches.docs[0]
+    if (!order) {
+      req.payload.logger.error(
+        { merchantTransactionId: body.merchantTransactionId },
+        '[payments:appypay:webhook-order-not-found]',
+      )
+      // Acknowledge a valid AppyPay delivery to avoid an endless retry loop;
+      // the unmatched transaction remains visible in server logs for review.
+      return new Response('OK', { status: 200 })
+    }
+
+    try {
+      if (body.responseStatus.successful && body.responseStatus.status === 'Success') {
+        await req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: {
+            paymentReference: body.id,
+            paymentStatus: 'paid',
+            status:
+              order.status === 'new' || order.status === 'payment_review'
+                ? 'processing'
+                : order.status,
+          },
+        })
+      } else if (body.responseStatus.status === 'Failed') {
+        await req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: {
+            paymentReference: body.id,
+            paymentStatus: 'failed',
+            status: 'payment_review',
+          },
+        })
+      } else if (order.paymentReference !== body.id) {
+        await req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: { paymentReference: body.id },
+        })
+      }
+    } catch (err) {
+      req.payload.logger.error({ err }, '[payments:appypay:webhook-update-failed]')
+      return new Response('Could not process webhook', { status: 500 })
+    }
+
+    return new Response('OK', { status: 200 })
+  },
 }
 
 const stripeCreateSession: Endpoint = {
@@ -280,6 +428,8 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 }
 
 export const paymentsEndpoints: Endpoint[] = [
+  appyPayCreateOrder,
+  appyPayWebhook,
   stripeCreateSession,
   stripeWebhook,
   stripeSessionStatus,
