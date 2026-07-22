@@ -72,6 +72,16 @@ async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
 }
 
 async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody) {
+  // The storefront serializes all product IDs as strings so it can support
+  // both SQLite/string and Postgres/numeric Payload installations. Payload's
+  // REST layer coerces numeric relationship IDs, but this custom endpoint
+  // calls the Local API directly, where a value such as `"10"` must be the
+  // number `10` or relationship validation treats it as an invalid ID.
+  const items = body.items.map((item) => ({
+    ...item,
+    product: /^\d+$/.test(item.product) ? Number(item.product) : item.product,
+  }))
+
   // `body` is raw JSON off the wire (same as the public REST /api/orders
   // create the frontend already uses for MB WAY/bank transfer) -- casting
   // here is honest about that, matching how Payload's own REST create
@@ -82,6 +92,7 @@ async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: {
       ...body,
+      items,
       status: 'new',
       paymentStatus: 'pending',
     } as any,
