@@ -63,6 +63,19 @@ type CreateOrderBody = {
   metaEventSourceUrl?: string
 }
 
+type PendingOrder = Omit<CreateOrderBody, 'items'> & {
+  id: string | number
+  orderNumber?: string | null
+  items: Array<{
+    product: string | number | { id: string | number }
+    productName: string
+    size: string
+    color?: string | null
+    qty: number
+    unitPrice: number
+  }>
+}
+
 async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
   try {
     return (await req.json?.()) as T
@@ -71,7 +84,7 @@ async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
   }
 }
 
-async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody) {
+async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody): Promise<PendingOrder> {
   // The storefront serializes all product IDs as strings so it can support
   // both SQLite/string and Postgres/numeric Payload installations. Payload's
   // REST layer coerces numeric relationship IDs, but this custom endpoint
@@ -86,7 +99,7 @@ async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody) {
   // create the frontend already uses for MB WAY/bank transfer) -- casting
   // here is honest about that, matching how Payload's own REST create
   // endpoint accepts this same shape without compile-time checking either.
-  return req.payload.create({
+  const order = await req.payload.create({
     collection: 'orders',
     overrideAccess: true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,6 +110,10 @@ async function createPendingOrder(req: PayloadRequest, body: CreateOrderBody) {
       paymentStatus: 'pending',
     } as any,
   })
+
+  // Keep this endpoint independently typed in clean production builds where
+  // Payload's locally generated collection declarations are not present yet.
+  return order as unknown as PendingOrder
 }
 
 async function markOrderPaidIfNeeded(req: PayloadRequest, orderId: string) {
