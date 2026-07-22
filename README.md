@@ -15,11 +15,10 @@ reached over REST/GraphQL.
   with Jay-P; collapsing to shared stock later is a smaller migration than
   the reverse.
 - **Orders** -- the confirmed Phase 1 status pipeline (New, Payment Review,
-  Processing, Shipped, Delivered, Cancelled), required checkout fields, and a
-  payment method list that includes `sweg_appypay` as a placeholder value
-  that is **not implemented** -- Angola only has `bank_transfer_ao` (manual
-  transfer + admin Payment Review) wired up, because JOS-57 (SWEG/AppyPay) is
-  still unconfirmed as of 2026-07-07.
+  Processing, Shipped, Delivered, Cancelled), required checkout fields, and
+  isolated payment paths: AppyPay/Multicaixa Express for Angola/Kz and
+  Stripe/PayPal for EUR settlement. AppyPay webhooks are verified against the
+  authenticated charge API before an order can become paid.
 - **Customers** -- lightweight contact/order-history record, not a customer
   accounts system (accounts are Phase 2 per JOS-52).
 - **Media** -- local-disk uploads by default (no cloud account needed for

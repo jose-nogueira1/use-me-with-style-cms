@@ -4,6 +4,7 @@ import * as migration_20260710_010000_add_order_lang from './20260710_010000_add
 import * as migration_20260718_183031 from './20260718_183031'
 import * as migration_20260720_120500_internal_invoicing from './20260720_120500_internal_invoicing'
 import * as migration_20260721_230000_meta_order_tracking from './20260721_230000_meta_order_tracking'
+import * as migration_20260722_010000_appypay_verification from './20260722_010000_appypay_verification'
 
 export const migrations = [
   {
@@ -35,5 +36,10 @@ export const migrations = [
     up: migration_20260721_230000_meta_order_tracking.up,
     down: migration_20260721_230000_meta_order_tracking.down,
     name: '20260721_230000_meta_order_tracking',
+  },
+  {
+    up: migration_20260722_010000_appypay_verification.up,
+    down: migration_20260722_010000_appypay_verification.down,
+    name: '20260722_010000_appypay_verification',
   },
 ]

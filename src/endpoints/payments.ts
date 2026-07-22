@@ -8,6 +8,12 @@ import {
   isStripeConfigured,
 } from '../lib/payments/stripe'
 import { createPaypalOrder, capturePaypalOrder, isPaypalConfigured } from '../lib/payments/paypal'
+import {
+  getAppyPayCharge,
+  isAppyPayServerConfigured,
+  latestAppyPayResponse,
+  type AppyPayCharge,
+} from '../lib/payments/appypay'
 
 // Real Stripe + PayPal integration (JOS-61). Both gateways only support EUR
 // here -- enforced below -- which covers Portugal directly and, since
@@ -16,9 +22,9 @@ import { createPaypalOrder, capturePaypalOrder, isPaypalConfigured } from '../li
 // built by the frontend with `currency: 'EUR'` and EUR-converted item prices
 // (see Checkout.tsx) even though the storefront displayed Kz to the shopper.
 // `market` on the order stays 'AO' regardless -- it identifies the
-// storefront/customer, not the settlement currency. Angola's Multicaixa
-// Express (via AppyPay, JOS-57) isn't integrated with a gateway here yet; it
-// still goes through the plain `/api/orders` create, same as MB WAY.
+// storefront/customer, not the settlement currency. Angola's native Kz
+// checkout is isolated below in the AppyPay endpoints and never shares the
+// Stripe/PayPal settlement path.
 //
 // Both gateways share the same shape: the order is created up-front (status
 // `new`, paymentStatus `pending`, same as the existing plain `/api/orders`
@@ -139,6 +145,81 @@ type AppyPayWebhookBody = {
   }
 }
 
+function appyPayAmountMatches(actual: number, expected: number): boolean {
+  return Number.isFinite(actual) && Math.abs(actual - expected) < 0.005
+}
+
+async function applyVerifiedAppyPayCharge(
+  req: PayloadRequest,
+  order: Record<string, unknown> & { id: string | number },
+  charge: AppyPayCharge,
+) {
+  const merchantTransactionId = String(order.appyPayMerchantTransactionId ?? '')
+  const orderTotal = Number(order.total)
+  if (
+    order.market !== 'AO' ||
+    order.currency !== 'Kz' ||
+    order.paymentMethod !== 'multicaixa_express' ||
+    charge.id.length === 0 ||
+    charge.merchantTransactionId !== merchantTransactionId ||
+    charge.currency !== 'AOA' ||
+    !appyPayAmountMatches(charge.amount, orderTotal)
+  ) {
+    throw new Error('AppyPay charge does not match the Angola order')
+  }
+
+  const existingTransactionId = String(order.appyPayTransactionId ?? '')
+  if (existingTransactionId && existingTransactionId !== charge.id) {
+    throw new Error('Order is already linked to a different AppyPay transaction')
+  }
+
+  const response = latestAppyPayResponse(charge)
+  const common = {
+    paymentReference: charge.id,
+    appyPayTransactionId: charge.id,
+    appyPayStatus: charge.status,
+    appyPayPaymentMethod: charge.paymentMethod,
+    appyPayResponseCode: response?.code,
+    appyPayResponseMessage: response?.message,
+    appyPayReferenceEntity: charge.reference?.entity,
+    appyPayReferenceNumber: charge.reference?.referenceNumber,
+    appyPayReferenceDueDate: charge.reference?.dueDate,
+    appyPayVerifiedAt: new Date().toISOString(),
+  }
+
+  if (charge.status === 'Success') {
+    if (order.paymentStatus === 'paid' && existingTransactionId === charge.id) return order
+    return req.payload.update({
+      collection: 'orders',
+      id: order.id,
+      overrideAccess: true,
+      // Payload types are generated after the collection migration is added.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: {
+        ...common,
+        paymentStatus: 'paid',
+        status:
+          order.status === 'new' || order.status === 'payment_review'
+            ? 'processing'
+            : order.status,
+      } as any,
+    })
+  }
+
+  return req.payload.update({
+    collection: 'orders',
+    id: order.id,
+    overrideAccess: true,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: {
+      ...common,
+      ...(charge.status === 'Failed'
+        ? { paymentStatus: 'failed', status: 'payment_review' }
+        : {}),
+    } as any,
+  })
+}
+
 const appyPayCreateOrder: Endpoint = {
   path: '/payments/appypay/create-order',
   method: 'post',
@@ -200,45 +281,60 @@ const appyPayWebhook: Endpoint = {
     }
 
     try {
-      if (body.responseStatus.successful && body.responseStatus.status === 'Success') {
-        await req.payload.update({
-          collection: 'orders',
-          id: order.id,
-          overrideAccess: true,
-          data: {
-            paymentReference: body.id,
-            paymentStatus: 'paid',
-            status:
-              order.status === 'new' || order.status === 'payment_review'
-                ? 'processing'
-                : order.status,
-          },
-        })
-      } else if (body.responseStatus.status === 'Failed') {
-        await req.payload.update({
-          collection: 'orders',
-          id: order.id,
-          overrideAccess: true,
-          data: {
-            paymentReference: body.id,
-            paymentStatus: 'failed',
-            status: 'payment_review',
-          },
-        })
-      } else if (order.paymentReference !== body.id) {
-        await req.payload.update({
-          collection: 'orders',
-          id: order.id,
-          overrideAccess: true,
-          data: { paymentReference: body.id },
-        })
-      }
+      if (!isAppyPayServerConfigured()) throw new Error('AppyPay server credentials are missing')
+      const charge = await getAppyPayCharge(body.id, body.merchantTransactionId)
+      await applyVerifiedAppyPayCharge(req, order as typeof order & Record<string, unknown>, charge)
     } catch (err) {
-      req.payload.logger.error({ err }, '[payments:appypay:webhook-update-failed]')
-      return new Response('Could not process webhook', { status: 500 })
+      req.payload.logger.error(
+        { err, transactionId: body.id, merchantTransactionId: body.merchantTransactionId },
+        '[payments:appypay:webhook-verification-failed]',
+      )
+      return new Response('Could not verify AppyPay payment', { status: 500 })
     }
 
     return new Response('OK', { status: 200 })
+  },
+}
+
+const appyPayReconcile: Endpoint = {
+  path: '/payments/appypay/reconcile',
+  method: 'post',
+  handler: async (req) => {
+    if (!req.user) return new Response('Unauthorized', { status: 401 })
+    const body = await readJsonBody<{ orderId?: string; transactionId?: string }>(req)
+    if (!body?.orderId) return Response.json({ error: 'orderId required' }, { status: 400 })
+    if (!isAppyPayServerConfigured()) {
+      return Response.json({ error: 'AppyPay server credentials are missing' }, { status: 501 })
+    }
+
+    try {
+      const order = await req.payload.findByID({
+        collection: 'orders',
+        id: body.orderId,
+        overrideAccess: true,
+      })
+      if (order.market !== 'AO' || order.paymentMethod !== 'multicaixa_express') {
+        return Response.json({ error: 'Only Angola AppyPay orders can be reconciled.' }, { status: 400 })
+      }
+      const transactionId = body.transactionId || order.appyPayTransactionId || order.paymentReference
+      if (!transactionId || !order.appyPayMerchantTransactionId) {
+        return Response.json({ error: 'AppyPay transaction identifiers are missing.' }, { status: 400 })
+      }
+      const charge = await getAppyPayCharge(String(transactionId), order.appyPayMerchantTransactionId)
+      const updated = await applyVerifiedAppyPayCharge(
+        req,
+        order as typeof order & Record<string, unknown>,
+        charge,
+      )
+      return Response.json({
+        orderNumber: updated.orderNumber,
+        paymentStatus: updated.paymentStatus,
+        appyPayStatus: charge.status,
+      })
+    } catch (err) {
+      req.payload.logger.error({ err, orderId: body.orderId }, '[payments:appypay:reconcile-failed]')
+      return Response.json({ error: 'Could not reconcile AppyPay payment.' }, { status: 502 })
+    }
   },
 }
 
@@ -430,6 +526,7 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 export const paymentsEndpoints: Endpoint[] = [
   appyPayCreateOrder,
   appyPayWebhook,
+  appyPayReconcile,
   stripeCreateSession,
   stripeWebhook,
   stripeSessionStatus,
