@@ -18,6 +18,8 @@ Create a second Railway service from this same GitHub repository. It is a short-
 
 The command terminates after every run, as required by Railway scheduled services. A non-2xx response, timeout, missing variable, or malformed response exits unsuccessfully so Railway records a failed deployment run. Alert when `inventory_cleanup_cron_failed` or `inventory_reservation_cleanup_failed` appears, or when the scheduled request does not produce a success event for 15 minutes.
 
+If Railway reports that a deployment failed before initialization or build began, check the Railway status page before changing application code. After the provider incident clears, trigger a fresh deployment of the unchanged verified revision.
+
 ## Recommended alerts
 
 - Any `inventory_reservation_cleanup_failed` event: page the operator.
