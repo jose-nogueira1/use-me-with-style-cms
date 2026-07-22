@@ -22,6 +22,8 @@ import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
 import { metaConversionEndpoints } from './endpoints/metaConversions'
+import { orderLookupEndpoint } from './endpoints/orderLookup'
+import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -41,9 +43,14 @@ const isPostgres = databaseUrl.startsWith('postgres://') || databaseUrl.startsWi
 // by hand on every deploy.
 const db = isPostgres
   ? postgresAdapter({ pool: { connectionString: databaseUrl }, prodMigrations: migrations })
-  : sqliteAdapter({ client: { url: databaseUrl } })
+  : sqliteAdapter({
+      client: { url: databaseUrl },
+      transactionOptions: { behavior: 'immediate' },
+      busyTimeout: 5_000,
+      wal: true,
+    })
 
-const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
@@ -104,7 +111,14 @@ export default buildConfig({
   },
   collections: [Users, Media, Products, Orders, Customers, Messages, Invoices],
   globals: [MarketSettings, InvoiceSettings],
-  endpoints: [...messagingWebhookEndpoints, ...paymentsEndpoints, ...internalInvoiceEndpoints, ...metaConversionEndpoints],
+  endpoints: [
+    orderLookupEndpoint,
+    ...inventoryReservationEndpoints,
+    ...messagingWebhookEndpoints,
+    ...paymentsEndpoints,
+    ...internalInvoiceEndpoints,
+    ...metaConversionEndpoints,
+  ],
   editor: lexicalEditor(),
   plugins,
   secret: process.env.PAYLOAD_SECRET || '',

@@ -1,6 +1,8 @@
 import type { CollectionConfig } from 'payload'
 
 import { notifyOrderEvent } from '../hooks/notifyOrderEvent'
+import { applyAuthoritativeOrderValues } from '../lib/authoritativeOrder'
+import { manageInventoryReservation } from '../lib/inventoryReservation'
 
 // Order statuses locked in JOS-52 (2026-06-02 decision log, confirmed in
 // Linear): New, Payment Review, Processing, Shipped, Delivered, Cancelled.
@@ -53,7 +55,9 @@ export const Orders: CollectionConfig = {
     create: () => true,
   },
   hooks: {
+    beforeValidate: [applyAuthoritativeOrderValues],
     beforeChange: [
+      manageInventoryReservation,
       ({ data, operation }) => {
         if (operation === 'create' && !data.orderNumber) {
           const prefix = data.market === 'AO' ? 'AO' : 'PT'
@@ -173,6 +177,25 @@ export const Orders: CollectionConfig = {
         { label: 'Paid', value: 'paid' },
         { label: 'Failed', value: 'failed' },
       ],
+    },
+    {
+      name: 'inventoryReservationStatus',
+      type: 'select',
+      defaultValue: 'none',
+      options: ['none', 'active', 'committed', 'released'],
+      index: true,
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'inventoryReservationExpiresAt',
+      type: 'date',
+      index: true,
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'inventoryReservationReleasedAt',
+      type: 'date',
+      admin: { readOnly: true, position: 'sidebar' },
     },
     {
       name: 'deliveryMethod',
