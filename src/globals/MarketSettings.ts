@@ -5,16 +5,21 @@ import type { GlobalConfig } from 'payload'
 // in the frontend).
 //
 // 2026-07-10 decision: Angola payment methods are Multicaixa Express (via
-// AppyPay), Stripe, and PayPal; delivery is local courier only. Real AppyPay
-// API integration is still pending (JOS-57 -- credentials/API docs not in
-// hand yet), so `angolaPaymentLive` stays OFF until then and Multicaixa
-// Express orders fall back to the manual instructions/Payment Review flow
-// below, same pattern Stripe/PayPal already had before they went live.
+// AppyPay), Stripe, and PayPal; delivery is local courier only.
+// `angolaPaymentLive` remains the explicit operational switch: AppyPay is
+// configured in code and the environment, but the administrator controls
+// when buyers see the live widget.
 // Stripe and PayPal for Angola settle in EUR (neither supports AOA, and
 // Stripe has no Angola merchant accounts) -- the storefront still displays
 // Kz to the shopper; see Checkout.tsx's EUR-settlement branch.
 export const MarketSettings: GlobalConfig = {
   slug: 'market-settings',
+  access: {
+    // The storefront needs this configuration to choose market-specific
+    // payment and delivery methods. Updates retain Payload's authenticated
+    // default because no update access override is provided.
+    read: () => true,
+  },
   admin: {
     group: 'Settings',
   },
@@ -26,7 +31,7 @@ export const MarketSettings: GlobalConfig = {
       label: 'Angola: AppyPay (Multicaixa Express) integration is live',
       admin: {
         description:
-          'Leave OFF until JOS-57 closes. While off, Multicaixa Express orders show the manual instructions below and land in Payment Review for manual confirmation -- Stripe/PayPal for Angola are unaffected (they settle in EUR and are already live).',
+          'Turn ON only after the AppyPay application and webhook are operational. Stripe/PayPal for Angola are unaffected because they use the separate EUR settlement path.',
       },
     },
     {
