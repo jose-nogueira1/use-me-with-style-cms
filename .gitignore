@@ -3,7 +3,6 @@ node_modules/
 dev.db
 *.local
 .env
-src/payload-types.ts
 .DS_Store
 tsconfig.tsbuildinfo
 output/
