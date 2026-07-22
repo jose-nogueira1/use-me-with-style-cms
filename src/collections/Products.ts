@@ -26,6 +26,17 @@ export const Products: CollectionConfig = {
       name: 'name',
       type: 'text',
       required: true,
+      admin: { description: 'Internal/default product name (kept aligned with the Portuguese name).' },
+    },
+    {
+      name: 'namePT',
+      type: 'text',
+      label: 'Product name — Portuguese',
+    },
+    {
+      name: 'nameEN',
+      type: 'text',
+      label: 'Product name — English',
     },
     {
       name: 'slug',
@@ -50,6 +61,17 @@ export const Products: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
+      admin: { description: 'Legacy/default description. New storefront editing uses the language-specific fields below.' },
+    },
+    {
+      name: 'descriptionPT',
+      type: 'textarea',
+      label: 'Description — Portuguese',
+    },
+    {
+      name: 'descriptionEN',
+      type: 'textarea',
+      label: 'Description — English',
     },
     {
       name: 'tag',

@@ -42,13 +42,28 @@ async function seed() {
       limit: 1,
     })
     if (existing.docs.length > 0) {
-      payload.logger.info(`Skipping existing product: ${product.name}`)
+      const current = existing.docs[0]
+      await payload.update({
+        collection: 'products',
+        id: current.id,
+        data: {
+          namePT: current.namePT || current.name,
+          nameEN: current.nameEN || current.name,
+          descriptionPT: current.descriptionPT || current.description || 'Uma peça versátil da coleção Use Me With Style, criada para conforto e confiança ao longo do dia.',
+          descriptionEN: current.descriptionEN || 'A versatile Use Me With Style piece, designed for comfort and confidence throughout the day.',
+        },
+      })
+      payload.logger.info(`Updated localized copy: ${product.name}`)
       continue
     }
     await payload.create({
       collection: 'products',
       data: {
         ...product,
+        namePT: product.name,
+        nameEN: product.name,
+        descriptionPT: `Uma peça versátil da coleção Use Me With Style, criada para conforto e confiança ao longo do dia.`,
+        descriptionEN: `A versatile Use Me With Style piece, designed for comfort and confidence throughout the day.`,
         colors: product.colors.map((color) => ({ color })),
         active: true,
         availableAO: true,

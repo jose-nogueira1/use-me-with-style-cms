@@ -156,10 +156,12 @@ async function applyVerifiedAppyPayCharge(
 ) {
   const merchantTransactionId = String(order.appyPayMerchantTransactionId ?? '')
   const orderTotal = Number(order.total)
+  const gatewayMethod = String(charge.paymentMethod ?? '').toUpperCase()
   if (
     order.market !== 'AO' ||
     order.currency !== 'Kz' ||
     order.paymentMethod !== 'multicaixa_express' ||
+    !['GPO', 'REF'].includes(gatewayMethod) ||
     charge.id.length === 0 ||
     charge.merchantTransactionId !== merchantTransactionId ||
     charge.currency !== 'AOA' ||
@@ -227,7 +229,7 @@ const appyPayCreateOrder: Endpoint = {
     const body = await readJsonBody<CreateOrderBody>(req)
     if (!body) return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
     if (body.market !== 'AO' || body.currency !== 'Kz' || body.paymentMethod !== 'multicaixa_express') {
-      return Response.json({ error: 'AppyPay only accepts Angola Multicaixa Express orders in Kz.' }, { status: 400 })
+      return Response.json({ error: 'AppyPay only accepts Angola GPO/REF orders in Kz.' }, { status: 400 })
     }
 
     try {
