@@ -6,6 +6,7 @@ import * as migration_20260720_120500_internal_invoicing from './20260720_120500
 import * as migration_20260721_230000_meta_order_tracking from './20260721_230000_meta_order_tracking'
 import * as migration_20260722_010000_appypay_verification from './20260722_010000_appypay_verification'
 import * as migration_20260722_150000_product_localization from './20260722_150000_product_localization'
+import * as migration_20260722_152800_fix_product_localization_columns from './20260722_152800_fix_product_localization_columns'
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20260722_150000_product_localization.up,
     down: migration_20260722_150000_product_localization.down,
     name: '20260722_150000_product_localization',
+  },
+  {
+    up: migration_20260722_152800_fix_product_localization_columns.up,
+    down: migration_20260722_152800_fix_product_localization_columns.down,
+    name: '20260722_152800_fix_product_localization_columns',
   },
 ]
