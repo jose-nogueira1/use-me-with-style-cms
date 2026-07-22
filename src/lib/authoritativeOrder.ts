@@ -9,6 +9,20 @@ type SubmittedOrderItem = {
   qty?: number
 }
 
+type InventoryProduct = {
+  id: string | number
+  active?: boolean | null
+  availableAO?: boolean | null
+  availablePT?: boolean | null
+  name: string
+  nameEN?: string | null
+  namePT?: string | null
+  priceAOKz: number
+  pricePTEur: number
+  sizes?: Array<{ size: string; stockAO: number; stockPT: number }> | null
+  colors?: Array<{ color?: string | null }> | null
+}
+
 const PT_SHIPPING_COSTS: Record<string, number> = {
   ctt: 4,
   courier_pt: 6,
@@ -80,14 +94,14 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       badRequest('Invalid order item.')
     }
 
-    let product
+    let product: InventoryProduct
     try {
-      product = await req.payload.findByID({
+      product = (await req.payload.findByID({
         collection: 'products',
         id: productId,
         overrideAccess: true,
         depth: 0,
-      })
+      })) as unknown as InventoryProduct
     } catch {
       badRequest('A selected product is unavailable.')
     }
