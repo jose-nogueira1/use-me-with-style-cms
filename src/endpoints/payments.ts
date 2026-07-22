@@ -370,10 +370,17 @@ const stripeCreateSession: Endpoint = {
       const session = await createCheckoutSession({
         orderId: String(order.id),
         orderNumber,
-        currency: body.currency,
-        items: body.items,
-        shippingCost: body.shippingCost,
-        customerEmail: body.customerEmail,
+        currency: order.currency as 'EUR',
+        items: order.items.map((item) => ({
+          product: String(typeof item.product === 'object' ? item.product.id : item.product),
+          productName: item.productName,
+          size: item.size,
+          color: item.color ?? undefined,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+        })),
+        shippingCost: order.shippingCost,
+        customerEmail: order.customerEmail,
       })
       await req.payload.update({
         collection: 'orders',
@@ -470,8 +477,8 @@ const paypalCreateOrderEndpoint: Endpoint = {
       const paypal = await createPaypalOrder({
         orderId: String(order.id),
         orderNumber,
-        currency: body.currency,
-        total: body.total,
+        currency: order.currency as 'EUR',
+        total: order.total,
       })
       await req.payload.update({
         collection: 'orders',
