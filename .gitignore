@@ -1,6 +1,8 @@
 node_modules/
 .next/
 dev.db
+dev.db-shm
+dev.db-wal
 *.local
 .env
 .DS_Store
