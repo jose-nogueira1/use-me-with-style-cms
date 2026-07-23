@@ -83,7 +83,26 @@ async function seed() {
       angolaDeliveryMethods: ['courier_ao'],
       portugalPaymentMethods: ['paypal', 'stripe', 'mbway'],
       portugalDeliveryMethods: ['ctt', 'courier_pt'],
-      returnsPolicyText: 'Devoluções aceites no prazo de 14 dias.',
+      // Client-provided legal copy (JOS-64, added 2026-07-23). Angola and
+      // Portugal/EU have materially different terms (48h exchange-only vs.
+      // 14-day statutory withdrawal with refund) so they're separate fields,
+      // not a translation of each other.
+      angolaReturnsPolicyText: [
+        'Os pedidos de troca devem ser comunicados no prazo máximo de 48 horas após a receção da encomenda.',
+        'As trocas estão sujeitas à disponibilidade de stock e apenas serão aceites se o artigo estiver nas mesmas condições em que foi entregue, sem sinais de uso, lavagem, odores, manchas, maquilhagem, desodorizante, pelos, danos ou alterações, e com as etiquetas originais intactas.',
+        'Todos os artigos serão inspecionados pela equipa da USE ME WITH STYLE antes da aprovação da troca.',
+        'Não serão realizados reembolsos por mudança de tamanho, cor, preferência pessoal ou desistência da compra. Quando possível, poderá ser realizada uma troca ou emitido crédito em loja.',
+        'Os custos de recolha e nova entrega serão da responsabilidade da cliente, salvo em caso de defeito de fabrico ou envio incorreto.',
+        'Qualquer defeito ou erro na encomenda deverá ser comunicado no prazo de 48 horas, acompanhado de fotografias ou vídeo.',
+        'Esta política não prejudica os direitos legalmente reconhecidos ao consumidor.',
+      ].join('\n\n'),
+      portugalReturnsPolicyText: [
+        'Nas compras realizadas online, o cliente dispõe de 14 dias consecutivos após a receção da encomenda para comunicar a intenção de devolução.',
+        'Os artigos devem ser devolvidos sem sinais de uso, lavagem, odores, manchas, maquilhagem, desodorizante, pelos, danos ou alterações, e com as etiquetas originais intactas.',
+        'A peça poderá ser experimentada apenas para verificar o tamanho e o ajuste. Todos os artigos devolvidos serão inspecionados pela equipa da USE ME WITH STYLE.',
+        'Os custos da devolução serão da responsabilidade do cliente, salvo em caso de defeito ou erro imputável à USE ME WITH STYLE.',
+        'O reembolso será efetuado após a receção e verificação do artigo, através do mesmo método de pagamento utilizado na compra e dentro do prazo legal aplicável.',
+      ].join('\n\n'),
     },
   })
 

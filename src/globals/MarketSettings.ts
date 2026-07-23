@@ -71,12 +71,20 @@ export const MarketSettings: GlobalConfig = {
       options: ['ctt', 'courier_pt'],
     },
     {
-      name: 'returnsPolicyText',
+      name: 'angolaReturnsPolicyText',
       type: 'textarea',
-      label: 'Returns policy shown at checkout / order confirmation',
+      label: 'Angola: returns & exchanges policy (shown on Help page / checkout)',
       admin: {
         description:
-          'Blueprint Technical Appendix flags this as needed before checkout ships and still open as of 2026-07-07. Fill in before launch.',
+          'Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.',
+      },
+    },
+    {
+      name: 'portugalReturnsPolicyText',
+      type: 'textarea',
+      label: 'Portugal/EU: returns & exchanges policy (shown on Help page / checkout)',
+      admin: {
+        description: 'Client-provided legal copy (JOS-64, added 2026-07-23). 14-day EU distance-selling withdrawal window.',
       },
     },
   ],

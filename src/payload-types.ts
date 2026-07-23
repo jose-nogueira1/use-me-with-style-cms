@@ -847,9 +847,13 @@ export interface MarketSetting {
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
   portugalDeliveryMethods?: ('ctt' | 'courier_pt')[] | null;
   /**
-   * Blueprint Technical Appendix flags this as needed before checkout ships and still open as of 2026-07-07. Fill in before launch.
+   * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.
    */
-  returnsPolicyText?: string | null;
+  angolaReturnsPolicyText?: string | null;
+  /**
+   * Client-provided legal copy (JOS-64, added 2026-07-23). 14-day EU distance-selling withdrawal window.
+   */
+  portugalReturnsPolicyText?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -904,7 +908,8 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaDeliveryMethods?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
-  returnsPolicyText?: T;
+  angolaReturnsPolicyText?: T;
+  portugalReturnsPolicyText?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
