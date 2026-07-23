@@ -24,6 +24,7 @@ import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
 import { metaConversionEndpoints } from './endpoints/metaConversions'
 import { orderLookupEndpoint } from './endpoints/orderLookup'
 import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
+import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -118,6 +119,7 @@ export default buildConfig({
     ...paymentsEndpoints,
     ...internalInvoiceEndpoints,
     ...metaConversionEndpoints,
+    ...instagramFeedEndpoints,
   ],
   editor: lexicalEditor(),
   plugins,
