@@ -849,11 +849,19 @@ export interface MarketSetting {
   /**
    * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.
    */
-  angolaReturnsPolicyText?: string | null;
+  angolaReturnsPolicyTextPT?: string | null;
+  /**
+   * English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.
+   */
+  angolaReturnsPolicyTextEN?: string | null;
   /**
    * Client-provided legal copy (JOS-64, added 2026-07-23). 14-day EU distance-selling withdrawal window.
    */
-  portugalReturnsPolicyText?: string | null;
+  portugalReturnsPolicyTextPT?: string | null;
+  /**
+   * English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.
+   */
+  portugalReturnsPolicyTextEN?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -908,8 +916,10 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaDeliveryMethods?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
-  angolaReturnsPolicyText?: T;
-  portugalReturnsPolicyText?: T;
+  angolaReturnsPolicyTextPT?: T;
+  angolaReturnsPolicyTextEN?: T;
+  portugalReturnsPolicyTextPT?: T;
+  portugalReturnsPolicyTextEN?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

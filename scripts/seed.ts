@@ -86,8 +86,11 @@ async function seed() {
       // Client-provided legal copy (JOS-64, added 2026-07-23). Angola and
       // Portugal/EU have materially different terms (48h exchange-only vs.
       // 14-day statutory withdrawal with refund) so they're separate fields,
-      // not a translation of each other.
-      angolaReturnsPolicyText: [
+      // not a translation of each other. English versions (added
+      // 2026-07-24) are our own translation of the client's PT text, not
+      // client-certified -- flagged for their sign-off before this seed's
+      // EN copy is treated as final.
+      angolaReturnsPolicyTextPT: [
         'Os pedidos de troca devem ser comunicados no prazo máximo de 48 horas após a receção da encomenda.',
         'As trocas estão sujeitas à disponibilidade de stock e apenas serão aceites se o artigo estiver nas mesmas condições em que foi entregue, sem sinais de uso, lavagem, odores, manchas, maquilhagem, desodorizante, pelos, danos ou alterações, e com as etiquetas originais intactas.',
         'Todos os artigos serão inspecionados pela equipa da USE ME WITH STYLE antes da aprovação da troca.',
@@ -96,12 +99,28 @@ async function seed() {
         'Qualquer defeito ou erro na encomenda deverá ser comunicado no prazo de 48 horas, acompanhado de fotografias ou vídeo.',
         'Esta política não prejudica os direitos legalmente reconhecidos ao consumidor.',
       ].join('\n\n'),
-      portugalReturnsPolicyText: [
+      angolaReturnsPolicyTextEN: [
+        'Exchange requests must be made within a maximum of 48 hours of receiving the order.',
+        'Exchanges are subject to stock availability and will only be accepted if the item is in the same condition it was delivered in: unworn, unwashed, and free of odors, stains, makeup, deodorant marks, hair/fibers, damage, or alterations, with the original tags intact.',
+        'All items will be inspected by the USE ME WITH STYLE team before an exchange is approved.',
+        "Refunds will not be issued for size or color changes, personal preference, or cancelling a purchase. Where possible, an exchange or store credit may be offered instead.",
+        "Pickup and re-delivery costs are the customer's responsibility, except in cases of a manufacturing defect or an incorrect shipment.",
+        'Any defect or error in the order must be reported within 48 hours, along with photos or video.',
+        "This policy does not affect the consumer's legally recognized rights.",
+      ].join('\n\n'),
+      portugalReturnsPolicyTextPT: [
         'Nas compras realizadas online, o cliente dispõe de 14 dias consecutivos após a receção da encomenda para comunicar a intenção de devolução.',
         'Os artigos devem ser devolvidos sem sinais de uso, lavagem, odores, manchas, maquilhagem, desodorizante, pelos, danos ou alterações, e com as etiquetas originais intactas.',
         'A peça poderá ser experimentada apenas para verificar o tamanho e o ajuste. Todos os artigos devolvidos serão inspecionados pela equipa da USE ME WITH STYLE.',
         'Os custos da devolução serão da responsabilidade do cliente, salvo em caso de defeito ou erro imputável à USE ME WITH STYLE.',
         'O reembolso será efetuado após a receção e verificação do artigo, através do mesmo método de pagamento utilizado na compra e dentro do prazo legal aplicável.',
+      ].join('\n\n'),
+      portugalReturnsPolicyTextEN: [
+        'For purchases made online, the customer has 14 consecutive days from receiving the order to notify us of their intention to return it.',
+        'Items must be returned unworn, unwashed, and free of odors, stains, makeup, deodorant marks, hair/fibers, damage, or alterations, with the original tags intact.',
+        'The item may be tried on only to check size and fit. All returned items will be inspected by the USE ME WITH STYLE team.',
+        "Return shipping costs are the customer's responsibility, except in cases of a defect or an error attributable to USE ME WITH STYLE.",
+        'The refund will be issued after the item is received and inspected, using the same payment method as the original purchase and within the applicable legal timeframe.',
       ].join('\n\n'),
     },
   })

@@ -71,20 +71,36 @@ export const MarketSettings: GlobalConfig = {
       options: ['ctt', 'courier_pt'],
     },
     {
-      name: 'angolaReturnsPolicyText',
+      name: 'angolaReturnsPolicyTextPT',
       type: 'textarea',
-      label: 'Angola: returns & exchanges policy (shown on Help page / checkout)',
+      label: 'Angola: returns & exchanges policy — Portuguese (shown on Help page / checkout)',
       admin: {
         description:
           'Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.',
       },
     },
     {
-      name: 'portugalReturnsPolicyText',
+      name: 'angolaReturnsPolicyTextEN',
       type: 'textarea',
-      label: 'Portugal/EU: returns & exchanges policy (shown on Help page / checkout)',
+      label: 'Angola: returns & exchanges policy — English (shown on Help page / checkout)',
+      admin: {
+        description: 'English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.',
+      },
+    },
+    {
+      name: 'portugalReturnsPolicyTextPT',
+      type: 'textarea',
+      label: 'Portugal/EU: returns & exchanges policy — Portuguese (shown on Help page / checkout)',
       admin: {
         description: 'Client-provided legal copy (JOS-64, added 2026-07-23). 14-day EU distance-selling withdrawal window.',
+      },
+    },
+    {
+      name: 'portugalReturnsPolicyTextEN',
+      type: 'textarea',
+      label: 'Portugal/EU: returns & exchanges policy — English (shown on Help page / checkout)',
+      admin: {
+        description: 'English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.',
       },
     },
   ],
