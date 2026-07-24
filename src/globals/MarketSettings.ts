@@ -103,5 +103,58 @@ export const MarketSettings: GlobalConfig = {
         description: 'English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.',
       },
     },
+    // Business hours + shipping info (JOS-64 follow-up, added 2026-07-24).
+    // Client-provided copy, same bilingual PT/EN pattern as the returns
+    // policy above. Business hours are shared across both markets (one
+    // WhatsApp support line); shipping is per-market like delivery methods,
+    // plus a shared international-shipping note.
+    {
+      name: 'businessHoursTextPT',
+      type: 'textarea',
+      label: 'Business hours — Portuguese (shown on Help page)',
+      admin: { description: 'Client-provided copy, added 2026-07-24.' },
+    },
+    {
+      name: 'businessHoursTextEN',
+      type: 'textarea',
+      label: 'Business hours — English (shown on Help page)',
+      admin: { description: 'English translation of the field above, added 2026-07-24.' },
+    },
+    {
+      name: 'angolaShippingTextPT',
+      type: 'textarea',
+      label: 'Angola: shipping & delivery info — Portuguese (shown on Help page)',
+      admin: { description: 'Client-provided copy, added 2026-07-24.' },
+    },
+    {
+      name: 'angolaShippingTextEN',
+      type: 'textarea',
+      label: 'Angola: shipping & delivery info — English (shown on Help page)',
+      admin: { description: 'English translation of the field above, added 2026-07-24.' },
+    },
+    {
+      name: 'portugalShippingTextPT',
+      type: 'textarea',
+      label: 'Portugal: shipping & delivery info — Portuguese (shown on Help page)',
+      admin: { description: 'Client-provided copy, added 2026-07-24.' },
+    },
+    {
+      name: 'portugalShippingTextEN',
+      type: 'textarea',
+      label: 'Portugal: shipping & delivery info — English (shown on Help page)',
+      admin: { description: 'English translation of the field above, added 2026-07-24.' },
+    },
+    {
+      name: 'internationalShippingTextPT',
+      type: 'textarea',
+      label: 'International shipping info — Portuguese (shown on Help page, both markets)',
+      admin: { description: 'Client-provided copy, added 2026-07-24.' },
+    },
+    {
+      name: 'internationalShippingTextEN',
+      type: 'textarea',
+      label: 'International shipping info — English (shown on Help page, both markets)',
+      admin: { description: 'English translation of the field above, added 2026-07-24.' },
+    },
   ],
 }

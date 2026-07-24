@@ -122,6 +122,22 @@ async function seed() {
         "Return shipping costs are the customer's responsibility, except in cases of a defect or an error attributable to USE ME WITH STYLE.",
         'The refund will be issued after the item is received and inspected, using the same payment method as the original purchase and within the applicable legal timeframe.',
       ].join('\n\n'),
+      // Business hours + shipping info (JOS-64 follow-up, client copy
+      // provided 2026-07-24). Same bilingual pattern as the returns policy.
+      businessHoursTextPT: 'De segunda-feira a sábado, das 9h às 19h.\n\nDomingos e feriados: encerrado.',
+      businessHoursTextEN: 'Monday to Saturday, 9am to 7pm.\n\nSundays and public holidays: closed.',
+      angolaShippingTextPT:
+        'Em Angola, as entregas serão realizadas através de empresas de motoboy, com o custo calculado de acordo com a localização da cliente. O pagamento da entrega poderá ser efetuado antecipadamente ou no ato da entrega, conforme a modalidade disponibilizada.',
+      angolaShippingTextEN:
+        "In Angola, deliveries are made through motorbike courier companies, with the cost calculated based on the customer's location. Delivery payment can be made in advance or on delivery, depending on the option available.",
+      portugalShippingTextPT:
+        'Em Portugal, os envios serão realizados através dos CTT, com o custo e o prazo estimado calculados de acordo com o destino.',
+      portugalShippingTextEN:
+        'In Portugal, shipments are made through CTT, with the cost and estimated delivery time calculated according to the destination.',
+      internationalShippingTextPT:
+        'Também estarão disponíveis envios internacionais, com custos e prazos definidos conforme o país de destino.',
+      internationalShippingTextEN:
+        'International shipping is also available, with costs and delivery times set according to the destination country.',
     },
   })
 

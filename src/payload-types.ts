@@ -862,6 +862,38 @@ export interface MarketSetting {
    * English translation of the field above (JOS-64, added 2026-07-24), so the policy is bilingual like the rest of the storefront.
    */
   portugalReturnsPolicyTextEN?: string | null;
+  /**
+   * Client-provided copy, added 2026-07-24.
+   */
+  businessHoursTextPT?: string | null;
+  /**
+   * English translation of the field above, added 2026-07-24.
+   */
+  businessHoursTextEN?: string | null;
+  /**
+   * Client-provided copy, added 2026-07-24.
+   */
+  angolaShippingTextPT?: string | null;
+  /**
+   * English translation of the field above, added 2026-07-24.
+   */
+  angolaShippingTextEN?: string | null;
+  /**
+   * Client-provided copy, added 2026-07-24.
+   */
+  portugalShippingTextPT?: string | null;
+  /**
+   * English translation of the field above, added 2026-07-24.
+   */
+  portugalShippingTextEN?: string | null;
+  /**
+   * Client-provided copy, added 2026-07-24.
+   */
+  internationalShippingTextPT?: string | null;
+  /**
+   * English translation of the field above, added 2026-07-24.
+   */
+  internationalShippingTextEN?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -920,6 +952,14 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaReturnsPolicyTextEN?: T;
   portugalReturnsPolicyTextPT?: T;
   portugalReturnsPolicyTextEN?: T;
+  businessHoursTextPT?: T;
+  businessHoursTextEN?: T;
+  angolaShippingTextPT?: T;
+  angolaShippingTextEN?: T;
+  portugalShippingTextPT?: T;
+  portugalShippingTextEN?: T;
+  internationalShippingTextPT?: T;
+  internationalShippingTextEN?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
