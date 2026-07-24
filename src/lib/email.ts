@@ -136,6 +136,59 @@ export async function sendOrderConfirmationEmail(
   }
 }
 
+// Help page "send us an email" form (JOS-64 follow-up, added 2026-07-24).
+// Unlike the order confirmation email above (sent TO the customer), this
+// goes TO the internal team's inbox, with reply-to set to the customer's
+// address so replying from Gmail/Resend's dashboard just works. Internal
+// notification copy is deliberately not bilingual (the team reads PT) even
+// though the form itself is bilingual on the storefront.
+type ContactMessageInput = {
+  name: string
+  email: string
+  message: string
+}
+
+export async function sendContactFormEmail(payload: Payload, input: ContactMessageInput): Promise<void> {
+  // No dedicated CONTACT_EMAIL configured yet -- falls back to the same
+  // address used as the sender for order confirmations. Set CONTACT_EMAIL
+  // in Railway once there's a real monitored support inbox.
+  const to = process.env.CONTACT_EMAIL || process.env.RESEND_FROM_EMAIL || 'orders@usemewithstyle.com'
+  const subject = `Nova mensagem do site -- ${input.name}`
+  const html = `
+    <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+      <h2 style="margin-bottom: 4px;">Nova mensagem via formulário de contacto</h2>
+      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+        <tr>
+          <td style="padding: 6px 0; color: #666;">Nome</td>
+          <td style="padding: 6px 0; text-align: right; font-weight: bold;">${escapeHtml(input.name)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #666;">Email</td>
+          <td style="padding: 6px 0; text-align: right; font-weight: bold;">${escapeHtml(input.email)}</td>
+        </tr>
+      </table>
+      <p style="white-space: pre-wrap;">${escapeHtml(input.message)}</p>
+    </div>
+  `.trim()
+
+  if (!process.env.RESEND_API_KEY) {
+    // eslint-disable-next-line no-console
+    console.log(`[email:not-configured] would send contact-form message from ${input.email} to ${to}`)
+    return
+  }
+
+  // Let send failures propagate here (unlike the order-confirmation email,
+  // which never blocks an order write) -- the contact endpoint needs to know
+  // if the message didn't actually go anywhere so it can tell the customer
+  // to use WhatsApp instead rather than silently losing their message.
+  await payload.sendEmail({
+    to,
+    replyTo: input.email,
+    subject,
+    html,
+  })
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

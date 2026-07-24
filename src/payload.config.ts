@@ -23,6 +23,7 @@ import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
 import { metaConversionEndpoints } from './endpoints/metaConversions'
 import { orderLookupEndpoint } from './endpoints/orderLookup'
+import { contactEndpoint } from './endpoints/contact'
 import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { migrations } from './migrations'
@@ -114,6 +115,7 @@ export default buildConfig({
   globals: [MarketSettings, InvoiceSettings],
   endpoints: [
     orderLookupEndpoint,
+    contactEndpoint,
     ...inventoryReservationEndpoints,
     ...messagingWebhookEndpoints,
     ...paymentsEndpoints,
