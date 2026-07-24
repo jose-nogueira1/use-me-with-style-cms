@@ -141,6 +141,64 @@ async function seed() {
     },
   })
 
+  // Privacy Policy + Terms & Conditions (user request, 2026-07-24).
+  // *** AI-DRAFTED GENERIC TEMPLATE -- NOT CLIENT-PROVIDED, NOT LAWYER-
+  // REVIEWED. *** Unlike every other MarketSettings/LegalContent field seeded
+  // above (which is either client copy or a straight translation of it), this
+  // text was written as a reasonable Phase 1 placeholder covering the basics
+  // (GDPR for Portugal/EU, a nod to Angola's own data protection law, EU ODR
+  // link, Livro de Reclamações reference) but must be reviewed by a lawyer
+  // before it's treated as the real policy.
+  await payload.updateGlobal({
+    slug: 'legal-content',
+    data: {
+      privacyPolicyTextPT: [
+        'A USE ME WITH STYLE respeita a privacidade dos seus clientes e visitantes e compromete-se a proteger os dados pessoais que lhe são confiados, em conformidade com o Regulamento Geral sobre a Proteção de Dados (RGPD) para clientes em Portugal e na União Europeia, e com a Lei de Proteção de Dados Pessoais aplicável em Angola.',
+        'Esta política explica que dados pessoais recolhemos, para que finalidade os utilizamos, com quem os partilhamos e quais os direitos que assistem a cada titular dos dados.',
+        'Dados que recolhemos: recolhemos os dados fornecidos diretamente por si ao efetuar uma compra ou ao contactar-nos, nomeadamente nome, endereço de email, número de telefone, morada de entrega e faturação, e histórico de encomendas. Não recolhemos dados de pagamento diretamente — estes são processados pelos nossos parceiros de pagamento (Stripe, PayPal, MB WAY ou AppyPay/Multicaixa Express, consoante o método escolhido), que têm as suas próprias políticas de privacidade.',
+        'Finalidade do tratamento: utilizamos os seus dados para processar e entregar encomendas, comunicar sobre o estado da sua encomenda (por email e WhatsApp), responder a pedidos de apoio ao cliente e, quando aplicável, cumprir obrigações legais e fiscais.',
+        'Partilha de dados com terceiros: os seus dados poderão ser partilhados com prestadores de serviços que nos ajudam a operar a loja, nomeadamente empresas de entrega (CTT em Portugal, empresas de motoboy em Angola), processadores de pagamento, e serviços de alojamento e envio de email. Estes prestadores só têm acesso aos dados estritamente necessários para prestar o respetivo serviço.',
+        'Prazo de conservação: conservamos os seus dados pelo tempo necessário para cumprir as finalidades descritas nesta política e as obrigações legais aplicáveis, nomeadamente as obrigações fiscais e contabilísticas.',
+        'Os seus direitos: tem o direito de aceder, retificar, apagar ou pedir a portabilidade dos seus dados pessoais, bem como o direito de se opor ou limitar o respetivo tratamento. Para exercer qualquer um destes direitos, contacte-nos através do formulário disponível na página de Ajuda ou por WhatsApp. Se residir em Portugal ou na União Europeia, tem também o direito de apresentar reclamação junto da Comissão Nacional de Proteção de Dados (CNPD).',
+        'Cookies: este site utiliza cookies para melhorar a experiência de navegação e, quando autorizado por si, para fins de análise. Pode gerir as suas preferências de cookies a qualquer momento através da opção "Preferências de cookies" no rodapé do site.',
+        'Alterações a esta política: esta política poderá ser atualizada periodicamente. A versão em vigor será sempre a publicada nesta página.',
+      ].join('\n\n'),
+      privacyPolicyTextEN: [
+        'USE ME WITH STYLE respects the privacy of its customers and visitors and is committed to protecting the personal data entrusted to us, in accordance with the General Data Protection Regulation (GDPR) for customers in Portugal and the European Union, and with the personal data protection law applicable in Angola.',
+        'This policy explains what personal data we collect, why we use it, who we share it with, and what rights each data subject has.',
+        "Data we collect: we collect the data you provide directly when placing an order or contacting us, namely name, email address, phone number, delivery and billing address, and order history. We do not collect payment data directly — this is processed by our payment partners (Stripe, PayPal, MB WAY, or AppyPay/Multicaixa Express, depending on the method chosen), who have their own privacy policies.",
+        'Purpose of processing: we use your data to process and deliver orders, communicate about your order status (by email and WhatsApp), respond to customer support requests, and, where applicable, comply with legal and tax obligations.',
+        'Sharing data with third parties: your data may be shared with service providers who help us operate the store, namely delivery companies (CTT in Portugal, motorbike courier companies in Angola), payment processors, and hosting and email delivery services. These providers only have access to the data strictly necessary to provide their respective service.',
+        'Retention period: we retain your data for as long as necessary to fulfil the purposes described in this policy and applicable legal obligations, including tax and accounting obligations.',
+        "Your rights: you have the right to access, rectify, erase, or request portability of your personal data, as well as the right to object to or restrict its processing. To exercise any of these rights, contact us through the form on the Help page or via WhatsApp. If you reside in Portugal or the European Union, you also have the right to lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).",
+        'Cookies: this site uses cookies to improve the browsing experience and, when authorized by you, for analytics purposes. You can manage your cookie preferences at any time via the "Cookie preferences" option in the site footer.',
+        'Changes to this policy: this policy may be updated periodically. The version in effect will always be the one published on this page.',
+      ].join('\n\n'),
+      termsTextPT: [
+        'Estes Termos e Condições regulam a utilização do site e a compra de produtos junto da USE ME WITH STYLE, uma marca de vestuário e lifestyle com atuação em Angola e Portugal. Ao efetuar uma compra ou utilizar este site, aceita os termos aqui descritos.',
+        'Produtos e disponibilidade: todos os produtos estão sujeitos a disponibilidade de stock. Fazemos os possíveis para garantir que as imagens, descrições e preços apresentados são exatos, mas podem ocorrer pequenas variações entre o artigo fotografado e o artigo recebido.',
+        'Preços e pagamento: os preços apresentados incluem os impostos aplicáveis, salvo indicação em contrário. Os métodos de pagamento disponíveis variam consoante o mercado (Angola ou Portugal) e são apresentados no checkout. O pagamento é processado de forma segura pelos nossos parceiros de pagamento.',
+        'Encomendas e confirmação: após a confirmação do pagamento, receberá uma confirmação de encomenda por email. A USE ME WITH STYLE reserva-se o direito de recusar ou cancelar uma encomenda em caso de erro manifesto de preço, indisponibilidade de stock ou suspeita de fraude, sendo o cliente sempre notificado e reembolsado nesses casos.',
+        'Entrega: os prazos e custos de entrega variam consoante o destino e são apresentados no checkout. Para mais informação sobre entregas e envios, consulte a página de Ajuda.',
+        'Trocas e devoluções: as condições de troca e devolução aplicáveis a cada mercado estão descritas na Política de Trocas e Devoluções, disponível na página de Ajuda.',
+        'Resolução de litígios: em caso de litígio de consumo, o cliente residente em Portugal ou na União Europeia pode recorrer à Plataforma Europeia de Resolução de Litígios em Linha, disponível em ec.europa.eu/consumers/odr, ou apresentar reclamação através do Livro de Reclamações Eletrónico.',
+        'Propriedade intelectual: todo o conteúdo deste site, incluindo textos, imagens e logótipos, é propriedade da USE ME WITH STYLE ou dos seus licenciadores, não podendo ser reproduzido sem autorização prévia.',
+        'Alterações a estes termos: estes termos poderão ser atualizados periodicamente. A versão em vigor será sempre a publicada nesta página.',
+      ].join('\n\n'),
+      termsTextEN: [
+        'These Terms & Conditions govern the use of this site and the purchase of products from USE ME WITH STYLE, an apparel and lifestyle brand operating in Angola and Portugal. By placing an order or using this site, you accept the terms described here.',
+        'Products and availability: all products are subject to stock availability. We make every effort to ensure that the images, descriptions, and prices shown are accurate, but small variations between the photographed item and the item received may occur.',
+        'Pricing and payment: prices shown include applicable taxes, unless stated otherwise. Available payment methods vary by market (Angola or Portugal) and are shown at checkout. Payment is processed securely by our payment partners.',
+        'Orders and confirmation: after payment is confirmed, you will receive an order confirmation by email. USE ME WITH STYLE reserves the right to refuse or cancel an order in the event of an obvious pricing error, stock unavailability, or suspected fraud; the customer will always be notified and refunded in such cases.',
+        'Delivery: delivery times and costs vary by destination and are shown at checkout. For more information on shipping and delivery, see the Help page.',
+        'Returns and exchanges: the exchange and return conditions applicable to each market are described in the Returns & Exchanges Policy, available on the Help page.',
+        'Dispute resolution: in the event of a consumer dispute, customers residing in Portugal or the European Union may use the European Online Dispute Resolution Platform, available at ec.europa.eu/consumers/odr, or file a complaint through the electronic complaints book (Livro de Reclamações Eletrónico).',
+        'Intellectual property: all content on this site, including text, images, and logos, is the property of USE ME WITH STYLE or its licensors and may not be reproduced without prior authorization.',
+        'Changes to these terms: these terms may be updated periodically. The version in effect will always be the one published on this page.',
+      ].join('\n\n'),
+    },
+  })
+
   payload.logger.info('Seed complete.')
   process.exit(0)
 }

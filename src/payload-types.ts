@@ -100,10 +100,12 @@ export interface Config {
   globals: {
     'market-settings': MarketSetting;
     'invoice-settings': InvoiceSetting;
+    'legal-content': LegalContent;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
     'invoice-settings': InvoiceSettingsSelect<false> | InvoiceSettingsSelect<true>;
+    'legal-content': LegalContentSelect<false> | LegalContentSelect<true>;
   };
   locale: null;
   widgets: {
@@ -938,6 +940,33 @@ export interface InvoiceSetting {
   createdAt?: string | null;
 }
 /**
+ * Privacy Policy and Terms & Conditions shown on the storefront. The seeded text is an AI-drafted generic template -- have it reviewed by a lawyer before treating it as final.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal-content".
+ */
+export interface LegalContent {
+  id: number;
+  /**
+   * AI-drafted generic template, added 2026-07-24. Needs legal review before final.
+   */
+  privacyPolicyTextPT?: string | null;
+  /**
+   * AI-drafted generic template, added 2026-07-24. Needs legal review before final.
+   */
+  privacyPolicyTextEN?: string | null;
+  /**
+   * AI-drafted generic template, added 2026-07-24. Needs legal review before final.
+   */
+  termsTextPT?: string | null;
+  /**
+   * AI-drafted generic template, added 2026-07-24. Needs legal review before final.
+   */
+  termsTextEN?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings_select".
  */
@@ -986,6 +1015,19 @@ export interface InvoiceSettingsSelect<T extends boolean = true> {
   taxNotePT?: T;
   invoicePrefixPT?: T;
   invoiceFooterPT?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal-content_select".
+ */
+export interface LegalContentSelect<T extends boolean = true> {
+  privacyPolicyTextPT?: T;
+  privacyPolicyTextEN?: T;
+  termsTextPT?: T;
+  termsTextEN?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

@@ -18,6 +18,7 @@ import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
+import { LegalContent } from './globals/LegalContent'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
@@ -112,7 +113,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Products, Orders, Customers, Messages, Invoices],
-  globals: [MarketSettings, InvoiceSettings],
+  globals: [MarketSettings, InvoiceSettings, LegalContent],
   endpoints: [
     orderLookupEndpoint,
     contactEndpoint,
