@@ -10,6 +10,7 @@ import * as migration_20260722_152800_fix_product_localization_columns from './2
 import * as migration_20260722_220000_inventory_reservations from './20260722_220000_inventory_reservations'
 import * as migration_20260723_120000_returns_policy_per_market from './20260723_120000_returns_policy_per_market'
 import * as migration_20260724_130000_bilingual_returns_policy from './20260724_130000_bilingual_returns_policy'
+import * as migration_20260724_133000_fix_returns_policy_column_names from './20260724_133000_fix_returns_policy_column_names'
 
 export const migrations = [
   {
@@ -71,5 +72,10 @@ export const migrations = [
     up: migration_20260724_130000_bilingual_returns_policy.up,
     down: migration_20260724_130000_bilingual_returns_policy.down,
     name: '20260724_130000_bilingual_returns_policy',
+  },
+  {
+    up: migration_20260724_133000_fix_returns_policy_column_names.up,
+    down: migration_20260724_133000_fix_returns_policy_column_names.down,
+    name: '20260724_133000_fix_returns_policy_column_names',
   },
 ]
