@@ -109,11 +109,13 @@ export interface Config {
     'market-settings': MarketSetting;
     'invoice-settings': InvoiceSetting;
     'legal-content': LegalContent;
+    'home-content': HomeContent;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
     'invoice-settings': InvoiceSettingsSelect<false> | InvoiceSettingsSelect<true>;
     'legal-content': LegalContentSelect<false> | LegalContentSelect<true>;
+    'home-content': HomeContentSelect<false> | HomeContentSelect<true>;
   };
   locale: null;
   widgets: {
@@ -1139,6 +1141,36 @@ export interface LegalContent {
   createdAt?: string | null;
 }
 /**
+ * Editable content for the storefront home page's hero banner.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-content".
+ */
+export interface HomeContent {
+  id: number;
+  /**
+   * Small label above the headline, e.g. "Coleção SS26".
+   */
+  heroEyebrowPT?: string | null;
+  heroEyebrowEN?: string | null;
+  heroHeadlinePT?: string | null;
+  heroHeadlineEN?: string | null;
+  heroSubtitlePT?: string | null;
+  heroSubtitleEN?: string | null;
+  heroCtaLabelPT?: string | null;
+  heroCtaLabelEN?: string | null;
+  /**
+   * Where the button goes -- usually /catalogo, or e.g. /catalogo?cat=vestidos to point at one category.
+   */
+  heroCtaHref?: string | null;
+  /**
+   * Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.
+   */
+  heroImage?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings_select".
  */
@@ -1200,6 +1232,25 @@ export interface LegalContentSelect<T extends boolean = true> {
   privacyPolicyTextEN?: T;
   termsTextPT?: T;
   termsTextEN?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-content_select".
+ */
+export interface HomeContentSelect<T extends boolean = true> {
+  heroEyebrowPT?: T;
+  heroEyebrowEN?: T;
+  heroHeadlinePT?: T;
+  heroHeadlineEN?: T;
+  heroSubtitlePT?: T;
+  heroSubtitleEN?: T;
+  heroCtaLabelPT?: T;
+  heroCtaLabelEN?: T;
+  heroCtaHref?: T;
+  heroImage?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

@@ -17,6 +17,7 @@ import * as migration_20260725_090000_product_size_guide from './20260725_090000
 import * as migration_20260725_150000_catalogue_taxonomies from './20260725_150000_catalogue_taxonomies'
 import * as migration_20260725_160000_colors_bilingual from './20260725_160000_colors_bilingual'
 import * as migration_20260725_180000_colors_hex2 from './20260725_180000_colors_hex2'
+import * as migration_20260725_190000_home_content from './20260725_190000_home_content'
 
 export const migrations = [
   {
@@ -113,5 +114,10 @@ export const migrations = [
     up: migration_20260725_180000_colors_hex2.up,
     down: migration_20260725_180000_colors_hex2.down,
     name: '20260725_180000_colors_hex2',
+  },
+  {
+    up: migration_20260725_190000_home_content.up,
+    down: migration_20260725_190000_home_content.down,
+    name: '20260725_190000_home_content',
   },
 ]
