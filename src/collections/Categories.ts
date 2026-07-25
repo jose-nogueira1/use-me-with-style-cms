@@ -73,5 +73,16 @@ export const Categories: CollectionConfig = {
         description: 'Auto-generated from the Portuguese name; used in storefront URLs (/catalogo?cat=...). Not editable.',
       },
     },
+    {
+      // 2026-07-25 admin request: category tiles on the home page were a
+      // decorative placeholder with no way to change them. Optional --
+      // falls back to the placeholder when unset, so nothing breaks for
+      // existing categories until the admin uploads a real photo.
+      name: 'image',
+      type: 'upload',
+      relationTo: 'media',
+      label: 'Category tile image',
+      admin: { description: 'Shown on the home page\'s category tiles. Optional -- falls back to a decorative placeholder when unset.' },
+    },
   ],
 }

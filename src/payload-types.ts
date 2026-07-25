@@ -292,6 +292,10 @@ export interface Category {
    * Auto-generated from the Portuguese name; used in storefront URLs (/catalogo?cat=...). Not editable.
    */
   slug?: string | null;
+  /**
+   * Shown on the home page's category tiles. Optional -- falls back to a decorative placeholder when unset.
+   */
+  image?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
 }
@@ -333,6 +337,10 @@ export interface MerchTag {
    * Shown on the English storefront. Falls back to the Portuguese label if empty.
    */
   labelEN?: string | null;
+  /**
+   * Auto-generated from the Portuguese label; usable as a storefront "collection" link (/catalogo?tag=...). Not editable.
+   */
+  slug?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -769,6 +777,7 @@ export interface CategoriesSelect<T extends boolean = true> {
   namePT?: T;
   nameEN?: T;
   slug?: T;
+  image?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -779,6 +788,7 @@ export interface CategoriesSelect<T extends boolean = true> {
 export interface MerchTagsSelect<T extends boolean = true> {
   labelPT?: T;
   labelEN?: T;
+  slug?: T;
   updatedAt?: T;
   createdAt?: T;
 }

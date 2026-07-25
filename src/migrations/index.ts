@@ -18,6 +18,9 @@ import * as migration_20260725_150000_catalogue_taxonomies from './20260725_1500
 import * as migration_20260725_160000_colors_bilingual from './20260725_160000_colors_bilingual'
 import * as migration_20260725_180000_colors_hex2 from './20260725_180000_colors_hex2'
 import * as migration_20260725_190000_home_content from './20260725_190000_home_content'
+import * as migration_20260725_200000_home_content_versions from './20260725_200000_home_content_versions'
+import * as migration_20260725_210000_merch_tags_slug from './20260725_210000_merch_tags_slug'
+import * as migration_20260725_220000_categories_image from './20260725_220000_categories_image'
 
 export const migrations = [
   {
@@ -119,5 +122,20 @@ export const migrations = [
     up: migration_20260725_190000_home_content.up,
     down: migration_20260725_190000_home_content.down,
     name: '20260725_190000_home_content',
+  },
+  {
+    up: migration_20260725_200000_home_content_versions.up,
+    down: migration_20260725_200000_home_content_versions.down,
+    name: '20260725_200000_home_content_versions',
+  },
+  {
+    up: migration_20260725_210000_merch_tags_slug.up,
+    down: migration_20260725_210000_merch_tags_slug.down,
+    name: '20260725_210000_merch_tags_slug',
+  },
+  {
+    up: migration_20260725_220000_categories_image.up,
+    down: migration_20260725_220000_categories_image.down,
+    name: '20260725_220000_categories_image',
   },
 ]

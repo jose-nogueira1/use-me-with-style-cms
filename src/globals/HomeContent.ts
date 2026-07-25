@@ -21,6 +21,15 @@ export const HomeContent: GlobalConfig = {
     group: 'Settings',
     description: "Editable content for the storefront home page's hero banner.",
   },
+  // 2026-07-25 follow-up ("save old homepage creations, in case I want to
+  // re-activate them later"): every save now auto-snapshots the PREVIOUS
+  // content (Payload's built-in global versioning -- no drafts/publish
+  // workflow, just history), capped at the last 20. The admin UI lists
+  // these and can restore any of them via POST /globals/home-content/
+  // versions/:id (see Settings.tsx's HomeHeroSection).
+  versions: {
+    max: 20,
+  },
   fields: [
     {
       name: 'heroEyebrowPT',
@@ -76,7 +85,10 @@ export const HomeContent: GlobalConfig = {
       type: 'text',
       label: 'Button link',
       defaultValue: '/catalogo',
-      admin: { description: 'Where the button goes -- usually /catalogo, or e.g. /catalogo?cat=vestidos to point at one category.' },
+      admin: {
+        description:
+          'Where the button goes -- usually /catalogo, /catalogo?cat=vestidos to point at one category, or /catalogo?tag=ss26 to point at a themed collection (create a merchandising tag, e.g. "SS26", apply it to the relevant products, and use its slug here).',
+      },
     },
     {
       name: 'heroImage',
