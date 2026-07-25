@@ -14,6 +14,7 @@ import * as migration_20260724_133000_fix_returns_policy_column_names from './20
 import * as migration_20260724_150000_business_hours_and_shipping_info from './20260724_150000_business_hours_and_shipping_info'
 import * as migration_20260724_170000_legal_content from './20260724_170000_legal_content'
 import * as migration_20260725_090000_product_size_guide from './20260725_090000_product_size_guide'
+import * as migration_20260725_150000_catalogue_taxonomies from './20260725_150000_catalogue_taxonomies'
 
 export const migrations = [
   {
@@ -95,5 +96,10 @@ export const migrations = [
     up: migration_20260725_090000_product_size_guide.up,
     down: migration_20260725_090000_product_size_guide.down,
     name: '20260725_090000_product_size_guide',
+  },
+  {
+    up: migration_20260725_150000_catalogue_taxonomies.up,
+    down: migration_20260725_150000_catalogue_taxonomies.down,
+    name: '20260725_150000_catalogue_taxonomies',
   },
 ]

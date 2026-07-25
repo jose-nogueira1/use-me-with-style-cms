@@ -11,7 +11,7 @@ import type { CollectionBeforeValidateHook } from 'payload'
 // name edit would silently break any bookmarked/shared product URL, which
 // is worse than a slug that no longer matches a since-renamed product.
 
-function slugify(value: string): string {
+export function slugify(value: string): string {
   const combiningDiacritics = new RegExp('[\\u0300-\\u036f]', 'g')
   return value
     .normalize('NFD') // e.g. "Vestido Mare" + a combining acute accent mark

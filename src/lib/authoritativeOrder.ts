@@ -20,7 +20,9 @@ type InventoryProduct = {
   priceAOKz: number
   pricePTEur: number
   sizes?: Array<{ size: string; stockAO: number; stockPT: number }> | null
-  colors?: Array<{ color?: string | null }> | null
+  // hasMany relationship to the colours taxonomy (2026-07-25): plain ids at
+  // depth 0, populated docs at depth >= 1.
+  colors?: Array<string | number | { name?: string | null }> | null
 }
 
 const PT_SHIPPING_COSTS: Record<string, number> = {
@@ -112,7 +114,27 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     const sizeRow = product.sizes?.find((entry) => entry.size === size)
     if (!sizeRow) badRequest('A selected size is unavailable.')
 
-    const allowedColors = (product.colors ?? []).map((entry) => entry.color).filter(Boolean)
+    // Colours moved from free-text strings to a taxonomy relationship
+    // (2026-07-25). Order items still store the colour NAME (human-readable
+    // on invoices/labels), so resolve ids -> names before validating.
+    const colorRefs = product.colors ?? []
+    const colorIds = colorRefs.filter((entry): entry is string | number => typeof entry !== 'object')
+    const populatedNames = colorRefs
+      .map((entry) => (entry && typeof entry === 'object' ? entry.name : null))
+      .filter((name): name is string => Boolean(name))
+    let allowedColors: string[] = populatedNames
+    if (colorIds.length > 0) {
+      const colorDocs = await req.payload.find({
+        collection: 'colors',
+        where: { id: { in: colorIds } },
+        limit: colorIds.length,
+        depth: 0,
+        overrideAccess: true,
+      })
+      allowedColors = allowedColors.concat(
+        colorDocs.docs.map((doc) => (doc as { name?: string | null }).name).filter((name): name is string => Boolean(name)),
+      )
+    }
     if (allowedColors.length > 0 && !allowedColors.includes(color)) {
       badRequest('A selected colour is unavailable.')
     }

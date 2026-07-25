@@ -32,8 +32,47 @@ const PRODUCTS: SeedProduct[] = [
   { name: 'Vestido Lume', slug: 'vestido-lume', category: 'vestidos', priceAOKz: 19500, pricePTEur: 23, colors: ['Coral', 'Preto'], sizes: [{ size: 'S', stockAO: 7, stockPT: 3 }, { size: 'M', stockAO: 9, stockPT: 4 }, { size: 'L', stockAO: 11, stockPT: 5 }] },
 ]
 
+// Category/tag/colour taxonomies became collections on 2026-07-25; the seed
+// resolves (or creates) taxonomy rows first, then references them by id.
+const CATEGORY_META: Record<SeedProduct['category'], { namePT: string; nameEN: string }> = {
+  vestidos: { namePT: 'Vestidos', nameEN: 'Dresses' },
+  tops: { namePT: 'Tops', nameEN: 'Tops' },
+  leggings: { namePT: 'Leggings', nameEN: 'Leggings' },
+  conjuntos: { namePT: 'Conjuntos', nameEN: 'Sets' },
+}
+
+const TAG_META: Record<NonNullable<SeedProduct['tag']>, { labelPT: string; labelEN: string }> = {
+  NOVIDADE: { labelPT: 'Novidade', labelEN: 'New' },
+  BESTSELLER: { labelPT: 'Bestseller', labelEN: 'Bestseller' },
+  'QUASE ESGOTADO': { labelPT: 'Quase esgotado', labelEN: 'Almost gone' },
+}
+
 async function seed() {
   const payload = await getPayload({ config })
+
+  const categoryIdBySlug = new Map<string, number>()
+  for (const [slug, meta] of Object.entries(CATEGORY_META)) {
+    const existing = await payload.find({ collection: 'categories', where: { slug: { equals: slug } }, limit: 1 })
+    const doc = existing.docs[0] ?? (await payload.create({ collection: 'categories', data: { ...meta, slug } }))
+    categoryIdBySlug.set(slug, doc.id)
+  }
+
+  const tagIdByValue = new Map<string, number>()
+  for (const [value, meta] of Object.entries(TAG_META)) {
+    const existing = await payload.find({ collection: 'merch-tags', where: { labelPT: { equals: meta.labelPT } }, limit: 1 })
+    const doc = existing.docs[0] ?? (await payload.create({ collection: 'merch-tags', data: meta }))
+    tagIdByValue.set(value, doc.id)
+  }
+
+  const colorIdByName = new Map<string, number>()
+  async function colorId(name: string): Promise<number> {
+    const cached = colorIdByName.get(name)
+    if (cached !== undefined) return cached
+    const existing = await payload.find({ collection: 'colors', where: { name: { equals: name } }, limit: 1 })
+    const doc = existing.docs[0] ?? (await payload.create({ collection: 'colors', data: { name } }))
+    colorIdByName.set(name, doc.id)
+    return doc.id
+  }
 
   for (const product of PRODUCTS) {
     const existing = await payload.find({
@@ -64,7 +103,9 @@ async function seed() {
         nameEN: product.name,
         descriptionPT: `Uma peça versátil da coleção Use Me With Style, criada para conforto e confiança ao longo do dia.`,
         descriptionEN: `A versatile Use Me With Style piece, designed for comfort and confidence throughout the day.`,
-        colors: product.colors.map((color) => ({ color })),
+        category: categoryIdBySlug.get(product.category)!,
+        tag: product.tag ? tagIdByValue.get(product.tag) : undefined,
+        colors: await Promise.all(product.colors.map((name) => colorId(name))),
         active: true,
         availableAO: true,
         availablePT: true,

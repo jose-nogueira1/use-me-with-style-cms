@@ -70,6 +70,9 @@ export interface Config {
     users: User;
     media: Media;
     products: Product;
+    categories: Category;
+    'merch-tags': MerchTag;
+    colors: Color;
     orders: Order;
     customers: Customer;
     messages: Message;
@@ -84,6 +87,9 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    'merch-tags': MerchTagsSelect<false> | MerchTagsSelect<true>;
+    colors: ColorsSelect<false> | ColorsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
@@ -214,7 +220,7 @@ export interface Product {
    * Auto-generated from the product name -- not editable (2026-07-25 admin request). See generateProductSlug in src/lib/productSlug.ts.
    */
   slug: string;
-  category: 'vestidos' | 'tops' | 'leggings' | 'conjuntos';
+  category: number | Category;
   /**
    * Legacy/default description. New storefront editing uses the language-specific fields below.
    */
@@ -229,19 +235,14 @@ export interface Product {
   /**
    * Optional merchandising badge shown on the product card.
    */
-  tag?: ('NOVIDADE' | 'BESTSELLER' | 'QUASE ESGOTADO') | null;
+  tag?: (number | null) | MerchTag;
   images?:
     | {
         image: number | Media;
         id?: string | null;
       }[]
     | null;
-  colors?:
-    | {
-        color: string;
-        id?: string | null;
-      }[]
-    | null;
+  colors?: (number | Color)[] | null;
   priceAOKz: number;
   pricePTEur: number;
   sizes: {
@@ -262,6 +263,62 @@ export interface Product {
    * Uncheck to hide this product from the Portugal storefront entirely.
    */
   availablePT?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  namePT: string;
+  /**
+   * Shown when the shopper switches the storefront to English. Falls back to the Portuguese name if empty.
+   */
+  nameEN?: string | null;
+  /**
+   * Auto-generated from the Portuguese name; used in storefront URLs (/catalogo?cat=...). Not editable.
+   */
+  slug?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "merch-tags".
+ */
+export interface MerchTag {
+  id: number;
+  /**
+   * Badge text shown on product cards, e.g. "Novidade".
+   */
+  labelPT: string;
+  /**
+   * Shown on the English storefront. Falls back to the Portuguese label if empty.
+   */
+  labelEN?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "colors".
+ */
+export interface Color {
+  id: number;
+  /**
+   * Display name, e.g. "Verde Oliva". Also the value stored on order items.
+   */
+  name: string;
+  /**
+   * Solid-colour swatch, e.g. #7A8B5C. Leave empty for patterned fabrics and upload a swatch image instead.
+   */
+  hex?: string | null;
+  /**
+   * Optional. For patterns/multicolour fabrics where a single hex value is not representative. Takes precedence over the hex value.
+   */
+  swatch?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
 }
@@ -482,6 +539,18 @@ export interface PayloadLockedDocument {
         value: number | Product;
       } | null)
     | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'merch-tags';
+        value: number | MerchTag;
+      } | null)
+    | ({
+        relationTo: 'colors';
+        value: number | Color;
+      } | null)
+    | ({
         relationTo: 'orders';
         value: number | Order;
       } | null)
@@ -626,12 +695,7 @@ export interface ProductsSelect<T extends boolean = true> {
         image?: T;
         id?: T;
       };
-  colors?:
-    | T
-    | {
-        color?: T;
-        id?: T;
-      };
+  colors?: T;
   priceAOKz?: T;
   pricePTEur?: T;
   sizes?:
@@ -645,6 +709,38 @@ export interface ProductsSelect<T extends boolean = true> {
   active?: T;
   availableAO?: T;
   availablePT?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  namePT?: T;
+  nameEN?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "merch-tags_select".
+ */
+export interface MerchTagsSelect<T extends boolean = true> {
+  labelPT?: T;
+  labelEN?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "colors_select".
+ */
+export interface ColorsSelect<T extends boolean = true> {
+  name?: T;
+  hex?: T;
+  swatch?: T;
   updatedAt?: T;
   createdAt?: T;
 }

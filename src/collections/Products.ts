@@ -52,16 +52,15 @@ export const Products: CollectionConfig = {
         description: 'Auto-generated from the product name -- not editable (2026-07-25 admin request). See generateProductSlug in src/lib/productSlug.ts.',
       },
     },
+    // Was a hardcoded select (vestidos/tops/leggings/conjuntos) until
+    // 2026-07-25; now a relationship so admins can create categories
+    // themselves. Old enum values were seeded into the categories
+    // collection with the same slugs by the catalogue_taxonomies migration.
     {
       name: 'category',
-      type: 'select',
+      type: 'relationship',
+      relationTo: 'categories',
       required: true,
-      options: [
-        { label: 'Vestidos', value: 'vestidos' },
-        { label: 'Tops', value: 'tops' },
-        { label: 'Leggings', value: 'leggings' },
-        { label: 'Conjuntos', value: 'conjuntos' },
-      ],
     },
     {
       name: 'description',
@@ -89,15 +88,13 @@ export const Products: CollectionConfig = {
       type: 'textarea',
       label: 'Size guide — English',
     },
+    // Was a hardcoded select until 2026-07-25 -- same relationship
+    // conversion as `category` above so admins can create their own badges.
     {
       name: 'tag',
-      type: 'select',
+      type: 'relationship',
+      relationTo: 'merch-tags',
       admin: { description: 'Optional merchandising badge shown on the product card.' },
-      options: [
-        { label: 'Novidade', value: 'NOVIDADE' },
-        { label: 'Bestseller', value: 'BESTSELLER' },
-        { label: 'Quase esgotado', value: 'QUASE ESGOTADO' },
-      ],
     },
     {
       name: 'images',
@@ -111,10 +108,15 @@ export const Products: CollectionConfig = {
         },
       ],
     },
+    // Was an array of free-text strings until 2026-07-25; now references
+    // the colours taxonomy so names stay consistent across products and the
+    // storefront can render real swatches. See collections/Colors.ts.
     {
       name: 'colors',
-      type: 'array',
-      fields: [{ name: 'color', type: 'text', required: true }],
+      type: 'relationship',
+      relationTo: 'colors',
+      hasMany: true,
+      label: 'Colours',
     },
     {
       name: 'priceAOKz',
