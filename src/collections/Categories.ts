@@ -1,5 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 import { slugify } from '../lib/productSlug'
+import { blockDeleteWhileInUse } from '../lib/taxonomyGuards'
 
 // Product categories as data instead of a hardcoded select (2026-07-25 admin
 // request: "the admin needs to be able to create categories"). The previous
@@ -47,6 +48,7 @@ export const Categories: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [generateCategorySlug],
+    beforeDelete: [blockDeleteWhileInUse('category', 'category')],
   },
   fields: [
     {

@@ -7,6 +7,9 @@ type ReservationOrder = {
   items?: Array<{
     product?: string | number | { id?: string | number }
     size?: string
+    // Colour NAME (variant-level stock, 2026-07-25). Optional so orders
+    // created before the variants change can still be released.
+    color?: string | null
     qty?: number
   }>
   market?: string
@@ -16,7 +19,7 @@ type ReservationOrder = {
   inventoryReservationStatus?: string
 }
 
-type StockDelta = { productId: string | number; size: string; qty: number }
+type StockDelta = { productId: string | number; size: string; color: string; qty: number }
 
 function relationshipId(value: StockDelta['productId'] | { id?: string | number } | undefined) {
   if (typeof value === 'string' || typeof value === 'number') return value
@@ -29,13 +32,14 @@ function itemDeltas(order: ReservationOrder): StockDelta[] {
   for (const item of order.items ?? []) {
     const productId = relationshipId(item.product)
     const size = String(item.size ?? '')
+    const color = String(item.color ?? '')
     const qty = Number(item.qty)
     if (productId === null || !size || !Number.isInteger(qty) || qty < 1) {
       throw new APIError('Invalid inventory reservation item.', 400, null, true)
     }
-    const key = `${String(productId)}:${size}`
+    const key = `${String(productId)}:${size}:${color}`
     const current = grouped.get(key)
-    grouped.set(key, { productId, size, qty: (current?.qty ?? 0) + qty })
+    grouped.set(key, { productId, size, color, qty: (current?.qty ?? 0) + qty })
   }
   return [...grouped.values()].sort((a, b) => String(a.productId).localeCompare(String(b.productId)))
 }
@@ -66,23 +70,77 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
     })
     const productDeltas = deltas.filter((entry) => String(entry.productId) === String(productId))
     const stockKey = order.market === 'PT' ? 'stockPT' : 'stockAO'
-    const sizes = (product.sizes ?? []).map((sizeRow) => {
-      const delta = productDeltas.find((entry) => entry.size === sizeRow.size)
-      if (!delta) return sizeRow
-      const currentStock = Number(sizeRow[stockKey] ?? 0)
-      if (direction === 'reserve' && currentStock < delta.qty) {
+
+    // Variant-level stock (2026-07-25): rows are colour+size. Deltas carry
+    // the colour NAME (what order items store), so resolve the variants'
+    // colour ids to names first.
+    type VariantRow = {
+      id?: string | null
+      color?: string | number | { id?: string | number; name?: string | null } | null
+      size: string
+      stockAO: number
+      stockPT: number
+    }
+    const variants = ((product.variants ?? []) as VariantRow[]).map((row) => ({
+      id: row.id,
+      color: relationshipId(row.color as never) ?? undefined,
+      populatedName: row.color && typeof row.color === 'object' ? (row.color.name ?? null) : null,
+      size: row.size,
+      stockAO: Number(row.stockAO ?? 0),
+      stockPT: Number(row.stockPT ?? 0),
+    }))
+    const unresolved = [...new Set(variants.filter((v) => !v.populatedName && v.color !== undefined).map((v) => v.color as string | number))]
+    const nameById = new Map<string, string>()
+    if (unresolved.length > 0) {
+      const colorDocs = await req.payload.find({
+        collection: 'colors',
+        where: { id: { in: unresolved } },
+        limit: unresolved.length,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+      for (const doc of colorDocs.docs) {
+        const name = (doc as { name?: string | null }).name
+        if (name) nameById.set(String(doc.id), name)
+      }
+    }
+    const colorNameOf = (v: (typeof variants)[number]) => v.populatedName ?? nameById.get(String(v.color)) ?? ''
+
+    for (const delta of productDeltas) {
+      // Exact colour+size match first; colour-less deltas (orders that
+      // predate variants) fall back to any row of that size with stock.
+      let idx = variants.findIndex((v) => v.size === delta.size && colorNameOf(v) === delta.color)
+      if (idx === -1 && !delta.color) {
+        idx = variants.findIndex((v) => v.size === delta.size && (direction === 'release' || v[stockKey] >= delta.qty))
+      }
+      if (idx === -1 && direction === 'release') {
+        idx = variants.findIndex((v) => v.size === delta.size)
+      }
+      if (idx === -1) {
         throw new APIError('The requested quantity is no longer in stock.', 409, null, true)
       }
-      return {
-        ...sizeRow,
-        [stockKey]: direction === 'reserve' ? currentStock - delta.qty : currentStock + delta.qty,
+      if (direction === 'reserve' && variants[idx][stockKey] < delta.qty) {
+        throw new APIError('The requested quantity is no longer in stock.', 409, null, true)
       }
-    })
+      variants[idx][stockKey] += direction === 'reserve' ? -delta.qty : delta.qty
+    }
 
     await req.payload.update({
       collection: 'products',
       id: productId,
-      data: { sizes },
+      data: {
+        // Cast: relationship ids are numbers under both adapters at
+        // runtime; the local VariantRow type is looser (string | number)
+        // only because relationshipId() is shared with request payloads.
+        variants: variants.map((v) => ({
+          id: v.id ?? undefined,
+          color: v.color,
+          size: v.size,
+          stockAO: v.stockAO,
+          stockPT: v.stockPT,
+        })) as unknown as { color: number; size: 'XS' | 'S' | 'M' | 'L' | 'XL'; stockAO: number; stockPT: number; id?: string | null }[],
+      },
       depth: 0,
       overrideAccess: true,
       req,

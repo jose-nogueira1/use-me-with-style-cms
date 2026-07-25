@@ -15,6 +15,7 @@ import { Products } from './collections/Products'
 import { Categories } from './collections/Categories'
 import { MerchTags } from './collections/MerchTags'
 import { Colors } from './collections/Colors'
+import { SizeGuides } from './collections/SizeGuides'
 import { Orders } from './collections/Orders'
 import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
@@ -115,7 +116,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Categories, MerchTags, Colors, Orders, Customers, Messages, Invoices],
+  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Orders, Customers, Messages, Invoices],
   globals: [MarketSettings, InvoiceSettings, LegalContent],
   endpoints: [
     orderLookupEndpoint,

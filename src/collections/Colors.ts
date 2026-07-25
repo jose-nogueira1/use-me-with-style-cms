@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { blockDeleteWhileInUse } from '../lib/taxonomyGuards'
 
 // Colour taxonomy (2026-07-25 admin request). Replaces the previous
 // free-text colours array on Products, which produced inconsistent filter
@@ -22,6 +23,9 @@ export const Colors: CollectionConfig = {
   },
   access: {
     read: () => true,
+  },
+  hooks: {
+    beforeDelete: [blockDeleteWhileInUse('variants.color', 'colour')],
   },
   fields: [
     {

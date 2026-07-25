@@ -77,16 +77,26 @@ export const Products: CollectionConfig = {
       type: 'textarea',
       label: 'Description — English',
     },
+    // Structured size guide (2026-07-25, replaces the free-text
+    // sizeGuidePT/EN textareas that shipped earlier the same day): shared
+    // measurement charts live in the size-guides collection; the product
+    // just references one. Language handled by the storefront's labels.
     {
-      name: 'sizeGuidePT',
-      type: 'textarea',
-      label: 'Size guide — Portuguese',
-      admin: { description: 'Optional. Free text -- e.g. measurements per size (bust/waist/hip in cm) and fit notes. Shown to shoppers on the product page.' },
+      name: 'sizeGuide',
+      type: 'relationship',
+      relationTo: 'size-guides',
+      admin: { description: 'Optional. Shared measurement chart shown in the product page size-guide modal.' },
     },
     {
-      name: 'sizeGuideEN',
+      name: 'fitNotePT',
       type: 'textarea',
-      label: 'Size guide — English',
+      label: 'Fit note — Portuguese',
+      admin: { description: 'Optional short per-product advice shown under the size chart, e.g. "Veste pequeno, recomendamos um tamanho acima."' },
+    },
+    {
+      name: 'fitNoteEN',
+      type: 'textarea',
+      label: 'Fit note — English',
     },
     // Was a hardcoded select until 2026-07-25 -- same relationship
     // conversion as `category` above so admins can create their own badges.
@@ -108,16 +118,6 @@ export const Products: CollectionConfig = {
         },
       ],
     },
-    // Was an array of free-text strings until 2026-07-25; now references
-    // the colours taxonomy so names stay consistent across products and the
-    // storefront can render real swatches. See collections/Colors.ts.
-    {
-      name: 'colors',
-      type: 'relationship',
-      relationTo: 'colors',
-      hasMany: true,
-      label: 'Colours',
-    },
     {
       name: 'priceAOKz',
       type: 'number',
@@ -132,13 +132,28 @@ export const Products: CollectionConfig = {
       min: 0,
       label: 'Price -- Portugal (EUR)',
     },
+    // Variant-level inventory (2026-07-25): stock is tracked per COLOUR +
+    // SIZE combination, replacing the earlier per-size `sizes` array and
+    // the separate `colors` list. Every product has at least one colour
+    // (confirmed with Jay-P), so each row carries a required colour ref.
+    // The storefront derives the product's colour list from these rows
+    // (row order = display order) and disables size buttons that are out
+    // of stock for the selected colour.
     {
-      name: 'sizes',
+      name: 'variants',
       type: 'array',
       required: true,
       minRows: 1,
-      labels: { singular: 'Size', plural: 'Sizes' },
+      labels: { singular: 'Variant', plural: 'Variants' },
+      admin: { description: 'One row per colour + size combination, with per-market stock.' },
       fields: [
+        {
+          name: 'color',
+          type: 'relationship',
+          relationTo: 'colors',
+          required: true,
+          label: 'Colour',
+        },
         {
           name: 'size',
           type: 'select',

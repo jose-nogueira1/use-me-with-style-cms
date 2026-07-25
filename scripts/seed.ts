@@ -74,6 +74,43 @@ async function seed() {
     return doc.id
   }
 
+  // Shared size charts (2026-07-25): two dev fixtures covering the four
+  // seeded categories; products reference one by category below.
+  const SIZE_GUIDES: Record<string, { name: string; rows: { size: 'XS' | 'S' | 'M' | 'L' | 'XL'; bust?: number; waist?: number; hip?: number; length?: number }[] }> = {
+    dresses: {
+      name: 'Vestidos & Conjuntos — padrão',
+      rows: [
+        { size: 'XS', bust: 78, waist: 60, hip: 86 },
+        { size: 'S', bust: 82, waist: 64, hip: 90 },
+        { size: 'M', bust: 86, waist: 68, hip: 94 },
+        { size: 'L', bust: 92, waist: 74, hip: 100 },
+        { size: 'XL', bust: 98, waist: 80, hip: 106 },
+      ],
+    },
+    activewear: {
+      name: 'Tops & Leggings — padrão',
+      rows: [
+        { size: 'XS', bust: 76, waist: 58, hip: 84 },
+        { size: 'S', bust: 80, waist: 62, hip: 88 },
+        { size: 'M', bust: 84, waist: 66, hip: 92 },
+        { size: 'L', bust: 90, waist: 72, hip: 98 },
+        { size: 'XL', bust: 96, waist: 78, hip: 104 },
+      ],
+    },
+  }
+  const guideIdByKey = new Map<string, number>()
+  for (const [key, guide] of Object.entries(SIZE_GUIDES)) {
+    const existing = await payload.find({ collection: 'size-guides', where: { name: { equals: guide.name } }, limit: 1 })
+    const doc = existing.docs[0] ?? (await payload.create({ collection: 'size-guides', data: guide }))
+    guideIdByKey.set(key, doc.id)
+  }
+  const guideKeyByCategory: Record<SeedProduct['category'], string> = {
+    vestidos: 'dresses',
+    conjuntos: 'dresses',
+    tops: 'activewear',
+    leggings: 'activewear',
+  }
+
   for (const product of PRODUCTS) {
     const existing = await payload.find({
       collection: 'products',
@@ -95,17 +132,27 @@ async function seed() {
       payload.logger.info(`Updated localized copy: ${product.name}`)
       continue
     }
+    // Variant rows = every colour x every size. Dev fixture convenience:
+    // each colour gets the size row's full stock numbers (totals don't
+    // matter for local testing; prod stock is entered by the admin).
+    const productColorIds = await Promise.all(product.colors.map((name) => colorId(name)))
+    const variants = productColorIds.flatMap((cid) =>
+      product.sizes.map((row) => ({ color: cid, size: row.size, stockAO: row.stockAO, stockPT: row.stockPT })),
+    )
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip colors/sizes off the spread; they became `variants`
+    const { colors: _colors, sizes: _sizes, ...productRest } = product
     await payload.create({
       collection: 'products',
       data: {
-        ...product,
+        ...productRest,
         namePT: product.name,
         nameEN: product.name,
         descriptionPT: `Uma peça versátil da coleção Use Me With Style, criada para conforto e confiança ao longo do dia.`,
         descriptionEN: `A versatile Use Me With Style piece, designed for comfort and confidence throughout the day.`,
         category: categoryIdBySlug.get(product.category)!,
         tag: product.tag ? tagIdByValue.get(product.tag) : undefined,
-        colors: await Promise.all(product.colors.map((name) => colorId(name))),
+        variants,
+        sizeGuide: guideIdByKey.get(guideKeyByCategory[product.category]),
         active: true,
         availableAO: true,
         availablePT: true,

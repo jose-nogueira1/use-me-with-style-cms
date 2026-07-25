@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { blockDeleteWhileInUse } from '../lib/taxonomyGuards'
 
 // Merchandising badges ("Novidade", "Bestseller", ...) as data instead of a
 // hardcoded select (2026-07-25 admin request, same change as Categories).
@@ -15,6 +16,9 @@ export const MerchTags: CollectionConfig = {
   access: {
     // Storefront renders the badge on product cards; public read, admin write.
     read: () => true,
+  },
+  hooks: {
+    beforeDelete: [blockDeleteWhileInUse('tag', 'merchandising tag')],
   },
   fields: [
     {

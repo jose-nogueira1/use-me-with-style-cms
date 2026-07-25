@@ -73,6 +73,7 @@ export interface Config {
     categories: Category;
     'merch-tags': MerchTag;
     colors: Color;
+    'size-guides': SizeGuide;
     orders: Order;
     customers: Customer;
     messages: Message;
@@ -90,6 +91,7 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     'merch-tags': MerchTagsSelect<false> | MerchTagsSelect<true>;
     colors: ColorsSelect<false> | ColorsSelect<true>;
+    'size-guides': SizeGuidesSelect<false> | SizeGuidesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
@@ -228,10 +230,14 @@ export interface Product {
   descriptionPT?: string | null;
   descriptionEN?: string | null;
   /**
-   * Optional. Free text -- e.g. measurements per size (bust/waist/hip in cm) and fit notes. Shown to shoppers on the product page.
+   * Optional. Shared measurement chart shown in the product page size-guide modal.
    */
-  sizeGuidePT?: string | null;
-  sizeGuideEN?: string | null;
+  sizeGuide?: (number | null) | SizeGuide;
+  /**
+   * Optional short per-product advice shown under the size chart, e.g. "Veste pequeno, recomendamos um tamanho acima."
+   */
+  fitNotePT?: string | null;
+  fitNoteEN?: string | null;
   /**
    * Optional merchandising badge shown on the product card.
    */
@@ -242,10 +248,13 @@ export interface Product {
         id?: string | null;
       }[]
     | null;
-  colors?: (number | Color)[] | null;
   priceAOKz: number;
   pricePTEur: number;
-  sizes: {
+  /**
+   * One row per colour + size combination, with per-market stock.
+   */
+  variants: {
+    color: number | Color;
     size: 'XS' | 'S' | 'M' | 'L' | 'XL';
     stockAO: number;
     stockPT: number;
@@ -319,6 +328,30 @@ export interface Color {
    * Optional. For patterns/multicolour fabrics where a single hex value is not representative. Takes precedence over the hex value.
    */
   swatch?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "size-guides".
+ */
+export interface SizeGuide {
+  id: number;
+  /**
+   * Internal name, e.g. "Vestidos — padrão". Shoppers never see this.
+   */
+  name: string;
+  /**
+   * One row per size. All measurements in centimetres; leave blank any that do not apply to this garment type.
+   */
+  rows: {
+    size: 'XS' | 'S' | 'M' | 'L' | 'XL';
+    bust?: number | null;
+    waist?: number | null;
+    hip?: number | null;
+    length?: number | null;
+    id?: string | null;
+  }[];
   updatedAt: string;
   createdAt: string;
 }
@@ -551,6 +584,10 @@ export interface PayloadLockedDocument {
         value: number | Color;
       } | null)
     | ({
+        relationTo: 'size-guides';
+        value: number | SizeGuide;
+      } | null)
+    | ({
         relationTo: 'orders';
         value: number | Order;
       } | null)
@@ -686,8 +723,9 @@ export interface ProductsSelect<T extends boolean = true> {
   description?: T;
   descriptionPT?: T;
   descriptionEN?: T;
-  sizeGuidePT?: T;
-  sizeGuideEN?: T;
+  sizeGuide?: T;
+  fitNotePT?: T;
+  fitNoteEN?: T;
   tag?: T;
   images?:
     | T
@@ -695,12 +733,12 @@ export interface ProductsSelect<T extends boolean = true> {
         image?: T;
         id?: T;
       };
-  colors?: T;
   priceAOKz?: T;
   pricePTEur?: T;
-  sizes?:
+  variants?:
     | T
     | {
+        color?: T;
         size?: T;
         stockAO?: T;
         stockPT?: T;
@@ -741,6 +779,25 @@ export interface ColorsSelect<T extends boolean = true> {
   name?: T;
   hex?: T;
   swatch?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "size-guides_select".
+ */
+export interface SizeGuidesSelect<T extends boolean = true> {
+  name?: T;
+  rows?:
+    | T
+    | {
+        size?: T;
+        bust?: T;
+        waist?: T;
+        hip?: T;
+        length?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

@@ -19,10 +19,14 @@ type InventoryProduct = {
   namePT?: string | null
   priceAOKz: number
   pricePTEur: number
-  sizes?: Array<{ size: string; stockAO: number; stockPT: number }> | null
-  // hasMany relationship to the colours taxonomy (2026-07-25): plain ids at
-  // depth 0, populated docs at depth >= 1.
-  colors?: Array<string | number | { name?: string | null }> | null
+  // Variant-level inventory (2026-07-25): stock per colour+size row. The
+  // colour ref is a plain id at depth 0, a populated doc at depth >= 1.
+  variants?: Array<{
+    color?: string | number | { id?: string | number; name?: string | null } | null
+    size: string
+    stockAO: number
+    stockPT: number
+  }> | null
 }
 
 const PT_SHIPPING_COSTS: Record<string, number> = {
@@ -111,39 +115,56 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     const isAvailable = product.active && (market === 'AO' ? product.availableAO : product.availablePT)
     if (!isAvailable) badRequest('A selected product is unavailable.')
 
-    const sizeRow = product.sizes?.find((entry) => entry.size === size)
-    if (!sizeRow) badRequest('A selected size is unavailable.')
+    // Variant-level stock (2026-07-25): every product tracks stock per
+    // colour+size row, and order items keep storing the colour NAME
+    // (human-readable on invoices/labels). Resolve colour ids -> names,
+    // then validate the exact colour+size combination.
+    const variantRefs = product.variants ?? []
+    if (variantRefs.length === 0) badRequest('A selected product is unavailable.')
 
-    // Colours moved from free-text strings to a taxonomy relationship
-    // (2026-07-25). Order items still store the colour NAME (human-readable
-    // on invoices/labels), so resolve ids -> names before validating.
-    const colorRefs = product.colors ?? []
-    const colorIds = colorRefs.filter((entry): entry is string | number => typeof entry !== 'object')
-    const populatedNames = colorRefs
-      .map((entry) => (entry && typeof entry === 'object' ? entry.name : null))
-      .filter((name): name is string => Boolean(name))
-    let allowedColors: string[] = populatedNames
-    if (colorIds.length > 0) {
+    const unresolvedIds = [
+      ...new Set(
+        variantRefs
+          .map((entry) => relationshipId(entry.color ?? undefined))
+          .filter((value): value is string | number => value !== null),
+      ),
+    ]
+    const nameById = new Map<string, string>()
+    if (unresolvedIds.length > 0) {
       const colorDocs = await req.payload.find({
         collection: 'colors',
-        where: { id: { in: colorIds } },
-        limit: colorIds.length,
+        where: { id: { in: unresolvedIds } },
+        limit: unresolvedIds.length,
         depth: 0,
         overrideAccess: true,
       })
-      allowedColors = allowedColors.concat(
-        colorDocs.docs.map((doc) => (doc as { name?: string | null }).name).filter((name): name is string => Boolean(name)),
-      )
+      for (const doc of colorDocs.docs) {
+        const name = (doc as { name?: string | null }).name
+        if (name) nameById.set(String(doc.id), name)
+      }
     }
-    if (allowedColors.length > 0 && !allowedColors.includes(color)) {
-      badRequest('A selected colour is unavailable.')
-    }
+    const variantRows = variantRefs.map((entry) => ({
+      colorName:
+        (entry.color && typeof entry.color === 'object' && entry.color.name) ||
+        nameById.get(String(relationshipId(entry.color ?? undefined))) ||
+        '',
+      size: entry.size,
+      stock: market === 'AO' ? Number(entry.stockAO ?? 0) : Number(entry.stockPT ?? 0),
+    }))
 
-    const variantKey = `${String(product.id)}:${size}`
+    // Tolerate an omitted colour only when it's unambiguous (single-colour
+    // product) -- covers older cached storefront bundles.
+    const distinctColors = [...new Set(variantRows.map((entry) => entry.colorName))]
+    const chosenColor = color || (distinctColors.length === 1 ? distinctColors[0] : '')
+    if (!chosenColor) badRequest('A selected colour is unavailable.')
+
+    const variantRow = variantRows.find((entry) => entry.size === size && entry.colorName === chosenColor)
+    if (!variantRow) badRequest('A selected size/colour combination is unavailable.')
+
+    const variantKey = `${String(product.id)}:${size}:${chosenColor}`
     const requestedQty = (requestedByVariant.get(variantKey) ?? 0) + qty
     requestedByVariant.set(variantKey, requestedQty)
-    const stock = market === 'AO' ? sizeRow.stockAO : sizeRow.stockPT
-    if (requestedQty > stock) badRequest('The requested quantity is no longer in stock.')
+    if (requestedQty > variantRow.stock) badRequest('The requested quantity is no longer in stock.')
 
     const usesEurSettlement = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal'
     const unitPrice = usesEurSettlement ? product.pricePTEur : product.priceAOKz
@@ -152,7 +173,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       product: product.id,
       productName: data.lang === 'en' ? product.nameEN || product.name : product.namePT || product.name,
       size,
-      color: color || undefined,
+      color: chosenColor,
       qty,
       unitPrice,
     })
