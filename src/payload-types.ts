@@ -353,6 +353,10 @@ export interface Color {
    */
   hex?: string | null;
   /**
+   * Optional. Set this to create a two-tone combination colour -- the swatch renders as a split circle.
+   */
+  hex2?: string | null;
+  /**
    * Optional. For patterns/multicolour fabrics where a single hex value is not representative. Takes precedence over the hex value.
    */
   swatch?: (number | null) | Media;
@@ -784,6 +788,7 @@ export interface ColorsSelect<T extends boolean = true> {
   namePT?: T;
   nameEN?: T;
   hex?: T;
+  hex2?: T;
   swatch?: T;
   updatedAt?: T;
   createdAt?: T;

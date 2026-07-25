@@ -23,7 +23,7 @@ export const Colors: CollectionConfig = {
   labels: { singular: 'Colour', plural: 'Colours' },
   admin: {
     useAsTitle: 'namePT',
-    defaultColumns: ['namePT', 'nameEN', 'hex'],
+    defaultColumns: ['namePT', 'nameEN', 'hex', 'hex2'],
     group: 'Catalogue',
   },
   access: {
@@ -57,6 +57,22 @@ export const Colors: CollectionConfig = {
         return /^#[0-9a-fA-F]{6}$/.test(value) || 'Must be a 6-digit hex colour like #7A8B5C.'
       },
       admin: { description: 'Solid-colour swatch, e.g. #7A8B5C. Leave empty for patterned fabrics and upload a swatch image instead.' },
+    },
+    {
+      // Two-tone combination colours (2026-07-25 admin request, e.g. "red &
+      // white"): setting hex2 alongside hex renders a split-circle swatch
+      // instead of a solid dot. Still a single Colours doc/id -- variants,
+      // cart, and orders all treat it exactly like any other colour, since
+      // they only ever key off the id. Three-plus tones aren't supported;
+      // use a swatch image for anything more complex than two colours.
+      name: 'hex2',
+      type: 'text',
+      label: 'Second hex value (combination colour)',
+      validate: (value: string | null | undefined) => {
+        if (!value) return true
+        return /^#[0-9a-fA-F]{6}$/.test(value) || 'Must be a 6-digit hex colour like #7A8B5C.'
+      },
+      admin: { description: 'Optional. Set this to create a two-tone combination colour -- the swatch renders as a split circle.' },
     },
     {
       name: 'swatch',
