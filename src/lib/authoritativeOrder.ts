@@ -1,5 +1,6 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice } from './salePricing'
+import { resolveCoupon } from './couponPricing'
 
 type Market = 'AO' | 'PT'
 
@@ -214,14 +215,42 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   const currency = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal' ? 'EUR' : 'Kz'
   const shippingCost = market === 'AO' ? 0 : PT_SHIPPING_COSTS[deliveryMethod]
   const subtotal = authoritativeItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
+  const customerEmail = String(data.customerEmail ?? '').trim().toLowerCase()
+
+  // Coupon codes (2026-07-25, discounts phase 2). The client may suggest a
+  // CODE (just the string), never a discount amount -- resolveCoupon() is
+  // the only thing that turns it into a number, same authoritative-only
+  // boundary as unitPrice/subtotal/total above. An invalid/expired/
+  // exhausted code fails the whole order (the checkout UI validates ahead
+  // of time via /coupons/validate, so this should be rare -- mainly a race
+  // against another shopper exhausting a limited-use code).
+  let couponCode: string | undefined
+  let discountAmount = 0
+  let discountLabel: string | undefined
+  const submittedCode = typeof data.couponCode === 'string' ? data.couponCode.trim() : ''
+  if (submittedCode) {
+    const result = await resolveCoupon(req.payload, {
+      code: submittedCode,
+      pricingMarket: currency === 'EUR' ? 'PT' : 'AO',
+      subtotal,
+      customerEmail,
+    })
+    if (!result.valid) badRequest(result.reason)
+    couponCode = result.code
+    discountAmount = result.discountAmount
+    discountLabel = result.label
+  }
 
   return {
     ...data,
-    customerEmail: String(data.customerEmail ?? '').trim().toLowerCase(),
+    customerEmail,
     items: authoritativeItems,
     currency,
     subtotal,
     shippingCost,
-    total: subtotal + shippingCost,
+    couponCode: couponCode ?? null,
+    discountAmount,
+    discountLabel: discountLabel ?? null,
+    total: Math.max(0, subtotal - discountAmount) + shippingCost,
   }
 }

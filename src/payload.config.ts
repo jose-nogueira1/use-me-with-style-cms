@@ -20,6 +20,7 @@ import { Orders } from './collections/Orders'
 import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
+import { Coupons } from './collections/Coupons'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
 import { LegalContent } from './globals/LegalContent'
@@ -32,6 +33,7 @@ import { orderLookupEndpoint } from './endpoints/orderLookup'
 import { contactEndpoint } from './endpoints/contact'
 import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
+import { couponsEndpoints } from './endpoints/coupons'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -117,7 +119,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Orders, Customers, Messages, Invoices],
+  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Orders, Customers, Messages, Invoices, Coupons],
   globals: [MarketSettings, InvoiceSettings, LegalContent, HomeContent],
   endpoints: [
     orderLookupEndpoint,
@@ -128,6 +130,7 @@ export default buildConfig({
     ...internalInvoiceEndpoints,
     ...metaConversionEndpoints,
     ...instagramFeedEndpoints,
+    ...couponsEndpoints,
   ],
   editor: lexicalEditor(),
   plugins,

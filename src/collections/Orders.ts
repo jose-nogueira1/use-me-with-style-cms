@@ -3,6 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { notifyOrderEvent } from '../hooks/notifyOrderEvent'
 import { applyAuthoritativeOrderValues } from '../lib/authoritativeOrder'
 import { manageInventoryReservation } from '../lib/inventoryReservation'
+import { incrementCouponUsageAfterOrderCreate } from '../lib/couponPricing'
 
 // Order statuses locked in JOS-52 (2026-06-02 decision log, confirmed in
 // Linear): New, Payment Review, Processing, Shipped, Delivered, Cancelled.
@@ -69,7 +70,7 @@ export const Orders: CollectionConfig = {
         return data
       },
     ],
-    afterChange: [notifyOrderEvent],
+    afterChange: [incrementCouponUsageAfterOrderCreate, notifyOrderEvent],
   },
   fields: [
     {
@@ -170,8 +171,32 @@ export const Orders: CollectionConfig = {
       ],
     },
     { name: 'currency', type: 'select', required: true, options: ['Kz', 'EUR'] },
+    // `subtotal` stays the RAW, undiscounted line-item sum (auditability --
+    // matches what's shown as "Subtotal" before any discount). The coupon
+    // discount is subtracted going into `total` below, not folded into
+    // subtotal itself.
     { name: 'subtotal', type: 'number', required: true, min: 0 },
     { name: 'shippingCost', type: 'number', required: true, min: 0, defaultValue: 0 },
+    // Coupon codes (2026-07-25, discounts phase 2). Snapshotted as plain
+    // values, not a relationship, so the coupon can be edited/deleted later
+    // without touching historical orders/invoices -- see Coupons.ts.
+    {
+      name: 'couponCode',
+      type: 'text',
+      admin: { readOnly: true, description: 'Snapshot of the coupon code used, if any.' },
+    },
+    {
+      name: 'discountAmount',
+      type: 'number',
+      defaultValue: 0,
+      min: 0,
+      admin: { readOnly: true, description: 'Amount deducted by the coupon, in the order currency.' },
+    },
+    {
+      name: 'discountLabel',
+      type: 'text',
+      admin: { readOnly: true, description: 'Human-readable label shown on the invoice/admin, e.g. "SS26 (10% off)".' },
+    },
     { name: 'total', type: 'number', required: true, min: 0 },
     {
       name: 'paymentMethod',

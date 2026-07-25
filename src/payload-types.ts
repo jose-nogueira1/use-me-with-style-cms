@@ -78,6 +78,7 @@ export interface Config {
     customers: Customer;
     messages: Message;
     invoices: Invoice;
+    coupons: Coupon;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -96,6 +97,7 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
     invoices: InvoicesSelect<false> | InvoicesSelect<true>;
+    coupons: CouponsSelect<false> | CouponsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -438,6 +440,18 @@ export interface Order {
   currency: 'Kz' | 'EUR';
   subtotal: number;
   shippingCost: number;
+  /**
+   * The coupon code applied at checkout, if any (uppercased, as entered). Snapshotted -- editing/deleting the coupon later doesn't change past orders.
+   */
+  couponCode?: string | null;
+  /**
+   * Amount deducted from the subtotal by the coupon above. Always computed server-side -- never trust a client-submitted amount.
+   */
+  discountAmount?: number | null;
+  /**
+   * Human-readable discount description, shown on the internal invoice.
+   */
+  discountLabel?: string | null;
   total: number;
   paymentMethod: 'paypal' | 'stripe' | 'mbway' | 'multicaixa_express' | 'bank_transfer_ao' | 'sweg_appypay';
   paymentStatus?: ('pending' | 'awaiting_manual_review' | 'paid' | 'failed') | null;
@@ -569,6 +583,68 @@ export interface Invoice {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "coupons".
+ */
+export interface Coupon {
+  id: number;
+  /**
+   * What shoppers type at checkout. Case-insensitive -- always stored/matched uppercase.
+   */
+  code: string;
+  /**
+   * Uncheck to disable without deleting (keeps redemption history on past orders intact).
+   */
+  active?: boolean | null;
+  /**
+   * Internal note (e.g. which campaign this is for) -- not shown to shoppers.
+   */
+  description?: string | null;
+  type: 'percent' | 'fixed';
+  /**
+   * 1-100.
+   */
+  percentOff?: number | null;
+  /**
+   * Leave blank to not offer this coupon in Angola.
+   */
+  fixedOffAOKz?: number | null;
+  /**
+   * Leave blank to not offer this coupon in Portugal.
+   */
+  fixedOffPTEur?: number | null;
+  /**
+   * Optional.
+   */
+  minOrderValueAOKz?: number | null;
+  /**
+   * Optional.
+   */
+  minOrderValuePTEur?: number | null;
+  /**
+   * Optional. Coupon is inactive before this date.
+   */
+  startDate?: string | null;
+  /**
+   * Optional. Coupon is inactive after this date.
+   */
+  endDate?: string | null;
+  /**
+   * Optional. Total redemptions allowed across every customer.
+   */
+  usageLimit?: number | null;
+  /**
+   * Incremented automatically whenever an order successfully uses this code.
+   */
+  usageCount?: number | null;
+  /**
+   * Optional. Caps how many times the same customer email can use this code.
+   */
+  maxRedemptionsPerEmail?: number | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -882,6 +958,9 @@ export interface OrdersSelect<T extends boolean = true> {
   currency?: T;
   subtotal?: T;
   shippingCost?: T;
+  couponCode?: T;
+  discountAmount?: T;
+  discountLabel?: T;
   total?: T;
   paymentMethod?: T;
   paymentStatus?: T;
@@ -993,6 +1072,28 @@ export interface InvoicesSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "coupons_select".
+ */
+export interface CouponsSelect<T extends boolean = true> {
+  code?: T;
+  active?: T;
+  description?: T;
+  type?: T;
+  percentOff?: T;
+  fixedOffAOKz?: T;
+  fixedOffPTEur?: T;
+  minOrderValueAOKz?: T;
+  minOrderValuePTEur?: T;
+  startDate?: T;
+  endDate?: T;
+  usageLimit?: T;
+  usageCount?: T;
+  maxRedemptionsPerEmail?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

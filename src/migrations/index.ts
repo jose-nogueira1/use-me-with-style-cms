@@ -22,6 +22,8 @@ import * as migration_20260725_200000_home_content_versions from './20260725_200
 import * as migration_20260725_210000_merch_tags_slug from './20260725_210000_merch_tags_slug'
 import * as migration_20260725_220000_categories_image from './20260725_220000_categories_image'
 import * as migration_20260725_230000_product_sale_pricing from './20260725_230000_product_sale_pricing'
+import * as migration_20260725_231500_coupons from './20260725_231500_coupons'
+import * as migration_20260725_232000_order_coupon_fields from './20260725_232000_order_coupon_fields'
 
 export const migrations = [
   {
@@ -143,5 +145,15 @@ export const migrations = [
     up: migration_20260725_230000_product_sale_pricing.up,
     down: migration_20260725_230000_product_sale_pricing.down,
     name: '20260725_230000_product_sale_pricing',
+  },
+  {
+    up: migration_20260725_231500_coupons.up,
+    down: migration_20260725_231500_coupons.down,
+    name: '20260725_231500_coupons',
+  },
+  {
+    up: migration_20260725_232000_order_coupon_fields.up,
+    down: migration_20260725_232000_order_coupon_fields.down,
+    name: '20260725_232000_order_coupon_fields',
   },
 ]

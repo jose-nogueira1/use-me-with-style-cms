@@ -35,6 +35,16 @@ type CreateCheckoutSessionInput = {
   items: CheckoutItemInput[]
   shippingCost: number
   customerEmail: string
+  // Coupon codes (2026-07-25, discounts phase 2). Stripe Checkout Sessions
+  // charge the sum of line_items -- there's no "total override" parameter,
+  // and price_data line items can't have a negative unit_amount, so a
+  // discount already baked into our own authoritative `order.total` would
+  // otherwise silently NOT reduce what Stripe actually charges. Fixed below
+  // by creating a throwaway, single-use Stripe Coupon for exactly this
+  // amount and attaching it via the session's `discounts` param -- the
+  // documented way to discount a Checkout Session.
+  discountAmount?: number
+  discountLabel?: string
 }
 
 function siteUrl(): string {
@@ -71,12 +81,24 @@ export async function createCheckoutSession(
     })
   }
 
+  let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined
+  if (input.discountAmount && input.discountAmount > 0) {
+    const coupon = await stripe.coupons.create({
+      amount_off: Math.round(input.discountAmount * 100),
+      currency,
+      duration: 'once',
+      name: input.discountLabel || 'Discount',
+    })
+    discounts = [{ coupon: coupon.id }]
+  }
+
   const base = siteUrl()
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     customer_email: input.customerEmail,
     line_items: lineItems,
+    ...(discounts ? { discounts } : {}),
     success_url: `${base}/encomenda-confirmada/${input.orderNumber}?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/checkout?stripe=cancelled`,
     metadata: {

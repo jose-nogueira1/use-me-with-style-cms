@@ -85,6 +85,8 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       currency: doc.currency,
       subtotal: doc.subtotal,
       shippingCost: doc.shippingCost,
+      discountAmount: doc.discountAmount || undefined,
+      discountLabel: doc.discountLabel || undefined,
       total: doc.total,
       paymentMethod: doc.paymentMethod,
       paymentReference: doc.paymentReference || undefined,

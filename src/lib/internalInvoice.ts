@@ -26,6 +26,12 @@ export type OrderForInternalInvoice = {
   currency: 'Kz' | 'EUR'
   subtotal: number
   shippingCost: number
+  // Coupon codes (2026-07-25, discounts phase 2) -- discountAmount is
+  // already subtracted into `total`; these two are only needed here to
+  // render the discount as its own labeled invoice line instead of letting
+  // it collapse into the generic "Ajuste da encomenda" reconciliation line.
+  discountAmount?: number
+  discountLabel?: string | null
   total: number
   paymentMethod?: string
   paymentReference?: string
@@ -66,7 +72,7 @@ const DEFAULT_DISCLAIMER =
 const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
 
 export function calculateIncludedVatInvoice(
-  order: Pick<OrderForInternalInvoice, 'items' | 'shippingCost' | 'total'>,
+  order: Pick<OrderForInternalInvoice, 'items' | 'shippingCost' | 'total' | 'discountAmount' | 'discountLabel'>,
   vatRate: number,
 ): InvoiceCalculation {
   const rate = Math.max(0, Number(vatRate) || 0)
@@ -89,6 +95,19 @@ export function calculateIncludedVatInvoice(
     const netAmount = rate > 0 ? roundMoney(grossAmount / divisor) : grossAmount
     lines.push({
       description: 'Portes de envio',
+      quantity: 1,
+      unitPrice: grossAmount,
+      netAmount,
+      taxAmount: roundMoney(grossAmount - netAmount),
+      grossAmount,
+    })
+  }
+
+  if (order.discountAmount && order.discountAmount > 0) {
+    const grossAmount = roundMoney(-order.discountAmount)
+    const netAmount = rate > 0 ? roundMoney(grossAmount / divisor) : grossAmount
+    lines.push({
+      description: order.discountLabel || 'Desconto',
       quantity: 1,
       unitPrice: grossAmount,
       netAmount,

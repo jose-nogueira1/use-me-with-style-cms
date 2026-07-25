@@ -53,6 +53,12 @@ type CreateOrderBody = {
   total: number
   paymentMethod: string
   deliveryMethod: string
+  // Coupon code the shopper applied at checkout (2026-07-25, discounts
+  // phase 2) -- just the string; createPendingOrder below passes it through
+  // untouched to payload.create, where authoritativeOrder.ts resolves it
+  // into the real discountAmount/discountLabel. Optional/undefined is a
+  // no-op, same as an older client that doesn't know this field exists.
+  couponCode?: string
   // Storefront language at checkout (falls back to 'pt' -- same default as
   // the frontend's own AppContext -- if an older client omits it). Drives
   // the language of the order-confirmation email in notifyOrderEvent.ts.
@@ -74,6 +80,10 @@ type PendingOrder = Omit<CreateOrderBody, 'items'> & {
     qty: number
     unitPrice: number
   }>
+  // Server-resolved by authoritativeOrder.ts -- present on the doc
+  // payload.create() returns, not something the client ever sends.
+  discountAmount?: number
+  discountLabel?: string | null
 }
 
 async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
@@ -398,6 +408,8 @@ const stripeCreateSession: Endpoint = {
         })),
         shippingCost: order.shippingCost,
         customerEmail: order.customerEmail,
+        discountAmount: order.discountAmount,
+        discountLabel: order.discountLabel ?? undefined,
       })
       await req.payload.update({
         collection: 'orders',
