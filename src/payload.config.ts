@@ -58,6 +58,19 @@ const db = isPostgres
       transactionOptions: { behavior: 'immediate' },
       busyTimeout: 5_000,
       wal: true,
+      // Payload's SQLite adapter defaults to auto-pushing schema changes on
+      // every dev boot (`push: true`) -- convenient in isolation, but this
+      // repo's actual practice (documented in every migration file's own
+      // comments) is to hand-apply schema changes to dev.db with a Python
+      // script alongside a checked-in migration for Postgres, the same as
+      // every other collection/global change. Push doesn't know about those
+      // manual edits and, on 2026-07-25, twice tried to blindly recreate
+      // tables/indexes that already matched, crashing the admin panel with
+      // "already exists" errors instead of just leaving a correct schema
+      // alone. Disabling it makes dev.db behave the same way as
+      // production Postgres: schema only changes via an explicit migration
+      // (hand-applied here, prodMigrations there), never silently on boot.
+      push: false,
     })
 
 const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
