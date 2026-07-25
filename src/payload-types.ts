@@ -295,6 +295,30 @@ export interface Category {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "size-guides".
+ */
+export interface SizeGuide {
+  id: number;
+  /**
+   * Internal name, e.g. "Vestidos — padrão". Shoppers never see this.
+   */
+  name: string;
+  /**
+   * One row per size. All measurements in centimetres; leave blank any that do not apply to this garment type.
+   */
+  rows: {
+    size: 'XS' | 'S' | 'M' | 'L' | 'XL';
+    bust?: number | null;
+    waist?: number | null;
+    hip?: number | null;
+    length?: number | null;
+    id?: string | null;
+  }[];
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "merch-tags".
  */
 export interface MerchTag {
@@ -328,30 +352,6 @@ export interface Color {
    * Optional. For patterns/multicolour fabrics where a single hex value is not representative. Takes precedence over the hex value.
    */
   swatch?: (number | null) | Media;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "size-guides".
- */
-export interface SizeGuide {
-  id: number;
-  /**
-   * Internal name, e.g. "Vestidos — padrão". Shoppers never see this.
-   */
-  name: string;
-  /**
-   * One row per size. All measurements in centimetres; leave blank any that do not apply to this garment type.
-   */
-  rows: {
-    size: 'XS' | 'S' | 'M' | 'L' | 'XL';
-    bust?: number | null;
-    waist?: number | null;
-    hip?: number | null;
-    length?: number | null;
-    id?: string | null;
-  }[];
   updatedAt: string;
   createdAt: string;
 }

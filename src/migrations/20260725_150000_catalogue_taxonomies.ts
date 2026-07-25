@@ -1,4 +1,5 @@
 import { type MigrateDownArgs, type MigrateUpArgs, sql } from '@payloadcms/db-postgres'
+import { PT_COLOR_HEX } from '../lib/colorPresets'
 
 // Catalogue taxonomies + variant inventory + shared size guides
 // (2026-07-25 admin requests, consolidated into ONE migration because none
@@ -129,6 +130,16 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     FROM "products_colors"
     WHERE trim(coalesce("color", '')) <> ''
     ON CONFLICT ("name") DO NOTHING;
+
+    -- Best-guess hex for colours whose name is a recognised Portuguese
+    -- colour word (see lib/colorPresets.ts) -- these are literal colour
+    -- names, so an empty swatch was never a meaningful default. Still
+    -- fully editable afterwards; unrecognised names keep hex = NULL.
+    ${sql.raw(
+      Object.entries(PT_COLOR_HEX)
+        .map(([name, hex]) => `UPDATE "colors" SET "hex" = '${hex}' WHERE "hex" IS NULL AND lower(trim("name")) = '${name.replace(/'/g, "''")}';`)
+        .join('\n    '),
+    )}
 
     -- ---------------------------------------------------------------
     -- Products: enum columns -> relationship columns; size guide fields
