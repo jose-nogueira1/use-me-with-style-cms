@@ -13,6 +13,7 @@ import * as migration_20260724_130000_bilingual_returns_policy from './20260724_
 import * as migration_20260724_133000_fix_returns_policy_column_names from './20260724_133000_fix_returns_policy_column_names'
 import * as migration_20260724_150000_business_hours_and_shipping_info from './20260724_150000_business_hours_and_shipping_info'
 import * as migration_20260724_170000_legal_content from './20260724_170000_legal_content'
+import * as migration_20260725_090000_product_size_guide from './20260725_090000_product_size_guide'
 
 export const migrations = [
   {
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20260724_170000_legal_content.up,
     down: migration_20260724_170000_legal_content.down,
     name: '20260724_170000_legal_content',
+  },
+  {
+    up: migration_20260725_090000_product_size_guide.up,
+    down: migration_20260725_090000_product_size_guide.down,
+    name: '20260725_090000_product_size_guide',
   },
 ]

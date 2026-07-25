@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { generateProductSlug } from '../lib/productSlug'
 
 // Product catalogue. Phase 1 decision (JOS-52/JOS-16): manual admin entry,
 // placeholder media until the client supplies final photography.
@@ -20,6 +21,9 @@ export const Products: CollectionConfig = {
   access: {
     // Storefront reads products publicly; only admins can write.
     read: () => true,
+  },
+  hooks: {
+    beforeValidate: [generateProductSlug],
   },
   fields: [
     {
@@ -44,7 +48,8 @@ export const Products: CollectionConfig = {
       required: true,
       unique: true,
       admin: {
-        description: 'URL-safe identifier, e.g. "vestido-aurora".',
+        readOnly: true,
+        description: 'Auto-generated from the product name -- not editable (2026-07-25 admin request). See generateProductSlug in src/lib/productSlug.ts.',
       },
     },
     {
@@ -72,6 +77,17 @@ export const Products: CollectionConfig = {
       name: 'descriptionEN',
       type: 'textarea',
       label: 'Description — English',
+    },
+    {
+      name: 'sizeGuidePT',
+      type: 'textarea',
+      label: 'Size guide — Portuguese',
+      admin: { description: 'Optional. Free text -- e.g. measurements per size (bust/waist/hip in cm) and fit notes. Shown to shoppers on the product page.' },
+    },
+    {
+      name: 'sizeGuideEN',
+      type: 'textarea',
+      label: 'Size guide — English',
     },
     {
       name: 'tag',

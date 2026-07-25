@@ -211,7 +211,7 @@ export interface Product {
   namePT?: string | null;
   nameEN?: string | null;
   /**
-   * URL-safe identifier, e.g. "vestido-aurora".
+   * Auto-generated from the product name -- not editable (2026-07-25 admin request). See generateProductSlug in src/lib/productSlug.ts.
    */
   slug: string;
   category: 'vestidos' | 'tops' | 'leggings' | 'conjuntos';
@@ -221,6 +221,11 @@ export interface Product {
   description?: string | null;
   descriptionPT?: string | null;
   descriptionEN?: string | null;
+  /**
+   * Optional. Free text -- e.g. measurements per size (bust/waist/hip in cm) and fit notes. Shown to shoppers on the product page.
+   */
+  sizeGuidePT?: string | null;
+  sizeGuideEN?: string | null;
   /**
    * Optional merchandising badge shown on the product card.
    */
@@ -612,6 +617,8 @@ export interface ProductsSelect<T extends boolean = true> {
   description?: T;
   descriptionPT?: T;
   descriptionEN?: T;
+  sizeGuidePT?: T;
+  sizeGuideEN?: T;
   tag?: T;
   images?:
     | T
