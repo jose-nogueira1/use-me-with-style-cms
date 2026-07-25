@@ -1170,7 +1170,7 @@ export interface HomeContent {
   heroCtaLabelPT?: string | null;
   heroCtaLabelEN?: string | null;
   /**
-   * Where the button goes -- usually /catalogo, or e.g. /catalogo?cat=vestidos to point at one category.
+   * Where the button goes -- usually /catalogo, /catalogo?cat=vestidos to point at one category, or /catalogo?tag=ss26 to point at a themed collection (create a merchandising tag, e.g. "SS26", apply it to the relevant products, and use its slug here).
    */
   heroCtaHref?: string | null;
   /**
