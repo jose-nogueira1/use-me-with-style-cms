@@ -5,7 +5,7 @@
 import 'dotenv/config'
 import { getPayload } from 'payload'
 import config from '../src/payload.config'
-import { guessHex } from '../src/lib/colorPresets'
+import { guessHex, guessNameEN } from '../src/lib/colorPresets'
 
 type SeedProduct = {
   name: string
@@ -69,8 +69,8 @@ async function seed() {
   async function colorId(name: string): Promise<number> {
     const cached = colorIdByName.get(name)
     if (cached !== undefined) return cached
-    const existing = await payload.find({ collection: 'colors', where: { name: { equals: name } }, limit: 1 })
-    const doc = existing.docs[0] ?? (await payload.create({ collection: 'colors', data: { name, hex: guessHex(name) } }))
+    const existing = await payload.find({ collection: 'colors', where: { namePT: { equals: name } }, limit: 1 })
+    const doc = existing.docs[0] ?? (await payload.create({ collection: 'colors', data: { namePT: name, nameEN: guessNameEN(name), hex: guessHex(name) } }))
     colorIdByName.set(name, doc.id)
     return doc.id
   }

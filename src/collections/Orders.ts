@@ -152,7 +152,19 @@ export const Orders: CollectionConfig = {
         { name: 'product', type: 'relationship', relationTo: 'products', required: true },
         { name: 'productName', type: 'text', required: true },
         { name: 'size', type: 'text', required: true },
+        // Human-readable, localized colour name -- resolved server-side at
+        // order creation (see authoritativeOrder.ts), same snapshot pattern
+        // as productName. What the admin/invoices show.
         { name: 'color', type: 'text' },
+        // Colours became bilingual 2026-07-25: `color` above can no longer
+        // double as a stable identity (its text depends on the buyer's
+        // storefront language). `colorId` is the colours-collection row id,
+        // set alongside `color` at order creation, and is what
+        // inventoryReservation.ts matches against product variants --
+        // exact and language-independent. Optional/hidden: orders created
+        // before this field existed simply don't have it (inventory
+        // matching falls back to the legacy name-based path for those).
+        { name: 'colorId', type: 'text', admin: { readOnly: true, hidden: true } },
         { name: 'qty', type: 'number', required: true, min: 1 },
         { name: 'unitPrice', type: 'number', required: true, min: 0 },
       ],

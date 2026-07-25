@@ -7,9 +7,15 @@ type ReservationOrder = {
   items?: Array<{
     product?: string | number | { id?: string | number }
     size?: string
-    // Colour NAME (variant-level stock, 2026-07-25). Optional so orders
-    // created before the variants change can still be released.
+    // Localized, human-readable colour name (variant-level stock,
+    // 2026-07-25). Optional so orders created before the variants change
+    // can still be released.
     color?: string | null
+    // Colour row id (bilingual colours, 2026-07-25 follow-up) -- the
+    // language-independent identity `color` above can no longer provide.
+    // Preferred whenever present; `color` alone is the legacy fallback for
+    // orders created before this field existed.
+    colorId?: string | null
     qty?: number
   }>
   market?: string
@@ -19,7 +25,7 @@ type ReservationOrder = {
   inventoryReservationStatus?: string
 }
 
-type StockDelta = { productId: string | number; size: string; color: string; qty: number }
+type StockDelta = { productId: string | number; size: string; color: string; colorId: string; qty: number }
 
 function relationshipId(value: StockDelta['productId'] | { id?: string | number } | undefined) {
   if (typeof value === 'string' || typeof value === 'number') return value
@@ -33,13 +39,14 @@ function itemDeltas(order: ReservationOrder): StockDelta[] {
     const productId = relationshipId(item.product)
     const size = String(item.size ?? '')
     const color = String(item.color ?? '')
+    const colorId = String(item.colorId ?? '')
     const qty = Number(item.qty)
     if (productId === null || !size || !Number.isInteger(qty) || qty < 1) {
       throw new APIError('Invalid inventory reservation item.', 400, null, true)
     }
-    const key = `${String(productId)}:${size}:${color}`
+    const key = `${String(productId)}:${size}:${colorId || color}`
     const current = grouped.get(key)
-    grouped.set(key, { productId, size, color, qty: (current?.qty ?? 0) + qty })
+    grouped.set(key, { productId, size, color, colorId, qty: (current?.qty ?? 0) + qty })
   }
   return [...grouped.values()].sort((a, b) => String(a.productId).localeCompare(String(b.productId)))
 }
@@ -71,47 +78,66 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
     const productDeltas = deltas.filter((entry) => String(entry.productId) === String(productId))
     const stockKey = order.market === 'PT' ? 'stockPT' : 'stockAO'
 
-    // Variant-level stock (2026-07-25): rows are colour+size. Deltas carry
-    // the colour NAME (what order items store), so resolve the variants'
-    // colour ids to names first.
+    // Variant-level stock (2026-07-25), colours bilingual (2026-07-25
+    // follow-up): rows are colour+size, matched primarily by the colour's
+    // stable ROW ID (deltas carry `colorId` -- see itemDeltas above), which
+    // is exact and independent of display language. Colour NAME matching
+    // is kept only as a fallback for orders created before `colorId`
+    // existed on order items.
     type VariantRow = {
       id?: string | null
-      color?: string | number | { id?: string | number; name?: string | null } | null
+      color?: string | number | { id?: string | number; namePT?: string | null; nameEN?: string | null } | null
       size: string
       stockAO: number
       stockPT: number
     }
     const variants = ((product.variants ?? []) as VariantRow[]).map((row) => ({
       id: row.id,
-      color: relationshipId(row.color as never) ?? undefined,
-      populatedName: row.color && typeof row.color === 'object' ? (row.color.name ?? null) : null,
+      colorId: relationshipId(row.color as never) ?? undefined,
+      populated: row.color && typeof row.color === 'object' ? row.color : undefined,
       size: row.size,
       stockAO: Number(row.stockAO ?? 0),
       stockPT: Number(row.stockPT ?? 0),
     }))
-    const unresolved = [...new Set(variants.filter((v) => !v.populatedName && v.color !== undefined).map((v) => v.color as string | number))]
+
+    // Only hit the DB for colour names if some delta actually needs the
+    // legacy fallback -- new orders always carry colorId, so this is
+    // normally a no-op.
+    const needsNameFallback = productDeltas.some((delta) => !delta.colorId && delta.color)
     const nameById = new Map<string, string>()
-    if (unresolved.length > 0) {
-      const colorDocs = await req.payload.find({
-        collection: 'colors',
-        where: { id: { in: unresolved } },
-        limit: unresolved.length,
-        depth: 0,
-        overrideAccess: true,
-        req,
-      })
-      for (const doc of colorDocs.docs) {
-        const name = (doc as { name?: string | null }).name
-        if (name) nameById.set(String(doc.id), name)
+    if (needsNameFallback) {
+      const unresolved = [...new Set(variants.filter((v) => !v.populated && v.colorId !== undefined).map((v) => v.colorId as string | number))]
+      if (unresolved.length > 0) {
+        const colorDocs = await req.payload.find({
+          collection: 'colors',
+          where: { id: { in: unresolved } },
+          limit: unresolved.length,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+        for (const doc of colorDocs.docs) {
+          const d = doc as { namePT?: string | null; nameEN?: string | null }
+          const name = d.namePT || d.nameEN
+          if (name) nameById.set(String(doc.id), name)
+        }
       }
     }
-    const colorNameOf = (v: (typeof variants)[number]) => v.populatedName ?? nameById.get(String(v.color)) ?? ''
+    const colorNameOf = (v: (typeof variants)[number]) =>
+      v.populated?.namePT || v.populated?.nameEN || nameById.get(String(v.colorId)) || ''
 
     for (const delta of productDeltas) {
-      // Exact colour+size match first; colour-less deltas (orders that
-      // predate variants) fall back to any row of that size with stock.
-      let idx = variants.findIndex((v) => v.size === delta.size && colorNameOf(v) === delta.color)
-      if (idx === -1 && !delta.color) {
+      let idx = -1
+      if (delta.colorId) {
+        idx = variants.findIndex((v) => v.size === delta.size && String(v.colorId) === delta.colorId)
+      }
+      if (idx === -1 && delta.color) {
+        idx = variants.findIndex((v) => v.size === delta.size && colorNameOf(v).toLowerCase() === delta.color.toLowerCase())
+      }
+      // Colour-less deltas (orders that predate variants entirely) fall
+      // back to any row of that size with stock; release always accepts
+      // any row of that size as a last resort.
+      if (idx === -1 && !delta.color && !delta.colorId) {
         idx = variants.findIndex((v) => v.size === delta.size && (direction === 'release' || v[stockKey] >= delta.qty))
       }
       if (idx === -1 && direction === 'release') {
@@ -135,7 +161,7 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
         // only because relationshipId() is shared with request payloads.
         variants: variants.map((v) => ({
           id: v.id ?? undefined,
-          color: v.color,
+          color: v.colorId,
           size: v.size,
           stockAO: v.stockAO,
           stockPT: v.stockPT,

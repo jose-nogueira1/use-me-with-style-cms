@@ -115,10 +115,17 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     const isAvailable = product.active && (market === 'AO' ? product.availableAO : product.availablePT)
     if (!isAvailable) badRequest('A selected product is unavailable.')
 
-    // Variant-level stock (2026-07-25): every product tracks stock per
-    // colour+size row, and order items keep storing the colour NAME
-    // (human-readable on invoices/labels). Resolve colour ids -> names,
-    // then validate the exact colour+size combination.
+    // Variant-level stock (2026-07-25), colours bilingual (2026-07-25
+    // follow-up): the storefront cart carries the colour's stable ROW ID
+    // (language-independent -- switching PT/EN mid-session never changes
+    // which colour a cart line means), submitted here as `color`. Order
+    // items still store a human-readable, LOCALIZED colour name (like
+    // productName) plus that same id as `colorId`, so inventory matching
+    // stays exact regardless of display language.
+    //
+    // Falls back to matching `color` as a NAME (any language) if it isn't a
+    // known id -- covers a stale cached storefront bundle sending the old
+    // shape during rollout, and is otherwise a no-op.
     const variantRefs = product.variants ?? []
     if (variantRefs.length === 0) badRequest('A selected product is unavailable.')
 
@@ -129,7 +136,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
           .filter((value): value is string | number => value !== null),
       ),
     ]
-    const nameById = new Map<string, string>()
+    const colorDocById = new Map<string, { namePT?: string | null; nameEN?: string | null }>()
     if (unresolvedIds.length > 0) {
       const colorDocs = await req.payload.find({
         collection: 'colors',
@@ -139,29 +146,45 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
         overrideAccess: true,
       })
       for (const doc of colorDocs.docs) {
-        const name = (doc as { name?: string | null }).name
-        if (name) nameById.set(String(doc.id), name)
+        colorDocById.set(String(doc.id), doc as { namePT?: string | null; nameEN?: string | null })
       }
     }
-    const variantRows = variantRefs.map((entry) => ({
-      colorName:
-        (entry.color && typeof entry.color === 'object' && entry.color.name) ||
-        nameById.get(String(relationshipId(entry.color ?? undefined))) ||
-        '',
-      size: entry.size,
-      stock: market === 'AO' ? Number(entry.stockAO ?? 0) : Number(entry.stockPT ?? 0),
-    }))
+    const localizedName = (doc: { namePT?: string | null; nameEN?: string | null } | undefined) =>
+      (data.lang === 'en' ? doc?.nameEN : doc?.namePT)?.trim() || doc?.namePT?.trim() || ''
+
+    const variantRows = variantRefs.map((entry) => {
+      const id = String(relationshipId(entry.color ?? undefined))
+      const populated = entry.color && typeof entry.color === 'object' ? entry.color : undefined
+      const doc = colorDocById.get(id) ?? (populated as { namePT?: string | null; nameEN?: string | null } | undefined)
+      return {
+        colorId: id,
+        colorLabel: localizedName(doc),
+        // Every known name of this colour, any language, lowercased --
+        // for the legacy/fallback text match only.
+        colorNames: [doc?.namePT, doc?.nameEN].filter((n): n is string => Boolean(n)).map((n) => n.trim().toLowerCase()),
+        size: entry.size,
+        stock: market === 'AO' ? Number(entry.stockAO ?? 0) : Number(entry.stockPT ?? 0),
+      }
+    })
 
     // Tolerate an omitted colour only when it's unambiguous (single-colour
     // product) -- covers older cached storefront bundles.
-    const distinctColors = [...new Set(variantRows.map((entry) => entry.colorName))]
-    const chosenColor = color || (distinctColors.length === 1 ? distinctColors[0] : '')
-    if (!chosenColor) badRequest('A selected colour is unavailable.')
+    const distinctColorIds = [...new Set(variantRows.map((entry) => entry.colorId))]
+    let chosenColorId = color && variantRows.some((entry) => entry.colorId === color)
+      ? color
+      : ''
+    if (!chosenColorId && color) {
+      // Legacy fallback: treat the submitted value as a NAME, not an id.
+      const byName = variantRows.find((entry) => entry.colorNames.includes(color.trim().toLowerCase()))
+      if (byName) chosenColorId = byName.colorId
+    }
+    if (!chosenColorId && !color && distinctColorIds.length === 1) chosenColorId = distinctColorIds[0]
+    if (!chosenColorId) badRequest('A selected colour is unavailable.')
 
-    const variantRow = variantRows.find((entry) => entry.size === size && entry.colorName === chosenColor)
+    const variantRow = variantRows.find((entry) => entry.size === size && entry.colorId === chosenColorId)
     if (!variantRow) badRequest('A selected size/colour combination is unavailable.')
 
-    const variantKey = `${String(product.id)}:${size}:${chosenColor}`
+    const variantKey = `${String(product.id)}:${size}:${chosenColorId}`
     const requestedQty = (requestedByVariant.get(variantKey) ?? 0) + qty
     requestedByVariant.set(variantKey, requestedQty)
     if (requestedQty > variantRow.stock) badRequest('The requested quantity is no longer in stock.')
@@ -173,7 +196,8 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       product: product.id,
       productName: data.lang === 'en' ? product.nameEN || product.name : product.namePT || product.name,
       size,
-      color: chosenColor,
+      color: variantRow.colorLabel || undefined,
+      colorId: chosenColorId || undefined,
       qty,
       unitPrice,
     })

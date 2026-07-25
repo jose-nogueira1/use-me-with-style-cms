@@ -10,15 +10,20 @@ import { blockDeleteWhileInUse } from '../lib/taxonomyGuards'
 // - `swatch` (an image) covers patterns/multicolour fabrics a single hex
 //   can't represent. If both are set the image wins; if neither is set the
 //   storefront falls back to a text chip, so nothing breaks.
-// Existing free-text values were migrated 1:1 into this collection (name
-// only, no hex) by 20260725_150000_catalogue_taxonomies -- the admin can
-// fill in hexes/swatches over time.
+//
+// Bilingual (2026-07-25 follow-up, mirrors Categories/MerchTags): namePT is
+// the canonical name the admin types; nameEN is optional and falls back to
+// namePT if empty. The DB row's ID (not either name) is the stable identity
+// used everywhere that matters -- product variants reference colours by id,
+// and the storefront cart/order flow now carries that same id (see
+// authoritativeOrder.ts) so switching storefront language mid-session never
+// changes which colour a cart line refers to. namePT/nameEN are display-only.
 export const Colors: CollectionConfig = {
   slug: 'colors',
   labels: { singular: 'Colour', plural: 'Colours' },
   admin: {
-    useAsTitle: 'name',
-    defaultColumns: ['name', 'hex'],
+    useAsTitle: 'namePT',
+    defaultColumns: ['namePT', 'nameEN', 'hex'],
     group: 'Catalogue',
   },
   access: {
@@ -29,12 +34,19 @@ export const Colors: CollectionConfig = {
   },
   fields: [
     {
-      name: 'name',
+      name: 'namePT',
       type: 'text',
       required: true,
       unique: true,
       index: true,
-      admin: { description: 'Display name, e.g. "Verde Oliva". Also the value stored on order items.' },
+      label: 'Name — Portuguese',
+      admin: { description: 'Display name, e.g. "Verde Oliva".' },
+    },
+    {
+      name: 'nameEN',
+      type: 'text',
+      label: 'Name — English',
+      admin: { description: 'Shown when the shopper switches the storefront to English. Falls back to the Portuguese name if empty.' },
     },
     {
       name: 'hex',

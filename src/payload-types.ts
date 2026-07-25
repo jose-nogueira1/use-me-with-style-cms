@@ -341,9 +341,13 @@ export interface MerchTag {
 export interface Color {
   id: number;
   /**
-   * Display name, e.g. "Verde Oliva". Also the value stored on order items.
+   * Display name, e.g. "Verde Oliva".
    */
-  name: string;
+  namePT: string;
+  /**
+   * Shown when the shopper switches the storefront to English. Falls back to the Portuguese name if empty.
+   */
+  nameEN?: string | null;
   /**
    * Solid-colour swatch, e.g. #7A8B5C. Leave empty for patterned fabrics and upload a swatch image instead.
    */
@@ -396,6 +400,7 @@ export interface Order {
     productName: string;
     size: string;
     color?: string | null;
+    colorId?: string | null;
     qty: number;
     unitPrice: number;
     id?: string | null;
@@ -776,7 +781,8 @@ export interface MerchTagsSelect<T extends boolean = true> {
  * via the `definition` "colors_select".
  */
 export interface ColorsSelect<T extends boolean = true> {
-  name?: T;
+  namePT?: T;
+  nameEN?: T;
   hex?: T;
   swatch?: T;
   updatedAt?: T;
@@ -831,6 +837,7 @@ export interface OrdersSelect<T extends boolean = true> {
         productName?: T;
         size?: T;
         color?: T;
+        colorId?: T;
         qty?: T;
         unitPrice?: T;
         id?: T;
