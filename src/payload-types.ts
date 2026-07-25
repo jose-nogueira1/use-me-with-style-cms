@@ -441,15 +441,15 @@ export interface Order {
   subtotal: number;
   shippingCost: number;
   /**
-   * The coupon code applied at checkout, if any (uppercased, as entered). Snapshotted -- editing/deleting the coupon later doesn't change past orders.
+   * Snapshot of the coupon code used, if any.
    */
   couponCode?: string | null;
   /**
-   * Amount deducted from the subtotal by the coupon above. Always computed server-side -- never trust a client-submitted amount.
+   * Amount deducted by the coupon, in the order currency.
    */
   discountAmount?: number | null;
   /**
-   * Human-readable discount description, shown on the internal invoice.
+   * Human-readable label shown on the invoice/admin, e.g. "SS26 (10% off)".
    */
   discountLabel?: string | null;
   total: number;
@@ -713,6 +713,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'invoices';
         value: number | Invoice;
+      } | null)
+    | ({
+        relationTo: 'coupons';
+        value: number | Coupon;
       } | null);
   globalSlug?: string | null;
   user: {
