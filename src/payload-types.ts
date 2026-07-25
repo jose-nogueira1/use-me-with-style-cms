@@ -253,6 +253,22 @@ export interface Product {
   priceAOKz: number;
   pricePTEur: number;
   /**
+   * Optional. Replaces the regular Angola price while set and within the sale window (if any).
+   */
+  saleAOKz?: number | null;
+  /**
+   * Optional. Replaces the regular Portugal price while set and within the sale window (if any).
+   */
+  salePTEur?: number | null;
+  /**
+   * Optional. Leave blank for the sale to be active immediately.
+   */
+  saleStartDate?: string | null;
+  /**
+   * Optional. Leave blank for the sale to run indefinitely.
+   */
+  saleEndDate?: string | null;
+  /**
    * One row per colour + size combination, with per-market stock.
    */
   variants: {
@@ -754,6 +770,10 @@ export interface ProductsSelect<T extends boolean = true> {
       };
   priceAOKz?: T;
   pricePTEur?: T;
+  saleAOKz?: T;
+  salePTEur?: T;
+  saleStartDate?: T;
+  saleEndDate?: T;
   variants?:
     | T
     | {

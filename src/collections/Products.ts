@@ -132,6 +132,59 @@ export const Products: CollectionConfig = {
       min: 0,
       label: 'Price -- Portugal (EUR)',
     },
+    // Sale pricing (2026-07-25, "discounts" phase 1): optional per-market
+    // override, same shape as the regular price fields above. When set (and
+    // within the optional start/end window), this replaces the regular
+    // price at checkout -- see lib/salePricing.ts, used by
+    // authoritativeOrder.ts, the only place this actually changes what's
+    // charged. A sale can be scoped to a single market (e.g. discount only
+    // the Angola price) by leaving the other field blank.
+    {
+      name: 'saleAOKz',
+      type: 'number',
+      min: 0,
+      label: 'Sale price -- Angola (Kz)',
+      admin: { description: 'Optional. Replaces the regular Angola price while set and within the sale window (if any).' },
+      validate: (value: number | null | undefined, { siblingData }: { siblingData?: { priceAOKz?: number } }) => {
+        if (value == null) return true
+        if (typeof siblingData?.priceAOKz === 'number' && value >= siblingData.priceAOKz) {
+          return 'Sale price must be lower than the regular Angola price.'
+        }
+        return true
+      },
+    },
+    {
+      name: 'salePTEur',
+      type: 'number',
+      min: 0,
+      label: 'Sale price -- Portugal (EUR)',
+      admin: { description: 'Optional. Replaces the regular Portugal price while set and within the sale window (if any).' },
+      validate: (value: number | null | undefined, { siblingData }: { siblingData?: { pricePTEur?: number } }) => {
+        if (value == null) return true
+        if (typeof siblingData?.pricePTEur === 'number' && value >= siblingData.pricePTEur) {
+          return 'Sale price must be lower than the regular Portugal price.'
+        }
+        return true
+      },
+    },
+    {
+      name: 'saleStartDate',
+      type: 'date',
+      label: 'Sale start',
+      admin: { description: 'Optional. Leave blank for the sale to be active immediately.' },
+    },
+    {
+      name: 'saleEndDate',
+      type: 'date',
+      label: 'Sale end',
+      admin: { description: 'Optional. Leave blank for the sale to run indefinitely.' },
+      validate: (value: Date | string | null | undefined, { siblingData }: { siblingData?: { saleStartDate?: Date | string } }) => {
+        if (value && siblingData?.saleStartDate && new Date(value) < new Date(siblingData.saleStartDate)) {
+          return 'Sale end must be after the sale start.'
+        }
+        return true
+      },
+    },
     // Variant-level inventory (2026-07-25): stock is tracked per COLOUR +
     // SIZE combination, replacing the earlier per-size `sizes` array and
     // the separate `colors` list. Every product has at least one colour

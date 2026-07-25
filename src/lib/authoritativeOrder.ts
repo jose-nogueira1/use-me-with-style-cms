@@ -1,4 +1,5 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
+import { effectiveUnitPrice } from './salePricing'
 
 type Market = 'AO' | 'PT'
 
@@ -19,6 +20,13 @@ type InventoryProduct = {
   namePT?: string | null
   priceAOKz: number
   pricePTEur: number
+  // Discounts phase 1 (2026-07-25): optional per-market sale price + window
+  // -- see lib/salePricing.ts, the single place this is resolved into an
+  // actual charged unit price.
+  saleAOKz?: number | null
+  salePTEur?: number | null
+  saleStartDate?: string | null
+  saleEndDate?: string | null
   // Variant-level inventory (2026-07-25): stock per colour+size row. The
   // colour ref is a plain id at depth 0, a populated doc at depth >= 1.
   variants?: Array<{
@@ -190,7 +198,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     if (requestedQty > variantRow.stock) badRequest('The requested quantity is no longer in stock.')
 
     const usesEurSettlement = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal'
-    const unitPrice = usesEurSettlement ? product.pricePTEur : product.priceAOKz
+    const unitPrice = effectiveUnitPrice(product, usesEurSettlement ? 'PT' : 'AO')
 
     authoritativeItems.push({
       product: product.id,

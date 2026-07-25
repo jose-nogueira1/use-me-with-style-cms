@@ -21,6 +21,7 @@ import * as migration_20260725_190000_home_content from './20260725_190000_home_
 import * as migration_20260725_200000_home_content_versions from './20260725_200000_home_content_versions'
 import * as migration_20260725_210000_merch_tags_slug from './20260725_210000_merch_tags_slug'
 import * as migration_20260725_220000_categories_image from './20260725_220000_categories_image'
+import * as migration_20260725_230000_product_sale_pricing from './20260725_230000_product_sale_pricing'
 
 export const migrations = [
   {
@@ -137,5 +138,10 @@ export const migrations = [
     up: migration_20260725_220000_categories_image.up,
     down: migration_20260725_220000_categories_image.down,
     name: '20260725_220000_categories_image',
+  },
+  {
+    up: migration_20260725_230000_product_sale_pricing.up,
+    down: migration_20260725_230000_product_sale_pricing.down,
+    name: '20260725_230000_product_sale_pricing',
   },
 ]
