@@ -26,6 +26,7 @@ import * as migration_20260725_231500_coupons from './20260725_231500_coupons'
 import * as migration_20260725_232000_order_coupon_fields from './20260725_232000_order_coupon_fields'
 import * as migration_20260725_233000_fix_home_content_versions_columns from './20260725_233000_fix_home_content_versions_columns'
 import * as migration_20260725_234000_fix_home_content_timestamps from './20260725_234000_fix_home_content_timestamps'
+import * as migration_20260725_235000_coupons_locked_documents_rel from './20260725_235000_coupons_locked_documents_rel'
 
 export const migrations = [
   {
@@ -167,5 +168,10 @@ export const migrations = [
     up: migration_20260725_234000_fix_home_content_timestamps.up,
     down: migration_20260725_234000_fix_home_content_timestamps.down,
     name: '20260725_234000_fix_home_content_timestamps',
+  },
+  {
+    up: migration_20260725_235000_coupons_locked_documents_rel.up,
+    down: migration_20260725_235000_coupons_locked_documents_rel.down,
+    name: '20260725_235000_coupons_locked_documents_rel',
   },
 ]
