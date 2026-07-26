@@ -166,8 +166,10 @@ async function seed() {
     slug: 'market-settings',
     data: {
       angolaPaymentLive: false,
-      angolaBankTransferInstructions:
+      angolaBankTransferInstructionsPT:
         'Instruções de pagamento Multicaixa Express enviadas por WhatsApp após a confirmação da encomenda.',
+      angolaBankTransferInstructionsEN:
+        'Multicaixa Express payment instructions sent via WhatsApp after order confirmation.',
       angolaPaymentMethods: ['multicaixa_express', 'stripe', 'paypal'],
       angolaDeliveryMethods: ['courier_ao'],
       portugalPaymentMethods: ['paypal', 'stripe', 'mbway'],

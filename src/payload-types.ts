@@ -1150,9 +1150,13 @@ export interface MarketSetting {
    */
   angolaPaymentLive?: boolean | null;
   /**
-   * Shown at checkout while angolaPaymentLive is off (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").
+   * Shown at checkout while angolaPaymentLive is off (e.g. "As instruções de pagamento são enviadas por WhatsApp assim que a encomenda for confirmada").
    */
-  angolaBankTransferInstructions?: string | null;
+  angolaBankTransferInstructionsPT?: string | null;
+  /**
+   * English translation of the field above (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").
+   */
+  angolaBankTransferInstructionsEN?: string | null;
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
   angolaDeliveryMethods?: 'courier_ao'[] | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
@@ -1216,7 +1220,8 @@ export interface MarketSetting {
  */
 export interface InvoiceSetting {
   id: number;
-  phaseOneDisclaimer: string;
+  phaseOneDisclaimerPT: string;
+  phaseOneDisclaimerEN: string;
   invoicingEnabledAO?: boolean | null;
   issuerNameAO?: string | null;
   issuerTaxIdAO?: string | null;
@@ -1311,7 +1316,8 @@ export interface HomeContent {
  */
 export interface MarketSettingsSelect<T extends boolean = true> {
   angolaPaymentLive?: T;
-  angolaBankTransferInstructions?: T;
+  angolaBankTransferInstructionsPT?: T;
+  angolaBankTransferInstructionsEN?: T;
   angolaPaymentMethods?: T;
   angolaDeliveryMethods?: T;
   portugalPaymentMethods?: T;
@@ -1337,7 +1343,8 @@ export interface MarketSettingsSelect<T extends boolean = true> {
  * via the `definition` "invoice-settings_select".
  */
 export interface InvoiceSettingsSelect<T extends boolean = true> {
-  phaseOneDisclaimer?: T;
+  phaseOneDisclaimerPT?: T;
+  phaseOneDisclaimerEN?: T;
   invoicingEnabledAO?: T;
   issuerNameAO?: T;
   issuerTaxIdAO?: T;

@@ -73,13 +73,28 @@ export const InvoiceSettings: GlobalConfig = {
       'Phase 1 commercial documents for accounting support. These settings are snapshotted onto each invoice.',
   },
   fields: [
+    // Split PT/EN (2026-07-26 bilingual audit): the invoice PDF renderer
+    // (lib/internalInvoice.ts) previously showed this disclaimer -- and
+    // every other label on the document -- in Portuguese regardless of the
+    // order's `lang`, even though order-confirmation emails already branch
+    // correctly by language. `phaseOneDisclaimerPT` keeps the original
+    // field's data (same name minus the suffix would've required a data
+    // migration; keeping both explicitly named avoids ambiguity).
     {
-      name: 'phaseOneDisclaimer',
+      name: 'phaseOneDisclaimerPT',
       type: 'textarea',
       required: true,
       defaultValue:
         'Documento comercial interno, não certificado fiscalmente. Deve ser validado e tratado pelo contabilista da entidade emitente.',
-      label: 'Required non-fiscal disclaimer',
+      label: 'Required non-fiscal disclaimer — Portuguese',
+    },
+    {
+      name: 'phaseOneDisclaimerEN',
+      type: 'textarea',
+      required: true,
+      defaultValue:
+        'Internal commercial document, not fiscally certified. Must be validated and processed by the issuing entity’s accountant.',
+      label: 'Required non-fiscal disclaimer — English',
     },
     {
       type: 'collapsible',

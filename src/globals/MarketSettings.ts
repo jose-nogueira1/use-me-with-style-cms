@@ -34,12 +34,27 @@ export const MarketSettings: GlobalConfig = {
           'Turn ON only after the AppyPay application and webhook are operational. Stripe/PayPal for Angola are unaffected because they use the separate EUR settlement path.',
       },
     },
+    // Split into PT/EN (2026-07-26 bilingual audit): this used to be a single
+    // field whose English fallback in the storefront (Checkout.tsx's
+    // DEFAULT_MARKET_SETTINGS) was hardcoded English-only text, so English-
+    // toggle Angola shoppers -- Angola being the default/primary market --
+    // saw English bank-transfer instructions regardless of admin content.
+    // Same bilingual PT/EN pattern as the returns-policy/shipping fields
+    // below, rather than a single shared field.
     {
-      name: 'angolaBankTransferInstructions',
+      name: 'angolaBankTransferInstructionsPT',
       type: 'textarea',
-      label: 'Angola: manual Multicaixa Express instructions shown at checkout',
+      label: 'Angola: manual Multicaixa Express instructions shown at checkout — Portuguese',
       admin: {
-        description: 'Shown at checkout while angolaPaymentLive is off (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").',
+        description: 'Shown at checkout while angolaPaymentLive is off (e.g. "As instruções de pagamento são enviadas por WhatsApp assim que a encomenda for confirmada").',
+      },
+    },
+    {
+      name: 'angolaBankTransferInstructionsEN',
+      type: 'textarea',
+      label: 'Angola: manual Multicaixa Express instructions shown at checkout — English',
+      admin: {
+        description: 'English translation of the field above (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").',
       },
     },
     {
