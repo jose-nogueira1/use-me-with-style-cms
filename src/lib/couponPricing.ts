@@ -17,6 +17,8 @@ type CouponDoc = {
   usageLimit?: number | null
   usageCount?: number | null
   maxRedemptionsPerEmail?: number | null
+  availableAO?: boolean | null
+  availablePT?: boolean | null
 }
 
 export type CouponResolution =
@@ -41,7 +43,26 @@ const roundMoney = (value: number): number => Math.round((value + Number.EPSILON
  */
 export async function resolveCoupon(
   payload: Payload,
-  params: { code: string; pricingMarket: Market; subtotal: number; customerEmail?: string; now?: Date },
+  params: {
+    code: string
+    // The real storefront/customer market -- Angola or Portugal, always
+    // accurate regardless of which currency the order happens to settle
+    // in. Kept deliberately separate from `pricingMarket` below: an Angola
+    // order paid via Stripe/PayPal settles in EUR (usesEurSettlement), but
+    // it's still an ANGOLA order for the purposes of "is this coupon
+    // available in this market" -- conflating the two would let an
+    // Angola-only coupon silently apply (or an Angola-restricted one
+    // silently reject) based on payment method rather than the actual
+    // storefront the customer is on.
+    market: Market
+    // The market whose currency this order actually settles in -- used
+    // only for min-order-value and fixed-amount lookups, same meaning as
+    // Checkout.tsx/authoritativeOrder.ts's usesEurSettlement.
+    pricingMarket: Market
+    subtotal: number
+    customerEmail?: string
+    now?: Date
+  },
 ): Promise<CouponResolution> {
   const code = params.code.trim().toUpperCase()
   if (!code) return { valid: false, reason: 'Enter a code.' }
@@ -55,6 +76,14 @@ export async function resolveCoupon(
   const coupon = matches.docs[0] as unknown as CouponDoc | undefined
   if (!coupon) return { valid: false, reason: 'This code was not found.' }
   if (coupon.active === false) return { valid: false, reason: 'This code is no longer active.' }
+
+  // Market scoping (2026-07-27): both flags default true in the schema, but
+  // an existing coupon predating this field has `undefined` rather than
+  // `true` in the doc until it's next saved -- `?? true` treats that the
+  // same as an explicit true, so nothing that worked before this change
+  // stops working.
+  const availableInMarket = params.market === 'AO' ? (coupon.availableAO ?? true) : (coupon.availablePT ?? true)
+  if (!availableInMarket) return { valid: false, reason: 'This code is not available in this market.' }
 
   const now = params.now ?? new Date()
   if (coupon.startDate && now < new Date(coupon.startDate)) return { valid: false, reason: 'This code is not active yet.' }

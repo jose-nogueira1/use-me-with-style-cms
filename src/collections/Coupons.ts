@@ -1,4 +1,5 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
+import { couponsEndpoints } from '../endpoints/coupons'
 
 // Discounts phase 2 (2026-07-25, "figure out discounts" -- per-request
 // AskUserQuestion-style decision: build phase 1 sale pricing THEN coupon
@@ -7,6 +8,11 @@ import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 // checkout "Apply" button) and authoritativeOrder.ts (the only place a
 // coupon actually changes what's charged -- never trust a client-submitted
 // discount amount, only the CODE).
+//
+// The validate endpoint is registered below as a COLLECTION-level endpoint
+// (not in payload.config.ts's root `endpoints`) -- see endpoints/coupons.ts
+// for why a root-level '/coupons/validate' 404s forever (collides with this
+// collection's own slug in Payload's router).
 //
 // Not relationship-referenced from Orders: an order snapshots the plain
 // code string + resolved discountAmount/discountLabel (see Orders.ts), so a
@@ -35,6 +41,7 @@ export const Coupons: CollectionConfig = {
   hooks: {
     beforeValidate: [normalizeCouponCode],
   },
+  endpoints: couponsEndpoints,
   fields: [
     {
       name: 'code',
@@ -141,6 +148,28 @@ export const Coupons: CollectionConfig = {
       min: 1,
       label: 'Per-customer limit',
       admin: { description: 'Optional. Caps how many times the same customer email can use this code.' },
+    },
+    // Market scoping (2026-07-27, market-switch follow-up): previously a
+    // coupon had no explicit per-market gate at all -- a percent-off code
+    // applied everywhere unconditionally, and a fixed-amount code only
+    // opted out of a market implicitly (leave its Kz/EUR field blank).
+    // Same checkbox pattern as Products' availableAO/availablePT. Both
+    // default true so every existing coupon keeps working in both markets
+    // until an admin deliberately restricts one -- see
+    // lib/couponPricing.ts's resolveCoupon for the enforcement.
+    {
+      name: 'availableAO',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Available in Angola',
+      admin: { description: 'Uncheck to make this code invalid for Angola orders.', position: 'sidebar' },
+    },
+    {
+      name: 'availablePT',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Available in Portugal',
+      admin: { description: 'Uncheck to make this code invalid for Portugal orders.', position: 'sidebar' },
     },
   ],
 }

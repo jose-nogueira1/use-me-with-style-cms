@@ -643,6 +643,14 @@ export interface Coupon {
    * Optional. Caps how many times the same customer email can use this code.
    */
   maxRedemptionsPerEmail?: number | null;
+  /**
+   * Uncheck to make this code invalid for Angola orders.
+   */
+  availableAO?: boolean | null;
+  /**
+   * Uncheck to make this code invalid for Portugal orders.
+   */
+  availablePT?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1096,6 +1104,8 @@ export interface CouponsSelect<T extends boolean = true> {
   usageLimit?: T;
   usageCount?: T;
   maxRedemptionsPerEmail?: T;
+  availableAO?: T;
+  availablePT?: T;
   updatedAt?: T;
   createdAt?: T;
 }

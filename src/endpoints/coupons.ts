@@ -6,6 +6,17 @@ import { resolveCoupon } from '../lib/couponPricing'
 // which re-resolves the SAME coupon via the same resolveCoupon() at
 // order-creation time -- this endpoint's response is never trusted as the
 // actual charged amount.
+//
+// Registered as a COLLECTION-level endpoint on Coupons (see
+// collections/Coupons.ts's `endpoints` field), not a root-level one.
+// Payload's router treats the first path segment as a collection slug
+// whenever one matches (handleEndpoints.js) -- a root-level endpoint at
+// '/coupons/validate' collides with the 'coupons' collection slug itself,
+// so the router always resolved it as "collection coupons, sub-route
+// /validate" and looked in the (empty) collection endpoints array instead
+// of root endpoints, 404ing every time regardless of server restarts. This
+// bit us for real (2026-07-26) before being caught. Collection-level
+// endpoints are relative to /api/<slug>, hence the bare '/validate' path.
 type ValidateCouponBody = {
   code?: string
   market?: 'AO' | 'PT'
@@ -26,7 +37,7 @@ async function readJsonBody<T>(req: PayloadRequest): Promise<T | null> {
 }
 
 const validateCoupon: Endpoint = {
-  path: '/coupons/validate',
+  path: '/validate',
   method: 'post',
   handler: async (req) => {
     const body = await readJsonBody<ValidateCouponBody>(req)
@@ -37,6 +48,7 @@ const validateCoupon: Endpoint = {
     const pricingMarket = body.usesEurSettlement ? 'PT' : body.market
     const result = await resolveCoupon(req.payload, {
       code: body.code,
+      market: body.market,
       pricingMarket,
       subtotal: Number(body.subtotal) || 0,
       customerEmail: body.customerEmail,

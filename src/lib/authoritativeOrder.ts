@@ -231,6 +231,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   if (submittedCode) {
     const result = await resolveCoupon(req.payload, {
       code: submittedCode,
+      market,
       pricingMarket: currency === 'EUR' ? 'PT' : 'AO',
       subtotal,
       customerEmail,

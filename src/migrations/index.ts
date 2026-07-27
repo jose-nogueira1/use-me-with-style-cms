@@ -28,6 +28,7 @@ import * as migration_20260725_233000_fix_home_content_versions_columns from './
 import * as migration_20260725_234000_fix_home_content_timestamps from './20260725_234000_fix_home_content_timestamps'
 import * as migration_20260725_235000_coupons_locked_documents_rel from './20260725_235000_coupons_locked_documents_rel'
 import * as migration_20260726_100000_bilingual_bank_transfer_and_disclaimer from './20260726_100000_bilingual_bank_transfer_and_disclaimer'
+import * as migration_20260727_100000_coupons_market_availability from './20260727_100000_coupons_market_availability'
 
 export const migrations = [
   {
@@ -179,5 +180,10 @@ export const migrations = [
     up: migration_20260726_100000_bilingual_bank_transfer_and_disclaimer.up,
     down: migration_20260726_100000_bilingual_bank_transfer_and_disclaimer.down,
     name: '20260726_100000_bilingual_bank_transfer_and_disclaimer',
+  },
+  {
+    up: migration_20260727_100000_coupons_market_availability.up,
+    down: migration_20260727_100000_coupons_market_availability.down,
+    name: '20260727_100000_coupons_market_availability',
   },
 ]
