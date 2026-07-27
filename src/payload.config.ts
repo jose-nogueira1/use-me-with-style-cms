@@ -46,11 +46,19 @@ const isPostgres = databaseUrl.startsWith('postgres://') || databaseUrl.startsWi
 // production. Locally, developers shouldn't need Docker/a Postgres install
 // just to run this service, so a `file:./...` DATABASE_URL transparently
 // uses SQLite instead -- same collections, same API shape either way.
-// prodMigrations wires up the checked-in src/migrations so production boots
-// apply any pending ones automatically (payload tracks applied migrations by
-// name in the `payload-migrations` collection, so this is a no-op once a
-// migration has already run) -- no need to SSH in and run `payload migrate`
-// by hand on every deploy.
+// prodMigrations wires up the checked-in src/migrations (payload tracks
+// applied migrations by name in the `payload-migrations` collection, so
+// re-running is a no-op once a migration has already applied).
+//
+// *** IMPORTANT, corrected 2026-07-27: prodMigrations does NOT run migrations
+// automatically just by being present in this config on Railway's Railpack
+// runtime -- confirmed live: 14 migrations checked in since 2026-07-25 never
+// applied to production Postgres despite several successful deploys in
+// between, causing "column ... does not exist" errors on every request that
+// touched a newer collection. `payload migrate` must be explicitly invoked
+// as part of boot -- see package.json's "start" script, which now runs it
+// before `next start` on every container start. Do not remove that without
+// confirming migrations are actually applying some other way first. ***
 const db = isPostgres
   ? postgresAdapter({ pool: { connectionString: databaseUrl }, prodMigrations: migrations })
   : sqliteAdapter({
