@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 import { readFile } from 'node:fs/promises'
 
 import type { InvoiceAttachment } from './email'
@@ -217,8 +217,8 @@ export function calculateIncludedVatInvoice(
   return { lines, netTotal, taxTotal, total: paidTotal }
 }
 
-async function getSettings(payload: Payload, market: Market, lang: PdfLang): Promise<Settings> {
-  const global = (await payload.findGlobal({ slug: 'invoice-settings', overrideAccess: true })) as unknown as Record<
+async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?: Partial<PayloadRequest>): Promise<Settings> {
+  const global = (await payload.findGlobal({ slug: 'invoice-settings', overrideAccess: true, req })) as unknown as Record<
     string,
     unknown
   >
@@ -515,17 +515,25 @@ async function renderInvoicePdf(input: {
 export async function generateInternalInvoiceForOrder(
   payload: Payload,
   order: OrderForInternalInvoice,
+  req?: Partial<PayloadRequest>,
 ): Promise<InvoiceAttachment | null> {
+  // `req` (when supplied by a hook already inside a transaction, e.g.
+  // notifyOrderEvent.ts's justPaid branch) is threaded through every nested
+  // call below so it joins that SAME transaction instead of opening a new
+  // one -- omitting it throws `SQLITE_BUSY: database is locked` under
+  // libsql/sqlite, the same bug class fixed 2026-07-27 in customerUpsert.ts,
+  // couponPricing.ts and notifyOrderEvent.ts's own messages-create call.
   const existing = await payload.find({
     collection: 'invoices',
     overrideAccess: true,
     limit: 1,
     where: { relatedOrder: { equals: order.id } },
+    req,
   })
   if (existing.docs.some((invoice) => invoice.status === 'issued')) return null
 
   const lang: PdfLang = order.lang ?? 'pt'
-  const settings = await getSettings(payload, order.market, lang)
+  const settings = await getSettings(payload, order.market, lang, req)
   if (!settings.enabled) return null
 
   const calculation = calculateIncludedVatInvoice(order, settings.vatRate, lang)
@@ -539,6 +547,7 @@ export async function generateInternalInvoiceForOrder(
     where: {
       and: [{ market: { equals: order.market } }, { year: { equals: year } }, { status: { equals: 'issued' } }],
     },
+    req,
   })
   const sequence = Number(previous.docs[0]?.sequence || 0) + 1
   const invoiceNumber = `${settings.prefix}-${year}-${String(sequence).padStart(5, '0')}`
@@ -587,6 +596,7 @@ export async function generateInternalInvoiceForOrder(
         pdfData: { base64: pdfBuffer.toString('base64') },
       },
       file: { data: pdfBuffer, mimetype: 'application/pdf', name: filename, size: pdfBuffer.length },
+      req,
     })
     return { filename, content: pdfBuffer }
   } catch (err) {
@@ -602,6 +612,7 @@ export async function generateInternalInvoiceForOrder(
             status: 'failed',
             errorMessage: err instanceof Error ? err.message : String(err),
           },
+          req,
         })
       } catch (recordError) {
         // eslint-disable-next-line no-console

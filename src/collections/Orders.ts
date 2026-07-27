@@ -4,6 +4,7 @@ import { notifyOrderEvent } from '../hooks/notifyOrderEvent'
 import { applyAuthoritativeOrderValues } from '../lib/authoritativeOrder'
 import { manageInventoryReservation } from '../lib/inventoryReservation'
 import { incrementCouponUsageAfterOrderCreate } from '../lib/couponPricing'
+import { upsertCustomerAfterOrderCreate } from '../lib/customerUpsert'
 
 // Order statuses locked in JOS-52 (2026-06-02 decision log, confirmed in
 // Linear): New, Payment Review, Processing, Shipped, Delivered, Cancelled.
@@ -70,7 +71,7 @@ export const Orders: CollectionConfig = {
         return data
       },
     ],
-    afterChange: [incrementCouponUsageAfterOrderCreate, notifyOrderEvent],
+    afterChange: [incrementCouponUsageAfterOrderCreate, upsertCustomerAfterOrderCreate, notifyOrderEvent],
   },
   fields: [
     {

@@ -135,11 +135,16 @@ export async function resolveCoupon(
 export const incrementCouponUsageAfterOrderCreate: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create' || !doc.couponCode) return doc
   try {
+    // `req` joins these calls to the order's already-open transaction --
+    // omitting it throws `SQLITE_BUSY: database is locked` (same root cause
+    // fixed 2026-07-27 in notifyOrderEvent.ts and customerUpsert.ts; this
+    // path just hadn't been exercised by a live coupon-order test yet).
     const matches = await req.payload.find({
       collection: 'coupons',
       where: { code: { equals: String(doc.couponCode).toUpperCase() } },
       limit: 1,
       overrideAccess: true,
+      req,
     })
     const coupon = matches.docs[0]
     if (!coupon) return doc
@@ -147,6 +152,7 @@ export const incrementCouponUsageAfterOrderCreate: CollectionAfterChangeHook = a
       collection: 'coupons',
       id: coupon.id,
       overrideAccess: true,
+      req,
       data: { usageCount: (Number(coupon.usageCount) || 0) + 1 },
     })
   } catch (err) {

@@ -43,9 +43,15 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     await sendWhatsAppMessage(doc.customerPhone, message)
 
     try {
+      // `req` joins this create to the same transaction the order write is
+      // already running in -- omitting it throws `SQLITE_BUSY: database is
+      // locked` on every single order (confirmed live 2026-07-27; this was
+      // silently swallowed by the catch below, so the messages log has been
+      // failing to record any auto-sent order notification).
       await req.payload.create({
         collection: 'messages',
         overrideAccess: true,
+        req,
         data: {
           channel: 'whatsapp',
           direction: 'outbound',
@@ -91,7 +97,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       paymentMethod: doc.paymentMethod,
       paymentReference: doc.paymentReference || undefined,
       items: doc.items,
-    })
+    }, req)
     if (attachment) invoiceAttachment = attachment
 
     await sendOrderConfirmationEmail(req.payload, {
