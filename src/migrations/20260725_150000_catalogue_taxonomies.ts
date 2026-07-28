@@ -42,6 +42,21 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
     );
+    -- 2026-07-28 incident: CREATE TABLE IF NOT EXISTS silently no-ops if a
+    -- table by this name already exists -- it does NOT add missing columns.
+    -- An earlier, narrower version of this migration's SQL already created
+    -- categories/merch_tags/colors in prod (with data), but WITHOUT some of
+    -- the columns this expanded version expects, crashing every deploy
+    -- since ("column ... does not exist"). Defensively add anything that
+    -- might be missing before any statement below references it.
+    ALTER TABLE "categories"
+      ADD COLUMN IF NOT EXISTS "name_p_t" varchar,
+      ADD COLUMN IF NOT EXISTS "name_e_n" varchar,
+      ADD COLUMN IF NOT EXISTS "slug" varchar,
+      ADD COLUMN IF NOT EXISTS "updated_at" timestamp(3) with time zone DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS "created_at" timestamp(3) with time zone DEFAULT now();
+    UPDATE "categories" SET "name_p_t" = 'Sem nome' WHERE "name_p_t" IS NULL;
+    ALTER TABLE "categories" ALTER COLUMN "name_p_t" SET NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS "categories_slug_idx" ON "categories" ("slug");
     CREATE INDEX IF NOT EXISTS "categories_updated_at_idx" ON "categories" ("updated_at");
     CREATE INDEX IF NOT EXISTS "categories_created_at_idx" ON "categories" ("created_at");
@@ -53,6 +68,13 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
     );
+    ALTER TABLE "merch_tags"
+      ADD COLUMN IF NOT EXISTS "label_p_t" varchar,
+      ADD COLUMN IF NOT EXISTS "label_e_n" varchar,
+      ADD COLUMN IF NOT EXISTS "updated_at" timestamp(3) with time zone DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS "created_at" timestamp(3) with time zone DEFAULT now();
+    UPDATE "merch_tags" SET "label_p_t" = 'Sem etiqueta' WHERE "label_p_t" IS NULL;
+    ALTER TABLE "merch_tags" ALTER COLUMN "label_p_t" SET NOT NULL;
     CREATE INDEX IF NOT EXISTS "merch_tags_updated_at_idx" ON "merch_tags" ("updated_at");
     CREATE INDEX IF NOT EXISTS "merch_tags_created_at_idx" ON "merch_tags" ("created_at");
 
@@ -64,6 +86,14 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
     );
+    ALTER TABLE "colors"
+      ADD COLUMN IF NOT EXISTS "name" varchar,
+      ADD COLUMN IF NOT EXISTS "hex" varchar,
+      ADD COLUMN IF NOT EXISTS "swatch_id" integer,
+      ADD COLUMN IF NOT EXISTS "updated_at" timestamp(3) with time zone DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS "created_at" timestamp(3) with time zone DEFAULT now();
+    UPDATE "colors" SET "name" = 'cor-' || "id" WHERE "name" IS NULL;
+    ALTER TABLE "colors" ALTER COLUMN "name" SET NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS "colors_name_idx" ON "colors" ("name");
     CREATE INDEX IF NOT EXISTS "colors_swatch_idx" ON "colors" ("swatch_id");
     CREATE INDEX IF NOT EXISTS "colors_updated_at_idx" ON "colors" ("updated_at");
@@ -80,6 +110,12 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
     );
+    ALTER TABLE "size_guides"
+      ADD COLUMN IF NOT EXISTS "name" varchar,
+      ADD COLUMN IF NOT EXISTS "updated_at" timestamp(3) with time zone DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS "created_at" timestamp(3) with time zone DEFAULT now();
+    UPDATE "size_guides" SET "name" = 'guia-' || "id" WHERE "name" IS NULL;
+    ALTER TABLE "size_guides" ALTER COLUMN "name" SET NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS "size_guides_name_idx" ON "size_guides" ("name");
     CREATE INDEX IF NOT EXISTS "size_guides_updated_at_idx" ON "size_guides" ("updated_at");
     CREATE INDEX IF NOT EXISTS "size_guides_created_at_idx" ON "size_guides" ("created_at");
