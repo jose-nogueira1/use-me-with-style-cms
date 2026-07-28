@@ -1,6 +1,6 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice } from './salePricing'
-import { resolveCoupon } from './couponPricing'
+import { claimCouponRedemption } from './couponPricing'
 
 type Market = 'AO' | 'PT'
 
@@ -229,7 +229,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   let discountLabel: string | undefined
   const submittedCode = typeof data.couponCode === 'string' ? data.couponCode.trim() : ''
   if (submittedCode) {
-    const result = await resolveCoupon(req.payload, {
+    const result = await claimCouponRedemption(req, {
       code: submittedCode,
       market,
       pricingMarket: currency === 'EUR' ? 'PT' : 'AO',

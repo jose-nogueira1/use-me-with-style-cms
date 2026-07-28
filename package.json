@@ -11,7 +11,8 @@
     "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
     "start": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && cross-env NODE_OPTIONS=--no-deprecation next start",
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
-    "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
+    "test": "tsx --test tests/*.test.ts tests/*.test.mjs",
+    "test:migrations:postgres": "tsx --test tests/postgresMigrations.test.ts",
     "cron:release-inventory": "node scripts/release-expired-reservations.mjs",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
@@ -19,36 +20,41 @@
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/seed.ts"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "3.85.2",
-    "@payloadcms/db-sqlite": "3.85.2",
-    "@payloadcms/email-resend": "^3.85.2",
-    "@payloadcms/next": "3.85.2",
-    "@payloadcms/richtext-lexical": "3.85.2",
-    "@payloadcms/storage-s3": "3.85.2",
-    "@payloadcms/ui": "3.85.2",
+    "@payloadcms/db-postgres": "3.86.0",
+    "@payloadcms/db-sqlite": "3.86.0",
+    "@payloadcms/email-resend": "3.86.0",
+    "@payloadcms/next": "3.86.0",
+    "@payloadcms/richtext-lexical": "3.86.0",
+    "@payloadcms/storage-s3": "3.86.0",
+    "@payloadcms/ui": "3.86.0",
     "cross-env": "^10.1.0",
     "dotenv": "^16.4.7",
     "graphql": "^16.8.1",
-    "next": "16.2.10",
-    "payload": "3.85.2",
+    "next": "16.2.12",
+    "payload": "3.86.0",
     "pdf-lib": "^1.17.1",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "sharp": "^0.35.3",
-    "stripe": "^22.3.0"
+    "stripe": "^22.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^10.7.0",
-    "globals": "^17.7.0",
-    "tsx": "^4.21.0",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.64.0"
+    "typescript-eslint": "^8.65.0"
   },
   "engines": {
     "node": ">=20.9.0"
+  },
+  "overrides": {
+    "fast-uri": "^3.1.4",
+    "postcss": "^8.5.18",
+    "sharp": "$sharp"
   }
 }

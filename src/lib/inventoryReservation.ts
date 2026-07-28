@@ -33,7 +33,7 @@ function relationshipId(value: StockDelta['productId'] | { id?: string | number 
   return null
 }
 
-function itemDeltas(order: ReservationOrder): StockDelta[] {
+export function inventoryDeltasForOrder(order: ReservationOrder): StockDelta[] {
   const grouped = new Map<string, StockDelta>()
   for (const item of order.items ?? []) {
     const productId = relationshipId(item.product)
@@ -63,7 +63,7 @@ async function lockProductRow(req: PayloadRequest, productId: string | number) {
 }
 
 async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, direction: 'reserve' | 'release') {
-  const deltas = itemDeltas(order)
+  const deltas = inventoryDeltasForOrder(order)
   const productIds = [...new Set(deltas.map((entry) => entry.productId))]
 
   for (const productId of productIds) {

@@ -1,4 +1,5 @@
-import type { CollectionAfterChangeHook, Payload } from 'payload'
+import { APIError, type Payload, type PayloadRequest } from 'payload'
+import { sql } from 'drizzle-orm'
 
 type Market = 'AO' | 'PT'
 
@@ -63,6 +64,7 @@ export async function resolveCoupon(
     customerEmail?: string
     now?: Date
   },
+  req?: Partial<PayloadRequest>,
 ): Promise<CouponResolution> {
   const code = params.code.trim().toUpperCase()
   if (!code) return { valid: false, reason: 'Enter a code.' }
@@ -72,6 +74,7 @@ export async function resolveCoupon(
     where: { code: { equals: code } },
     limit: 1,
     overrideAccess: true,
+    req,
   })
   const coupon = matches.docs[0] as unknown as CouponDoc | undefined
   if (!coupon) return { valid: false, reason: 'This code was not found.' }
@@ -108,6 +111,7 @@ export async function resolveCoupon(
         ],
       },
       overrideAccess: true,
+      req,
     })
     if (priorRedemptions.totalDocs >= coupon.maxRedemptionsPerEmail) {
       return { valid: false, reason: 'You have already used this code the maximum number of times.' }
@@ -125,38 +129,45 @@ export async function resolveCoupon(
   return { valid: true, code, discountAmount, label }
 }
 
-/** Bumps the coupon's usageCount once an order that used it is actually
- * created. Fire-and-forget-tolerant: a failure here shouldn't fail order
- * creation (the order and its discount are already committed) -- logged
- * instead, same defensive pattern as notifyOrderEvent.ts's own side
- * effects. Only runs on create, matching when inventory reservations are
- * first taken (manageInventoryReservation) -- not re-run on later status
- * updates to the same order. */
-export const incrementCouponUsageAfterOrderCreate: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
-  if (operation !== 'create' || !doc.couponCode) return doc
-  try {
-    // `req` joins these calls to the order's already-open transaction --
-    // omitting it throws `SQLITE_BUSY: database is locked` (same root cause
-    // fixed 2026-07-27 in notifyOrderEvent.ts and customerUpsert.ts; this
-    // path just hadn't been exercised by a live coupon-order test yet).
-    const matches = await req.payload.find({
-      collection: 'coupons',
-      where: { code: { equals: String(doc.couponCode).toUpperCase() } },
-      limit: 1,
-      overrideAccess: true,
-      req,
-    })
-    const coupon = matches.docs[0]
-    if (!coupon) return doc
-    await req.payload.update({
-      collection: 'coupons',
-      id: coupon.id,
-      overrideAccess: true,
-      req,
-      data: { usageCount: (Number(coupon.usageCount) || 0) + 1 },
-    })
-  } catch (err) {
-    req.payload.logger.error({ err, couponCode: doc.couponCode }, '[coupons:usage-increment-failed]')
-  }
-  return doc
+async function lockCouponRow(req: PayloadRequest, code: string): Promise<void> {
+  if (!String(process.env.DATABASE_URL ?? '').startsWith('postgres')) return
+  const transactionID = await req.transactionID
+  if (!transactionID) throw new APIError('Coupon redemption requires a database transaction.', 503, null, true)
+  const session = req.payload.db.sessions?.[String(transactionID)] as
+    | { db?: { execute?: (query: unknown) => Promise<unknown> } }
+    | undefined
+  if (!session?.db?.execute) throw new APIError('Coupon transaction session is unavailable.', 503, null, true)
+  await session.db.execute(sql`SELECT id FROM coupons WHERE code = ${code} FOR UPDATE`)
+}
+
+/** Atomically validates and claims one coupon redemption inside the order
+ * creation transaction. The row lock serializes concurrent uses of the same
+ * code; passing `req` to every Payload operation keeps the usage update and
+ * the eventual order insert in one commit/rollback boundary. */
+export async function claimCouponRedemption(
+  req: PayloadRequest,
+  params: Parameters<typeof resolveCoupon>[1],
+): Promise<CouponResolution> {
+  const code = params.code.trim().toUpperCase()
+  await lockCouponRow(req, code)
+  const result = await resolveCoupon(req.payload, { ...params, code }, req)
+  if (!result.valid) return result
+
+  const matches = await req.payload.find({
+    collection: 'coupons',
+    where: { code: { equals: code } },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  })
+  const coupon = matches.docs[0]
+  if (!coupon) return { valid: false, reason: 'This code was not found.' }
+  await req.payload.update({
+    collection: 'coupons',
+    id: coupon.id,
+    overrideAccess: true,
+    req,
+    data: { usageCount: (Number(coupon.usageCount) || 0) + 1 },
+  })
+  return result
 }
