@@ -161,11 +161,22 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     ) AS v(pt, en)
     WHERE NOT EXISTS (SELECT 1 FROM "merch_tags" t WHERE t."label_p_t" = v.pt);
 
-    INSERT INTO "colors" ("name")
-    SELECT DISTINCT trim("color")
-    FROM "products_colors"
-    WHERE trim(coalesce("color", '')) <> ''
-    ON CONFLICT ("name") DO NOTHING;
+    -- 2026-07-28 incident: an earlier, further-along partial run of this
+    -- migration already dropped products_colors/products_sizes (they're
+    -- dropped near the end of this same file) without ever completing/
+    -- being recorded as applied -- confirmed via prod error "relation
+    -- products_colors does not exist". Guard every reference to these two
+    -- old tables so this migration also succeeds from THAT partial state,
+    -- not just from a clean/no-op state.
+    DO $$ BEGIN
+      IF to_regclass('public.products_colors') IS NOT NULL THEN
+        INSERT INTO "colors" ("name")
+        SELECT DISTINCT trim("color")
+        FROM "products_colors"
+        WHERE trim(coalesce("color", '')) <> ''
+        ON CONFLICT ("name") DO NOTHING;
+      END IF;
+    END $$;
 
     -- Best-guess hex for colours whose name is a recognised Portuguese
     -- colour word (see lib/colorPresets.ts) -- these are literal colour
@@ -250,24 +261,28 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     EXCEPTION WHEN duplicate_object THEN NULL;
     END $$;
 
-    WITH pcolors AS (
-      SELECT pc."_parent_id" AS parent_id,
-             col."id" AS color_id,
-             ROW_NUMBER() OVER (PARTITION BY pc."_parent_id" ORDER BY pc."_order") AS color_rank
-      FROM "products_colors" pc
-      JOIN "colors" col ON col."name" = trim(pc."color")
-    )
-    INSERT INTO "products_variants" ("_order", "_parent_id", "id", "color_id", "size", "stock_a_o", "stock_p_t")
-    SELECT ROW_NUMBER() OVER (PARTITION BY ps."_parent_id" ORDER BY p.color_rank, ps."_order"),
-           ps."_parent_id",
-           ps."id" || '-c' || p.color_id,
-           p.color_id,
-           ps."size"::text::"enum_products_variants_size",
-           CASE WHEN p.color_rank = 1 THEN ps."stock_a_o" ELSE 0 END,
-           CASE WHEN p.color_rank = 1 THEN ps."stock_p_t" ELSE 0 END
-    FROM "products_sizes" ps
-    JOIN pcolors p ON p.parent_id = ps."_parent_id"
-    ON CONFLICT ("id") DO NOTHING;
+    DO $$ BEGIN
+      IF to_regclass('public.products_sizes') IS NOT NULL AND to_regclass('public.products_colors') IS NOT NULL THEN
+        INSERT INTO "products_variants" ("_order", "_parent_id", "id", "color_id", "size", "stock_a_o", "stock_p_t")
+        WITH pcolors AS (
+          SELECT pc."_parent_id" AS parent_id,
+                 col."id" AS color_id,
+                 ROW_NUMBER() OVER (PARTITION BY pc."_parent_id" ORDER BY pc."_order") AS color_rank
+          FROM "products_colors" pc
+          JOIN "colors" col ON col."name" = trim(pc."color")
+        )
+        SELECT ROW_NUMBER() OVER (PARTITION BY ps."_parent_id" ORDER BY p.color_rank, ps."_order"),
+               ps."_parent_id",
+               ps."id" || '-c' || p.color_id,
+               p.color_id,
+               ps."size"::text::"enum_products_variants_size",
+               CASE WHEN p.color_rank = 1 THEN ps."stock_a_o" ELSE 0 END,
+               CASE WHEN p.color_rank = 1 THEN ps."stock_p_t" ELSE 0 END
+        FROM "products_sizes" ps
+        JOIN pcolors p ON p.parent_id = ps."_parent_id"
+        ON CONFLICT ("id") DO NOTHING;
+      END IF;
+    END $$;
 
     -- ---------------------------------------------------------------
     -- Locked-documents bookkeeping columns for the new collections
