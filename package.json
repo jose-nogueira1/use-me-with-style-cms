@@ -9,7 +9,7 @@
     "build": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap && cross-env NODE_OPTIONS=--no-deprecation next build",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
-    "start": "node scripts/fix-stale-migration-tracking.mjs && cross-env NODE_OPTIONS=--no-deprecation payload migrate && node scripts/diagnose-prod-schema.mjs && cross-env NODE_OPTIONS=--no-deprecation next start",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && cross-env NODE_OPTIONS=--no-deprecation next start",
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
     "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
     "cron:release-inventory": "node scripts/release-expired-reservations.mjs",
