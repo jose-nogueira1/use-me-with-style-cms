@@ -141,10 +141,19 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         FOREIGN KEY ("_parent_id") REFERENCES "size_guides"("id") ON DELETE CASCADE;
     EXCEPTION WHEN duplicate_object THEN NULL;
     END $$;
+  `)
 
-    -- ---------------------------------------------------------------
+  // 2026-07-28 incident: split into several smaller db.execute() calls (one
+  // per logical section) instead of one giant statement. On failure,
+  // Drizzle logs the ENTIRE failed query verbatim -- with everything in one
+  // call, that dump was large enough to trip Railway's per-second log-rate
+  // limit and silently swallow the actual Postgres error message, which is
+  // what turned tonight's incident into hours of guessing instead of a
+  // 2-minute fix. Smaller calls -> smaller dumps -> the real error stays
+  // visible. Still one transaction overall (Payload wraps the whole
+  // migration), so atomicity is unchanged.
+  await db.execute(sql`
     -- Seed the previous enum values so existing data maps 1:1
-    -- ---------------------------------------------------------------
     INSERT INTO "categories" ("name_p_t", "name_e_n", "slug") VALUES
       ('Vestidos', 'Dresses', 'vestidos'),
       ('Tops', 'Tops', 'tops'),
@@ -187,10 +196,10 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         .map(([name, hex]) => `UPDATE "colors" SET "hex" = '${hex}' WHERE "hex" IS NULL AND lower(trim("name")) = '${name.replace(/'/g, "''")}';`)
         .join('\n    '),
     )}
+  `)
 
-    -- ---------------------------------------------------------------
+  await db.execute(sql`
     -- Products: enum columns -> relationship columns; size guide fields
-    -- ---------------------------------------------------------------
     ALTER TABLE "products"
       ADD COLUMN IF NOT EXISTS "category_id" integer,
       ADD COLUMN IF NOT EXISTS "tag_id" integer,
@@ -198,19 +207,32 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       ADD COLUMN IF NOT EXISTS "fit_note_p_t" varchar,
       ADD COLUMN IF NOT EXISTS "fit_note_e_n" varchar;
 
-    UPDATE "products" p
-      SET "category_id" = c."id"
-      FROM "categories" c
-      WHERE p."category_id" IS NULL AND c."slug" = p."category"::text;
+    -- 2026-07-28 incident: products.category/products.tag are dropped near
+    -- the end of this same file, and (same pattern as products_sizes/
+    -- products_colors above) an earlier partial run may have already
+    -- dropped them without recording the migration as applied. Guard both
+    -- backfills so they only read the old column if it's actually there.
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'category') THEN
+        UPDATE "products" p
+          SET "category_id" = c."id"
+          FROM "categories" c
+          WHERE p."category_id" IS NULL AND c."slug" = p."category"::text;
+      END IF;
+    END $$;
     UPDATE "products"
       SET "category_id" = (SELECT "id" FROM "categories" WHERE "slug" = 'vestidos')
       WHERE "category_id" IS NULL;
     ALTER TABLE "products" ALTER COLUMN "category_id" SET NOT NULL;
 
-    UPDATE "products" p
-      SET "tag_id" = t."id"
-      FROM "merch_tags" t
-      WHERE p."tag_id" IS NULL AND p."tag" IS NOT NULL AND upper(t."label_p_t") = p."tag"::text;
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'tag') THEN
+        UPDATE "products" p
+          SET "tag_id" = t."id"
+          FROM "merch_tags" t
+          WHERE p."tag_id" IS NULL AND p."tag" IS NOT NULL AND upper(t."label_p_t") = p."tag"::text;
+      END IF;
+    END $$;
 
     DO $$ BEGIN
       ALTER TABLE "products" ADD CONSTRAINT "products_category_id_categories_id_fk"
@@ -230,10 +252,10 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "products_category_idx" ON "products" ("category_id");
     CREATE INDEX IF NOT EXISTS "products_tag_idx" ON "products" ("tag_id");
     CREATE INDEX IF NOT EXISTS "products_size_guide_idx" ON "products" ("size_guide_id");
+  `)
 
-    -- ---------------------------------------------------------------
+  await db.execute(sql`
     -- Variant inventory: products_sizes x colours -> products_variants
-    -- ---------------------------------------------------------------
     DO $$ BEGIN
       CREATE TYPE "public"."enum_products_variants_size" AS ENUM('XS', 'S', 'M', 'L', 'XL');
     EXCEPTION WHEN duplicate_object THEN NULL;
@@ -263,7 +285,6 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
 
     DO $$ BEGIN
       IF to_regclass('public.products_sizes') IS NOT NULL AND to_regclass('public.products_colors') IS NOT NULL THEN
-        INSERT INTO "products_variants" ("_order", "_parent_id", "id", "color_id", "size", "stock_a_o", "stock_p_t")
         WITH pcolors AS (
           SELECT pc."_parent_id" AS parent_id,
                  col."id" AS color_id,
@@ -271,6 +292,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
           FROM "products_colors" pc
           JOIN "colors" col ON col."name" = trim(pc."color")
         )
+        INSERT INTO "products_variants" ("_order", "_parent_id", "id", "color_id", "size", "stock_a_o", "stock_p_t")
         SELECT ROW_NUMBER() OVER (PARTITION BY ps."_parent_id" ORDER BY p.color_rank, ps."_order"),
                ps."_parent_id",
                ps."id" || '-c' || p.color_id,
@@ -283,11 +305,11 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         ON CONFLICT ("id") DO NOTHING;
       END IF;
     END $$;
+  `)
 
-    -- ---------------------------------------------------------------
+  await db.execute(sql`
     -- Locked-documents bookkeeping columns for the new collections
     -- (Payload's edit-lock table needs one nullable FK per collection)
-    -- ---------------------------------------------------------------
     ALTER TABLE "payload_locked_documents_rels"
       ADD COLUMN IF NOT EXISTS "categories_id" integer,
       ADD COLUMN IF NOT EXISTS "merch_tags_id" integer,
@@ -317,10 +339,10 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_merch_tags_id_idx" ON "payload_locked_documents_rels" ("merch_tags_id");
     CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_colors_id_idx" ON "payload_locked_documents_rels" ("colors_id");
     CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_size_guides_id_idx" ON "payload_locked_documents_rels" ("size_guides_id");
+  `)
 
-    -- ---------------------------------------------------------------
+  await db.execute(sql`
     -- Drop the old storage, now fully converted
-    -- ---------------------------------------------------------------
     DROP TABLE IF EXISTS "products_sizes";
     DROP TABLE IF EXISTS "products_colors";
     ALTER TABLE "products"
