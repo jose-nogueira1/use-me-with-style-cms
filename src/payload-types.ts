@@ -1179,6 +1179,22 @@ export interface MarketSetting {
   angolaBankTransferInstructionsEN?: string | null;
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
   angolaDeliveryMethods?: 'courier_ao'[] | null;
+  /**
+   * Placeholder local-courier prices. Edit the Kz value for any municipality; keep all 16 keys.
+   */
+  angolaMunicipalityPrices:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Applied to the merchandise total after discounts.
+   */
+  angolaFreeShippingThreshold: number;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
   portugalDeliveryMethods?: ('ctt' | 'courier_pt')[] | null;
   /**
@@ -1352,6 +1368,8 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaBankTransferInstructionsEN?: T;
   angolaPaymentMethods?: T;
   angolaDeliveryMethods?: T;
+  angolaMunicipalityPrices?: T;
+  angolaFreeShippingThreshold?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
   portugalStandardShippingPrice?: T;

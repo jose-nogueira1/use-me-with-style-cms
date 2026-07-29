@@ -30,6 +30,7 @@ import * as migration_20260725_235000_coupons_locked_documents_rel from './20260
 import * as migration_20260726_100000_bilingual_bank_transfer_and_disclaimer from './20260726_100000_bilingual_bank_transfer_and_disclaimer'
 import * as migration_20260727_100000_coupons_market_availability from './20260727_100000_coupons_market_availability'
 import * as migration_20260729_180000_portugal_shipping_and_tracking from './20260729_180000_portugal_shipping_and_tracking'
+import * as migration_20260729_183000_angola_delivery_prices from './20260729_183000_angola_delivery_prices'
 
 export const migrations = [
   {
@@ -191,5 +192,10 @@ export const migrations = [
     up: migration_20260729_180000_portugal_shipping_and_tracking.up,
     down: migration_20260729_180000_portugal_shipping_and_tracking.down,
     name: '20260729_180000_portugal_shipping_and_tracking',
+  },
+  {
+    up: migration_20260729_183000_angola_delivery_prices.up,
+    down: migration_20260729_183000_angola_delivery_prices.down,
+    name: '20260729_183000_angola_delivery_prices',
   },
 ]

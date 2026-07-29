@@ -61,7 +61,7 @@ export const MarketSettings: GlobalConfig = {
       name: 'angolaPaymentMethods',
       type: 'select',
       hasMany: true,
-      defaultValue: ['multicaixa_express', 'stripe', 'paypal'],
+      defaultValue: ['multicaixa_express'],
       options: ['multicaixa_express', 'stripe', 'paypal'],
     },
     {
@@ -70,6 +70,27 @@ export const MarketSettings: GlobalConfig = {
       hasMany: true,
       defaultValue: ['courier_ao'],
       options: ['courier_ao'],
+    },
+    {
+      name: 'angolaMunicipalityPrices',
+      type: 'json',
+      required: true,
+      defaultValue: {
+        Luanda: 3000, Cacuaco: 5000, Cazenga: 3500, Viana: 6000, Belas: 6500, Talatona: 4000,
+        Mussulo: 8000, Sambizanga: 3000, Rangel: 3000, Maianga: 2500, Samba: 3500, Camama: 4500,
+        Mulenvos: 5500, Kilamba: 5000, 'Hoji Ya Henda': 3500, Ingombota: 2500,
+      },
+      label: 'Angola: Luanda municipality delivery prices (Kz)',
+      admin: { description: 'Placeholder local-courier prices. Edit the Kz value for any municipality; keep all 16 keys.' },
+    },
+    {
+      name: 'angolaFreeShippingThreshold',
+      type: 'number',
+      required: true,
+      min: 0,
+      defaultValue: 80000,
+      label: 'Angola: free-delivery threshold (Kz)',
+      admin: { description: 'Applied to the merchandise total after discounts.' },
     },
     {
       name: 'portugalPaymentMethods',

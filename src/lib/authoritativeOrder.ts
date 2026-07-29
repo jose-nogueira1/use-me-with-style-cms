@@ -2,6 +2,7 @@ import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice } from './salePricing'
 import { claimCouponRedemption } from './couponPricing'
 import { portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
+import { angolaShippingCost, canonicalLuandaMunicipality, type AngolaShippingSettings } from './angolaShipping'
 
 type Market = 'AO' | 'PT'
 
@@ -43,14 +44,15 @@ export function authoritativeShippingCost(
   market: Market,
   deliveryMethod: string,
   merchandiseTotalAfterDiscount: number,
-  settings?: PortugalShippingSettings | null,
+  settings?: (PortugalShippingSettings & AngolaShippingSettings) | null,
+  municipality?: string,
 ): number {
-  if (market === 'AO') return 0
+  if (market === 'AO') return angolaShippingCost(municipality ?? '', merchandiseTotalAfterDiscount, settings)
   return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings)
 }
 
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
-  AO: ['multicaixa_express', 'stripe', 'paypal'],
+  AO: ['multicaixa_express'],
   PT: ['paypal', 'stripe', 'mbway'],
 }
 
@@ -85,6 +87,11 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       const deliveryRegion = portugalDeliveryRegion(data.postalCode)
       if (!deliveryRegion) badRequest('A valid Portuguese postal code is required.')
       return { ...data, country: 'Portugal', deliveryRegion }
+    }
+    if (data.market === 'AO' && data.city) {
+      const municipality = canonicalLuandaMunicipality(data.city)
+      if (!municipality) badRequest('Select a valid Luanda municipality.')
+      return { ...data, country: 'Angola', city: municipality, deliveryRegion: null }
     }
     return data
   }
@@ -256,15 +263,17 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
-  let shippingSettings: PortugalShippingSettings | null = null
-  if (market === 'PT' && typeof req.payload.findGlobal === 'function') {
+  let shippingSettings: (PortugalShippingSettings & AngolaShippingSettings) | null = null
+  if (typeof req.payload.findGlobal === 'function') {
     shippingSettings = (await req.payload.findGlobal({
       slug: 'market-settings',
       depth: 0,
       overrideAccess: true,
-    })) as PortugalShippingSettings
+    })) as PortugalShippingSettings & AngolaShippingSettings
   }
-  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings)
+  const municipality = market === 'AO' ? canonicalLuandaMunicipality(data.city) : null
+  if (market === 'AO' && !municipality) badRequest('Select a valid Luanda municipality.')
+  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined)
   const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null
   if (market === 'PT' && !deliveryRegion) badRequest('A valid Portuguese postal code is required.')
 
@@ -275,7 +284,8 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     currency,
     subtotal,
     shippingCost,
-    country: market === 'PT' ? 'Portugal' : data.country,
+    country: market === 'PT' ? 'Portugal' : 'Angola',
+    city: municipality ?? data.city,
     deliveryRegion,
     couponCode: couponCode ?? null,
     discountAmount,
