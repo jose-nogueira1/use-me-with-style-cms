@@ -7,12 +7,13 @@
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap && cross-env NODE_OPTIONS=--no-deprecation next build",
-    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
-    "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "dev": "npm run db:local:sync && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "devsafe": "rm -rf .next && npm run db:local:sync && cross-env NODE_OPTIONS=--no-deprecation next dev",
     "start": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && cross-env NODE_OPTIONS=--no-deprecation next start",
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
     "test": "tsx --test tests/*.test.ts tests/*.test.mjs",
     "test:migrations:postgres": "tsx --test tests/postgresMigrations.test.ts",
+    "db:local:sync": "node scripts/sync-local-sqlite.mjs",
     "cron:release-inventory": "node scripts/release-expired-reservations.mjs",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
@@ -20,6 +21,7 @@
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "@payloadcms/db-postgres": "3.86.0",
     "@payloadcms/db-sqlite": "3.86.0",
     "@payloadcms/email-resend": "3.86.0",
