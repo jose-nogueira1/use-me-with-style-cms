@@ -74,7 +74,7 @@ export function buildOrderConfirmationEmail(input: OrderConfirmationInput): {
 } {
   const lang: EmailLang = input.lang === 'en' ? 'en' : 'pt'
   const copy = EMAIL_COPY[lang]
-  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.com'
+  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop'
   // /conta is the only order-lookup route -- the frontend's routes are not
   // localized (checkout/carrinho/conta stay the same PT slugs regardless of
   // UI language; only the on-page copy changes), so this must NOT vary by
@@ -152,7 +152,7 @@ export async function sendContactFormEmail(payload: Payload, input: ContactMessa
   // No dedicated CONTACT_EMAIL configured yet -- falls back to the same
   // address used as the sender for order confirmations. Set CONTACT_EMAIL
   // in Railway once there's a real monitored support inbox.
-  const to = process.env.CONTACT_EMAIL || process.env.RESEND_FROM_EMAIL || 'orders@usemewithstyle.com'
+  const to = process.env.CONTACT_EMAIL || process.env.RESEND_FROM_EMAIL || 'support@usemewithstyle.shop'
   const subject = `Nova mensagem do site -- ${input.name}`
   const html = `
     <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">

@@ -128,7 +128,7 @@ const resendApiKey = process.env.RESEND_API_KEY
 const email = resendApiKey
   ? resendAdapter({
       apiKey: resendApiKey,
-      defaultFromAddress: process.env.RESEND_FROM_EMAIL || 'orders@usemewithstyle.com',
+      defaultFromAddress: process.env.RESEND_FROM_EMAIL || 'orders@usemewithstyle.shop',
       defaultFromName: process.env.RESEND_FROM_NAME || 'Use Me With Style',
     })
   : undefined

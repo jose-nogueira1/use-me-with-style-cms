@@ -457,7 +457,7 @@ async function renderInvoicePdf(input: {
 
   const leftWidth = width - margin * 2 - 240
   const noteTop = y
-  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.com'
+  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop'
   // /conta is the only order-lookup route -- not localized by language (see
   // the same convention in lib/email.ts's trackingUrl), so this must not
   // vary by lang either.
