@@ -1,6 +1,7 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice } from './salePricing'
 import { claimCouponRedemption } from './couponPricing'
+import { portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
 
 type Market = 'AO' | 'PT'
 
@@ -38,24 +39,14 @@ type InventoryProduct = {
   }> | null
 }
 
-const PT_SHIPPING_COSTS: Record<string, number> = {
-  // Existing database values are retained to avoid invalidating historical
-  // orders: `ctt` is the untracked Correio Normal option and `courier_pt`
-  // now represents tracked CTT Correio Registado.
-  ctt: 4.9,
-  courier_pt: 6.9,
-}
-
-const PT_FREE_SHIPPING_THRESHOLD_EUR = 75
-
 export function authoritativeShippingCost(
   market: Market,
   deliveryMethod: string,
   merchandiseTotalAfterDiscount: number,
+  settings?: PortugalShippingSettings | null,
 ): number {
   if (market === 'AO') return 0
-  if (merchandiseTotalAfterDiscount >= PT_FREE_SHIPPING_THRESHOLD_EUR) return 0
-  return PT_SHIPPING_COSTS[deliveryMethod] ?? 0
+  return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings)
 }
 
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
@@ -88,7 +79,15 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   operation,
   req,
 }) => {
-  if (operation !== 'create' || !data) return data
+  if (!data) return data
+  if (operation !== 'create') {
+    if (data.market === 'PT' && data.postalCode) {
+      const deliveryRegion = portugalDeliveryRegion(data.postalCode)
+      if (!deliveryRegion) badRequest('A valid Portuguese postal code is required.')
+      return { ...data, country: 'Portugal', deliveryRegion }
+    }
+    return data
+  }
 
   const market = data.market as Market
   if (market !== 'AO' && market !== 'PT') badRequest('Invalid market.')
@@ -257,7 +256,17 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
-  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount)
+  let shippingSettings: PortugalShippingSettings | null = null
+  if (market === 'PT' && typeof req.payload.findGlobal === 'function') {
+    shippingSettings = (await req.payload.findGlobal({
+      slug: 'market-settings',
+      depth: 0,
+      overrideAccess: true,
+    })) as PortugalShippingSettings
+  }
+  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings)
+  const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null
+  if (market === 'PT' && !deliveryRegion) badRequest('A valid Portuguese postal code is required.')
 
   return {
     ...data,
@@ -266,6 +275,8 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     currency,
     subtotal,
     shippingCost,
+    country: market === 'PT' ? 'Portugal' : data.country,
+    deliveryRegion,
     couponCode: couponCode ?? null,
     discountAmount,
     discountLabel: discountLabel ?? null,

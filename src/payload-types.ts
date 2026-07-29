@@ -420,6 +420,10 @@ export interface Order {
    * CTT format 0000-000 -- validated client-side on the PT storefront, not collected for Angola.
    */
   postalCode?: string | null;
+  /**
+   * Classified automatically from the Portuguese postal code when the order is created.
+   */
+  deliveryRegion?: ('mainland' | 'madeira' | 'azores') | null;
   city: string;
   country: string;
   /**
@@ -459,6 +463,10 @@ export interface Order {
   inventoryReservationExpiresAt?: string | null;
   inventoryReservationReleasedAt?: string | null;
   deliveryMethod: 'ctt' | 'courier_pt' | 'courier_ao' | 'manual_ao';
+  /**
+   * For CTT Registered orders, enter the code from the CTT receipt or shipping portal. It becomes visible in the customer order lookup.
+   */
+  cttTrackingCode?: string | null;
   /**
    * Provider transaction ID (Stripe, PayPal or AppyPay) -- set automatically for admin troubleshooting.
    */
@@ -951,6 +959,7 @@ export interface OrdersSelect<T extends boolean = true> {
   address?: T;
   addressLine2?: T;
   postalCode?: T;
+  deliveryRegion?: T;
   city?: T;
   country?: T;
   taxId?: T;
@@ -980,6 +989,7 @@ export interface OrdersSelect<T extends boolean = true> {
   inventoryReservationExpiresAt?: T;
   inventoryReservationReleasedAt?: T;
   deliveryMethod?: T;
+  cttTrackingCode?: T;
   paymentReference?: T;
   appyPayMerchantTransactionId?: T;
   appyPayTransactionId?: T;
@@ -1172,6 +1182,18 @@ export interface MarketSetting {
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
   portugalDeliveryMethods?: ('ctt' | 'courier_pt')[] | null;
   /**
+   * Customer charge for the untracked option below the free-delivery threshold.
+   */
+  portugalStandardShippingPrice: number;
+  /**
+   * Customer charge for tracked CTT delivery below the free-delivery threshold.
+   */
+  portugalTrackedShippingPrice: number;
+  /**
+   * Applied to the merchandise total after coupons and other discounts.
+   */
+  portugalFreeShippingThreshold: number;
+  /**
    * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.
    */
   angolaReturnsPolicyTextPT?: string | null;
@@ -1332,6 +1354,9 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaDeliveryMethods?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
+  portugalStandardShippingPrice?: T;
+  portugalTrackedShippingPrice?: T;
+  portugalFreeShippingThreshold?: T;
   angolaReturnsPolicyTextPT?: T;
   angolaReturnsPolicyTextEN?: T;
   portugalReturnsPolicyTextPT?: T;

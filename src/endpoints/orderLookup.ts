@@ -77,6 +77,8 @@ export const orderLookupEndpoint: Endpoint = {
             paymentStatus: order.paymentStatus,
             total: order.total,
             currency: order.currency,
+            deliveryRegion: order.deliveryRegion,
+            cttTrackingCode: order.cttTrackingCode,
             updatedAt: order.updatedAt,
           }
         : null,

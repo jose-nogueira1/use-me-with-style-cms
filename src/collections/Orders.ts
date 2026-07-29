@@ -132,6 +132,19 @@ export const Orders: CollectionConfig = {
       label: 'Postal Code (PT)',
       admin: { description: 'CTT format 0000-000 -- validated client-side on the PT storefront, not collected for Angola.' },
     },
+    {
+      name: 'deliveryRegion',
+      type: 'select',
+      options: [
+        { label: 'Portugal mainland', value: 'mainland' },
+        { label: 'Madeira / Porto Santo', value: 'madeira' },
+        { label: 'Azores', value: 'azores' },
+      ],
+      admin: {
+        readOnly: true,
+        description: 'Classified automatically from the Portuguese postal code when the order is created.',
+      },
+    },
     { name: 'city', type: 'text', required: true },
     { name: 'country', type: 'text', required: true },
     {
@@ -239,6 +252,19 @@ export const Orders: CollectionConfig = {
       type: 'select',
       required: true,
       options: [...DELIVERY_METHODS],
+    },
+    {
+      name: 'cttTrackingCode',
+      type: 'text',
+      index: true,
+      label: 'CTT tracking code',
+      hooks: {
+        beforeValidate: [({ value }) => typeof value === 'string' ? value.trim().toUpperCase().replace(/\s/g, '') || null : value],
+      },
+      validate: (value: unknown) => !value || /^[A-Z0-9]{8,40}$/.test(String(value)) || 'Enter a valid CTT tracking code (letters and numbers only).',
+      admin: {
+        description: 'For CTT Registered orders, enter the code from the CTT receipt or shipping portal. It becomes visible in the customer order lookup.',
+      },
     },
     {
       name: 'paymentReference',

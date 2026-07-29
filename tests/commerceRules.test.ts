@@ -6,6 +6,8 @@ import { claimCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.t
 import { calculateIncludedVatInvoice } from '../src/lib/internalInvoice.ts'
 import { inventoryDeltasForOrder, manageInventoryReservation } from '../src/lib/inventoryReservation.ts'
 import { effectiveUnitPrice, isProductOnSale } from '../src/lib/salePricing.ts'
+import { portugalDeliveryRegion } from '../src/lib/portugalShipping.ts'
+import { orderLookupEndpoint } from '../src/endpoints/orderLookup.ts'
 
 const NOW = new Date('2026-07-28T12:00:00.000Z')
 
@@ -81,6 +83,40 @@ test('Portugal shipping is authoritative, method-specific, and free from EUR 75 
   assert.equal(authoritativeShippingCost('PT', 'ctt', 75), 0)
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100), 0)
   assert.equal(authoritativeShippingCost('AO', 'courier_ao', 1), 0)
+  const custom = { portugalStandardShippingPrice: 5.5, portugalTrackedShippingPrice: 8, portugalFreeShippingThreshold: 90 }
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 75, custom), 5.5)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 89.99, custom), 8)
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 90, custom), 0)
+})
+
+test('Portuguese postal codes classify mainland, Madeira and the Azores', () => {
+  assert.equal(portugalDeliveryRegion('1000-001'), 'mainland')
+  assert.equal(portugalDeliveryRegion('9000-001'), 'madeira')
+  assert.equal(portugalDeliveryRegion('9499-999'), 'madeira')
+  assert.equal(portugalDeliveryRegion('9500-001'), 'azores')
+  assert.equal(portugalDeliveryRegion('9999-999'), 'azores')
+  assert.equal(portugalDeliveryRegion('invalid'), null)
+})
+
+test('order lookup exposes manual CTT tracking only after email verification', async () => {
+  const order = {
+    orderNumber: 'PT-123456', customerEmail: 'buyer@example.com', status: 'shipped', paymentStatus: 'paid',
+    total: 86.9, currency: 'EUR', deliveryRegion: 'madeira', cttTrackingCode: 'RD123456789PT', updatedAt: NOW.toISOString(),
+  }
+  const makeReq = (email: string) => ({
+    headers: new Headers({ 'x-forwarded-for': `198.51.100.${email === order.customerEmail ? '1' : '2'}` }),
+    json: async () => ({ orderNumber: order.orderNumber, email }),
+    payload: {
+      find: async () => ({ docs: [order] }),
+      logger: { info: () => {}, warn: () => {} },
+    },
+  })
+  const rejected = await orderLookupEndpoint.handler(makeReq('wrong@example.com') as never)
+  assert.deepEqual(await rejected.json(), { order: null })
+  const accepted = await orderLookupEndpoint.handler(makeReq(order.customerEmail) as never)
+  const body = await accepted.json() as { order: typeof order }
+  assert.equal(body.order.cttTrackingCode, 'RD123456789PT')
+  assert.equal(body.order.deliveryRegion, 'madeira')
 })
 
 test('authoritative order ignores submitted prices and applies sale, coupon and shipping', async () => {
@@ -100,7 +136,7 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   }
   const data = await applyAuthoritativeOrderValues({
     data: {
-      market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: ' USER@EXAMPLE.COM ',
+      market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: ' USER@EXAMPLE.COM ', postalCode: '9500-001',
       couponCode: 'SAVE10', items: [{ product: 4, size: 'M', color: '3', qty: 2, unitPrice: 1 }],
       subtotal: 2, total: 2,
     },
@@ -112,6 +148,8 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   assert.equal(data?.discountAmount, 8)
   assert.equal(data?.shippingCost, 4.9)
   assert.equal(data?.total, 76.9)
+  assert.equal(data?.deliveryRegion, 'azores')
+  assert.equal(data?.country, 'Portugal')
   assert.equal(data?.customerEmail, 'user@example.com')
 })
 
