@@ -89,6 +89,9 @@ test('Portugal shipping is authoritative, method-specific, and free from EUR 75 
   assert.equal(authoritativeShippingCost('PT', 'ctt', 75, custom), 5.5)
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 89.99, custom), 8)
   assert.equal(authoritativeShippingCost('PT', 'ctt', 90, custom), 0)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, undefined, undefined, 2500, '1000-001'), 9.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, undefined, undefined, 2500, '9000-001'), 14.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 75, undefined, undefined, 2500, '9500-001'), 0)
 })
 
 test('Portuguese postal codes classify mainland, Madeira and the Azores', () => {
@@ -123,11 +126,13 @@ test('order lookup exposes manual CTT tracking only after email verification', a
 
 test('authoritative order ignores submitted prices and applies sale, coupon and shipping', async () => {
   const coupon = { id: 9, code: 'SAVE10', active: true, type: 'percent', percentOff: 10, usageCount: 0 }
+  let shippingWeightGrams = 500
   const payload = {
     db: {},
     findByID: async () => ({
       id: 4, active: true, availableAO: true, availablePT: true,
       name: 'Vestido', nameEN: 'Dress', namePT: 'Vestido', priceAOKz: 50_000, pricePTEur: 50,
+      shippingWeightGrams,
       salePTEur: 40, variants: [{ color: 3, size: 'M', stockAO: 2, stockPT: 2 }],
     }),
     find: async (options: { collection: string }) => options.collection === 'colors'
@@ -153,6 +158,16 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   assert.equal(data?.deliveryRegion, 'azores')
   assert.equal(data?.country, 'Portugal')
   assert.equal(data?.customerEmail, 'user@example.com')
+
+  shippingWeightGrams = 1200
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: {
+      market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: 'user@example.com', postalCode: '1000-001',
+      items: [{ product: 4, size: 'M', color: '3', qty: 2 }],
+    },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /tracked delivery/)
 })
 
 test('inventory groups duplicate variants and reserves stock once', async () => {

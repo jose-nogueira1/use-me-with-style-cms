@@ -134,6 +134,21 @@ export const MarketSettings: GlobalConfig = {
       admin: { description: 'Applied to the merchandise total after coupons and other discounts.' },
     },
     {
+      name: 'portugalStandardWeightLimitGrams',
+      type: 'number', required: true, min: 1, defaultValue: 2000,
+      label: 'Portugal: standard parcel weight limit (grams)',
+    },
+    {
+      name: 'portugalHeavyMainlandShippingPrice',
+      type: 'number', required: true, min: 0, defaultValue: 9.9,
+      label: 'Portugal: tracked delivery over weight limit - mainland (EUR)',
+    },
+    {
+      name: 'portugalHeavyIslandsShippingPrice',
+      type: 'number', required: true, min: 0, defaultValue: 14.9,
+      label: 'Portugal: tracked delivery over weight limit - Madeira/Azores (EUR)',
+    },
+    {
       name: 'angolaReturnsPolicyTextPT',
       type: 'textarea',
       label: 'Angola: returns & exchanges policy — Portuguese (shown on Help page / checkout)',

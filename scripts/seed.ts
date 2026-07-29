@@ -171,6 +171,7 @@ async function seed() {
         tag: product.tag ? tagIdByValue.get(product.tag) : undefined,
         variants,
         sizeGuide: guideIdByKey.get(guideKeyByCategory[product.category]),
+        shippingWeightGrams: 500,
         active: true,
         availableAO: true,
         availablePT: true,

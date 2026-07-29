@@ -1,7 +1,7 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice } from './salePricing'
 import { claimCouponRedemption } from './couponPricing'
-import { portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
+import { normalizePortugalShipping, portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
 import { angolaShippingCost, canonicalLuandaMunicipality, type AngolaShippingSettings } from './angolaShipping'
 
 type Market = 'AO' | 'PT'
@@ -23,6 +23,7 @@ type InventoryProduct = {
   namePT?: string | null
   priceAOKz: number
   pricePTEur: number
+  shippingWeightGrams?: number | null
   // Discounts phase 1 (2026-07-25): optional per-market sale price + window
   // -- see lib/salePricing.ts, the single place this is resolved into an
   // actual charged unit price.
@@ -46,9 +47,11 @@ export function authoritativeShippingCost(
   merchandiseTotalAfterDiscount: number,
   settings?: (PortugalShippingSettings & AngolaShippingSettings) | null,
   municipality?: string,
+  totalWeightGrams = 0,
+  postalCode?: string,
 ): number {
   if (market === 'AO') return angolaShippingCost(municipality ?? '', merchandiseTotalAfterDiscount, settings)
-  return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings)
+  return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings, totalWeightGrams, portugalDeliveryRegion(postalCode) ?? 'mainland')
 }
 
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
@@ -119,6 +122,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
 
   const requestedByVariant = new Map<string, number>()
   const authoritativeItems = []
+  let totalWeightGrams = 0
 
   for (const submitted of submittedItems) {
     const productId = relationshipId(submitted.product)
@@ -221,6 +225,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
 
     const usesEurSettlement = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal'
     const unitPrice = effectiveUnitPrice(product, usesEurSettlement ? 'PT' : 'AO')
+    totalWeightGrams += Math.max(1, Number(product.shippingWeightGrams ?? 500)) * qty
 
     authoritativeItems.push({
       product: product.id,
@@ -273,9 +278,13 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
   const municipality = market === 'AO' ? canonicalLuandaMunicipality(data.city) : null
   if (market === 'AO' && !municipality) badRequest('Select a valid Luanda municipality.')
-  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined)
   const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null
   if (market === 'PT' && !deliveryRegion) badRequest('A valid Portuguese postal code is required.')
+  const portugalSettings = normalizePortugalShipping(shippingSettings)
+  if (market === 'PT' && totalWeightGrams > portugalSettings.standardWeightLimitGrams && deliveryMethod !== 'courier_pt') {
+    badRequest('Parcels over the standard weight limit require tracked delivery.')
+  }
+  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
 
   return {
     ...data,

@@ -132,6 +132,15 @@ export const Products: CollectionConfig = {
       min: 0,
       label: 'Price -- Portugal (EUR)',
     },
+    {
+      name: 'shippingWeightGrams',
+      type: 'number',
+      required: true,
+      min: 1,
+      defaultValue: 500,
+      label: 'Shipping weight (grams)',
+      admin: { description: 'Used to calculate Portugal parcel shipping. Include normal product packaging.' },
+    },
     // Sale pricing (2026-07-25, "discounts" phase 1): optional per-market
     // override, same shape as the regular price fields above. When set (and
     // within the optional start/end window), this replaces the regular

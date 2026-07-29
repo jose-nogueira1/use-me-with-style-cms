@@ -255,6 +255,10 @@ export interface Product {
   priceAOKz: number;
   pricePTEur: number;
   /**
+   * Used to calculate Portugal parcel shipping. Include normal product packaging.
+   */
+  shippingWeightGrams: number;
+  /**
    * Optional. Replaces the regular Angola price while set and within the sale window (if any).
    */
   saleAOKz?: number | null;
@@ -866,6 +870,7 @@ export interface ProductsSelect<T extends boolean = true> {
       };
   priceAOKz?: T;
   pricePTEur?: T;
+  shippingWeightGrams?: T;
   saleAOKz?: T;
   salePTEur?: T;
   saleStartDate?: T;
@@ -1209,6 +1214,9 @@ export interface MarketSetting {
    * Applied to the merchandise total after coupons and other discounts.
    */
   portugalFreeShippingThreshold: number;
+  portugalStandardWeightLimitGrams: number;
+  portugalHeavyMainlandShippingPrice: number;
+  portugalHeavyIslandsShippingPrice: number;
   /**
    * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.
    */
@@ -1375,6 +1383,9 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   portugalStandardShippingPrice?: T;
   portugalTrackedShippingPrice?: T;
   portugalFreeShippingThreshold?: T;
+  portugalStandardWeightLimitGrams?: T;
+  portugalHeavyMainlandShippingPrice?: T;
+  portugalHeavyIslandsShippingPrice?: T;
   angolaReturnsPolicyTextPT?: T;
   angolaReturnsPolicyTextEN?: T;
   portugalReturnsPolicyTextPT?: T;
