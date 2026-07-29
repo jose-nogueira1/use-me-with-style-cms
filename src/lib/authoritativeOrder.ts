@@ -39,8 +39,23 @@ type InventoryProduct = {
 }
 
 const PT_SHIPPING_COSTS: Record<string, number> = {
-  ctt: 4,
-  courier_pt: 6,
+  // Existing database values are retained to avoid invalidating historical
+  // orders: `ctt` is the untracked Correio Normal option and `courier_pt`
+  // now represents tracked CTT Correio Registado.
+  ctt: 4.9,
+  courier_pt: 6.9,
+}
+
+const PT_FREE_SHIPPING_THRESHOLD_EUR = 75
+
+export function authoritativeShippingCost(
+  market: Market,
+  deliveryMethod: string,
+  merchandiseTotalAfterDiscount: number,
+): number {
+  if (market === 'AO') return 0
+  if (merchandiseTotalAfterDiscount >= PT_FREE_SHIPPING_THRESHOLD_EUR) return 0
+  return PT_SHIPPING_COSTS[deliveryMethod] ?? 0
 }
 
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
@@ -213,7 +228,6 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const currency = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal' ? 'EUR' : 'Kz'
-  const shippingCost = market === 'AO' ? 0 : PT_SHIPPING_COSTS[deliveryMethod]
   const subtotal = authoritativeItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
   const customerEmail = String(data.customerEmail ?? '').trim().toLowerCase()
 
@@ -242,6 +256,9 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     discountLabel = result.label
   }
 
+  const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
+  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount)
+
   return {
     ...data,
     customerEmail,
@@ -252,6 +269,6 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     couponCode: couponCode ?? null,
     discountAmount,
     discountLabel: discountLabel ?? null,
-    total: Math.max(0, subtotal - discountAmount) + shippingCost,
+    total: merchandiseTotalAfterDiscount + shippingCost,
   }
 }

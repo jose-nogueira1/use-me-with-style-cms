@@ -36,8 +36,8 @@ export const PAYMENT_METHODS = [
 // `courier_ao` is Angola's only delivery method (local courier, per the
 // 2026-07-10 decision). `manual_ao` is kept only for existing order rows.
 export const DELIVERY_METHODS = [
-  { label: 'CTT (PT)', value: 'ctt' },
-  { label: 'Courier (PT)', value: 'courier_pt' },
+  { label: 'CTT Standard - untracked (PT)', value: 'ctt' },
+  { label: 'CTT Registered - tracked (PT)', value: 'courier_pt' },
   { label: 'Local courier (AO)', value: 'courier_ao' },
   { label: 'Manual coordination (AO, legacy)', value: 'manual_ao' },
 ] as const

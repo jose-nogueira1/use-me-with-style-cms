@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applyAuthoritativeOrderValues } from '../src/lib/authoritativeOrder.ts'
+import { applyAuthoritativeOrderValues, authoritativeShippingCost } from '../src/lib/authoritativeOrder.ts'
 import { claimCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.ts'
 import { calculateIncludedVatInvoice } from '../src/lib/internalInvoice.ts'
 import { inventoryDeltasForOrder, manageInventoryReservation } from '../src/lib/inventoryReservation.ts'
@@ -75,6 +75,14 @@ test('coupon claim increments usage inside the request transaction', async () =>
   assert.deepEqual(calls, ['find', 'find', 'update'])
 })
 
+test('Portugal shipping is authoritative, method-specific, and free from EUR 75 after discounts', () => {
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 74.99), 4.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 74.99), 6.9)
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 75), 0)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100), 0)
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 1), 0)
+})
+
 test('authoritative order ignores submitted prices and applies sale, coupon and shipping', async () => {
   const coupon = { id: 9, code: 'SAVE10', active: true, type: 'percent', percentOff: 10, usageCount: 0 }
   const payload = {
@@ -102,8 +110,8 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   assert.equal(data?.items?.[0]?.unitPrice, 40)
   assert.equal(data?.subtotal, 80)
   assert.equal(data?.discountAmount, 8)
-  assert.equal(data?.shippingCost, 4)
-  assert.equal(data?.total, 76)
+  assert.equal(data?.shippingCost, 4.9)
+  assert.equal(data?.total, 76.9)
   assert.equal(data?.customerEmail, 'user@example.com')
 })
 
