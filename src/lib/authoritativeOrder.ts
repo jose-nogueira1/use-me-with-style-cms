@@ -102,6 +102,18 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   const market = data.market as Market
   if (market !== 'AO' && market !== 'PT') badRequest('Invalid market.')
 
+  let shippingSettings: (PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean }) | null = null
+  if (typeof req.payload.findGlobal === 'function') {
+    shippingSettings = (await req.payload.findGlobal({
+      slug: 'market-settings',
+      depth: 0,
+      overrideAccess: true,
+    })) as PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean }
+  }
+  if (market === 'PT' && shippingSettings?.portugalPaymentsEnabled !== true) {
+    badRequest('Portugal checkout is temporarily unavailable.')
+  }
+
   const paymentMethod = String(data.paymentMethod ?? '')
   const deliveryMethod = String(data.deliveryMethod ?? '')
   if (!ALLOWED_PAYMENT_METHODS[market].includes(paymentMethod)) {
@@ -268,14 +280,6 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
-  let shippingSettings: (PortugalShippingSettings & AngolaShippingSettings) | null = null
-  if (typeof req.payload.findGlobal === 'function') {
-    shippingSettings = (await req.payload.findGlobal({
-      slug: 'market-settings',
-      depth: 0,
-      overrideAccess: true,
-    })) as PortugalShippingSettings & AngolaShippingSettings
-  }
   const municipality = market === 'AO' ? canonicalLuandaMunicipality(data.city) : null
   if (market === 'AO' && !municipality) badRequest('Select a valid Luanda municipality.')
   const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null

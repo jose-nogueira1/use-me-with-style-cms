@@ -4,8 +4,7 @@ import type { GlobalConfig } from 'payload'
 // by JOS-20's acceptance criteria. Deliberately data-driven (not hard-coded
 // in the frontend).
 //
-// 2026-07-10 decision: Angola payment methods are Multicaixa Express (via
-// AppyPay), Stripe, and PayPal; delivery is local courier only.
+// Angola payment is Multicaixa Express via AppyPay; delivery is local courier.
 // `angolaPaymentLive` remains the explicit operational switch: AppyPay is
 // configured in code and the environment, but the administrator controls
 // when buyers see the live widget.
@@ -91,6 +90,16 @@ export const MarketSettings: GlobalConfig = {
       defaultValue: 80000,
       label: 'Angola: free-delivery threshold (Kz)',
       admin: { description: 'Applied to the merchandise total after discounts.' },
+    },
+    {
+      name: 'portugalPaymentsEnabled',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Portugal: enable checkout payments',
+      admin: {
+        description:
+          'Keep OFF until the Portuguese legal entity, invoicing process, and payment-provider accounts are approved. Turning this on re-enables PT checkout.',
+      },
     },
     {
       name: 'portugalPaymentMethods',

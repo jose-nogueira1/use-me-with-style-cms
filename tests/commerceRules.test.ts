@@ -140,6 +140,7 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
       : { docs: [coupon] },
     count: async () => ({ totalDocs: 0 }),
     update: async () => coupon,
+    findGlobal: async () => ({ portugalPaymentsEnabled: true }),
   }
   const data = await applyAuthoritativeOrderValues({
     data: {
@@ -158,6 +159,14 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   assert.equal(data?.deliveryRegion, 'azores')
   assert.equal(data?.country, 'Portugal')
   assert.equal(data?.customerEmail, 'user@example.com')
+
+  payload.findGlobal = async () => ({ portugalPaymentsEnabled: false })
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: { market: 'PT', paymentMethod: 'mbway', deliveryMethod: 'ctt' },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /temporarily unavailable/)
+  payload.findGlobal = async () => ({ portugalPaymentsEnabled: true })
 
   shippingWeightGrams = 1200
   await assert.rejects(() => applyAuthoritativeOrderValues({

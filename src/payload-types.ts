@@ -1210,6 +1210,10 @@ export interface MarketSetting {
    * Applied to the merchandise total after discounts.
    */
   angolaFreeShippingThreshold: number;
+  /**
+   * Keep OFF until the Portuguese legal entity, invoicing process, and payment-provider accounts are approved. Turning this on re-enables PT checkout.
+   */
+  portugalPaymentsEnabled?: boolean | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
   portugalDeliveryMethods?: ('ctt' | 'courier_pt')[] | null;
   /**
@@ -1398,6 +1402,7 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaDeliveryMethods?: T;
   angolaMunicipalityPrices?: T;
   angolaFreeShippingThreshold?: T;
+  portugalPaymentsEnabled?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
   portugalStandardShippingPrice?: T;
