@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { Endpoint } from 'payload'
 
 type MetaEventBody = {
+  analyticsConsent?: boolean
   eventName?: string
   eventId?: string
   eventSourceUrl?: string
@@ -88,8 +89,6 @@ const metaEvents: Endpoint = {
   path: '/meta/events',
   method: 'post',
   handler: async (req) => {
-    if (!process.env.META_PIXEL_ID || !process.env.META_ACCESS_TOKEN) return new Response(null, { status: 204 })
-
     let body: MetaEventBody
     try {
       body = (await req.json?.()) as MetaEventBody
@@ -99,6 +98,10 @@ const metaEvents: Endpoint = {
     if (!body.eventName || !body.eventId || !ALLOWED_EVENTS.has(body.eventName)) {
       return Response.json({ error: 'Invalid event' }, { status: 400 })
     }
+    if (body.analyticsConsent !== true) {
+      return Response.json({ error: 'Analytics consent required' }, { status: 403 })
+    }
+    if (!process.env.META_PIXEL_ID || !process.env.META_ACCESS_TOKEN) return new Response(null, { status: 204 })
 
     const userData: Record<string, string | string[]> = {}
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || undefined
