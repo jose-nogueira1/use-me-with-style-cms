@@ -38,11 +38,16 @@ export type OrderForInternalInvoice = {
   items: InvoiceLineInput[]
 }
 
-type Settings = {
+export type InternalInvoiceSettings = {
   enabled: boolean
   issuerName: string
   issuerTaxId?: string
   issuerAddress?: string
+  bankName?: string
+  accountHolder?: string
+  bankAccount?: string
+  swiftBic?: string
+  paymentInstructions?: string
   vatRate: number
   taxNote?: string
   prefix: string
@@ -84,6 +89,11 @@ const PDF_LABELS = {
     trackOrder: (url: string) => `Consulte a sua encomenda em ${url}`,
     footerBrand: 'USE ME WITH STYLE',
     footerDocType: 'Documento comercial interno',
+    bankDetails: 'DADOS BANCÁRIOS / PAGAMENTO',
+    bankName: 'Banco',
+    accountHolder: 'Titular',
+    bankAccount: 'IBAN / conta',
+    swiftBic: 'SWIFT / BIC',
     page: (n: number, total: number) => `PÁGINA ${n} / ${total}`,
     dateLocale: 'pt-PT',
   },
@@ -112,6 +122,11 @@ const PDF_LABELS = {
     trackOrder: (url: string) => `Track your order at ${url}`,
     footerBrand: 'USE ME WITH STYLE',
     footerDocType: 'Internal commercial document',
+    bankDetails: 'BANK / PAYMENT DETAILS',
+    bankName: 'Bank',
+    accountHolder: 'Account holder',
+    bankAccount: 'IBAN / account',
+    swiftBic: 'SWIFT / BIC',
     page: (n: number, total: number) => `PAGE ${n} / ${total}`,
     dateLocale: 'en-US',
   },
@@ -217,7 +232,7 @@ export function calculateIncludedVatInvoice(
   return { lines, netTotal, taxTotal, total: paidTotal }
 }
 
-async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?: Partial<PayloadRequest>): Promise<Settings> {
+async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?: Partial<PayloadRequest>): Promise<InternalInvoiceSettings> {
   const global = (await payload.findGlobal({ slug: 'invoice-settings', overrideAccess: true, req })) as unknown as Record<
     string,
     unknown
@@ -237,6 +252,11 @@ async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?
     issuerName: readString('issuerName') || 'Use Me With Style',
     issuerTaxId: readString('issuerTaxId'),
     issuerAddress: readString('issuerAddress'),
+    bankName: readString('bankName'),
+    accountHolder: readString('accountHolder'),
+    bankAccount: readString('bankAccount'),
+    swiftBic: readString('swiftBic'),
+    paymentInstructions: readString('paymentInstructions'),
     vatRate: Math.max(0, Number(global[`vatRate${suffix}`]) || 0),
     taxNote: readString('taxNote'),
     prefix: (readString('invoicePrefix') || `UMWS-${market}`).replace(/[^A-Za-z0-9-]/g, '-'),
@@ -277,11 +297,11 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
 // method/reference previously weren't shown on the invoice at all. Chosen
 // by Jay-P over a lighter "refined editorial" alternative after reviewing
 // both as rendered samples.
-async function renderInvoicePdf(input: {
+export async function renderInvoicePdf(input: {
   invoiceNumber: string
   issuedAt: Date
   order: OrderForInternalInvoice
-  settings: Settings
+  settings: InternalInvoiceSettings
   calculation: InvoiceCalculation
   lang: PdfLang
 }): Promise<Buffer> {
@@ -464,6 +484,19 @@ async function renderInvoicePdf(input: {
   draw(labels.trackOrder(`${siteUrl}/conta`), margin, 8, regular, muted)
   y -= 16
   if (input.settings.taxNote) drawWrapped(input.settings.taxNote, margin, leftWidth, 7.6, regular, muted)
+  const bankLines = [
+    input.settings.bankName ? `${labels.bankName}: ${input.settings.bankName}` : undefined,
+    input.settings.accountHolder ? `${labels.accountHolder}: ${input.settings.accountHolder}` : undefined,
+    input.settings.bankAccount ? `${labels.bankAccount}: ${input.settings.bankAccount}` : undefined,
+    input.settings.swiftBic ? `${labels.swiftBic}: ${input.settings.swiftBic}` : undefined,
+  ].filter(Boolean) as string[]
+  if (bankLines.length || input.settings.paymentInstructions) {
+    y -= 4
+    draw(labels.bankDetails, margin, 7.2, bold, goldDeep)
+    y -= 12
+    for (const line of bankLines) drawWrapped(line, margin, leftWidth, 7.3, regular, muted)
+    if (input.settings.paymentInstructions) drawWrapped(input.settings.paymentInstructions, margin, leftWidth, 7.3, regular, muted)
+  }
   y -= 4
   drawWrapped(input.settings.disclaimer, margin, leftWidth, 7.3, bold, muted)
   if (input.settings.footer) {
@@ -564,6 +597,11 @@ export async function generateInternalInvoiceForOrder(
     issuerName: settings.issuerName,
     issuerTaxId: settings.issuerTaxId,
     issuerAddress: settings.issuerAddress,
+    bankName: settings.bankName,
+    accountHolder: settings.accountHolder,
+    bankAccount: settings.bankAccount,
+    swiftBic: settings.swiftBic,
+    paymentInstructions: settings.paymentInstructions,
     customerName: order.customerName,
     customerEmail: order.customerEmail,
     customerPhone: order.customerPhone,

@@ -29,6 +29,22 @@ const marketFields = (market: 'AO' | 'PT') => {
       label: `${label}: issuer address`,
     },
     {
+      type: 'collapsible' as const,
+      label: `${label}: bank and payment details`,
+      admin: { description: 'Optional details printed on new invoices. Existing invoice snapshots never change.' },
+      fields: [
+        { name: `bankName${suffix}`, type: 'text' as const, label: `${label}: bank name` },
+        { name: `accountHolder${suffix}`, type: 'text' as const, label: `${label}: account holder` },
+        { name: `bankAccount${suffix}`, type: 'text' as const, label: `${label}: IBAN / account number` },
+        { name: `swiftBic${suffix}`, type: 'text' as const, label: `${label}: SWIFT / BIC` },
+        {
+          name: `paymentInstructions${suffix}`,
+          type: 'textarea' as const,
+          label: `${label}: additional payment instructions`,
+        },
+      ],
+    },
+    {
       name: `vatRate${suffix}`,
       type: 'number' as const,
       min: 0,

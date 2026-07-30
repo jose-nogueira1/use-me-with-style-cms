@@ -547,6 +547,11 @@ export interface Invoice {
   issuerName: string;
   issuerTaxId?: string | null;
   issuerAddress?: string | null;
+  bankName?: string | null;
+  accountHolder?: string | null;
+  bankAccount?: string | null;
+  swiftBic?: string | null;
+  paymentInstructions?: string | null;
   customerName: string;
   customerEmail: string;
   customerPhone?: string | null;
@@ -1057,6 +1062,11 @@ export interface InvoicesSelect<T extends boolean = true> {
   issuerName?: T;
   issuerTaxId?: T;
   issuerAddress?: T;
+  bankName?: T;
+  accountHolder?: T;
+  bankAccount?: T;
+  swiftBic?: T;
+  paymentInstructions?: T;
   customerName?: T;
   customerEmail?: T;
   customerPhone?: T;
@@ -1282,6 +1292,11 @@ export interface InvoiceSetting {
   issuerNameAO?: string | null;
   issuerTaxIdAO?: string | null;
   issuerAddressAO?: string | null;
+  bankNameAO?: string | null;
+  accountHolderAO?: string | null;
+  bankAccountAO?: string | null;
+  swiftBicAO?: string | null;
+  paymentInstructionsAO?: string | null;
   /**
    * The paid total never changes. This rate extracts the VAT portion already included in the price.
    */
@@ -1296,6 +1311,11 @@ export interface InvoiceSetting {
   issuerNamePT?: string | null;
   issuerTaxIdPT?: string | null;
   issuerAddressPT?: string | null;
+  bankNamePT?: string | null;
+  accountHolderPT?: string | null;
+  bankAccountPT?: string | null;
+  swiftBicPT?: string | null;
+  paymentInstructionsPT?: string | null;
   /**
    * The paid total never changes. This rate extracts the VAT portion already included in the price.
    */
@@ -1413,6 +1433,11 @@ export interface InvoiceSettingsSelect<T extends boolean = true> {
   issuerNameAO?: T;
   issuerTaxIdAO?: T;
   issuerAddressAO?: T;
+  bankNameAO?: T;
+  accountHolderAO?: T;
+  bankAccountAO?: T;
+  swiftBicAO?: T;
+  paymentInstructionsAO?: T;
   vatRateAO?: T;
   taxNoteAO?: T;
   invoicePrefixAO?: T;
@@ -1421,6 +1446,11 @@ export interface InvoiceSettingsSelect<T extends boolean = true> {
   issuerNamePT?: T;
   issuerTaxIdPT?: T;
   issuerAddressPT?: T;
+  bankNamePT?: T;
+  accountHolderPT?: T;
+  bankAccountPT?: T;
+  swiftBicPT?: T;
+  paymentInstructionsPT?: T;
   vatRatePT?: T;
   taxNotePT?: T;
   invoicePrefixPT?: T;
