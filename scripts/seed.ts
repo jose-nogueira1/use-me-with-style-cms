@@ -268,7 +268,7 @@ async function seed() {
         'Finalidade do tratamento: utilizamos os seus dados para processar e entregar encomendas, comunicar sobre o estado da sua encomenda (por email e WhatsApp), responder a pedidos de apoio ao cliente e, quando aplicável, cumprir obrigações legais e fiscais.',
         'Partilha de dados com terceiros: os seus dados poderão ser partilhados com prestadores de serviços que nos ajudam a operar a loja, nomeadamente empresas de entrega (CTT em Portugal, empresas de motoboy em Angola), processadores de pagamento, e serviços de alojamento e envio de email. Estes prestadores só têm acesso aos dados estritamente necessários para prestar o respetivo serviço.',
         'Prazo de conservação: conservamos os seus dados pelo tempo necessário para cumprir as finalidades descritas nesta política e as obrigações legais aplicáveis, nomeadamente as obrigações fiscais e contabilísticas.',
-        'Os seus direitos: tem o direito de aceder, retificar, apagar ou pedir a portabilidade dos seus dados pessoais, bem como o direito de se opor ou limitar o respetivo tratamento. Para exercer qualquer um destes direitos, contacte-nos através do formulário disponível na página de Ajuda ou por WhatsApp. Se residir em Portugal ou na União Europeia, tem também o direito de apresentar reclamação junto da Comissão Nacional de Proteção de Dados (CNPD).',
+        'Os seus direitos: tem o direito de aceder, retificar, apagar ou pedir a portabilidade dos seus dados pessoais, bem como o direito de se opor ou limitar o respetivo tratamento. Para exercer qualquer um destes direitos, contacte legal@usemewithstyle.shop, utilize o formulário disponível na página de Ajuda ou fale connosco por WhatsApp através do número +244 933 617 878. Para apoio geral ao cliente, contacte support@usemewithstyle.shop. Se residir em Portugal ou na União Europeia, tem também o direito de apresentar reclamação junto da Comissão Nacional de Proteção de Dados (CNPD).',
         'Cookies: este site utiliza cookies para melhorar a experiência de navegação e, quando autorizado por si, para fins de análise. Pode gerir as suas preferências de cookies a qualquer momento através da opção "Preferências de cookies" no rodapé do site.',
         'Alterações a esta política: esta política poderá ser atualizada periodicamente. A versão em vigor será sempre a publicada nesta página.',
       ].join('\n\n'),
@@ -279,7 +279,7 @@ async function seed() {
         'Purpose of processing: we use your data to process and deliver orders, communicate about your order status (by email and WhatsApp), respond to customer support requests, and, where applicable, comply with legal and tax obligations.',
         'Sharing data with third parties: your data may be shared with service providers who help us operate the store, namely delivery companies (CTT in Portugal, motorbike courier companies in Angola), payment processors, and hosting and email delivery services. These providers only have access to the data strictly necessary to provide their respective service.',
         'Retention period: we retain your data for as long as necessary to fulfil the purposes described in this policy and applicable legal obligations, including tax and accounting obligations.',
-        "Your rights: you have the right to access, rectify, erase, or request portability of your personal data, as well as the right to object to or restrict its processing. To exercise any of these rights, contact us through the form on the Help page or via WhatsApp. If you reside in Portugal or the European Union, you also have the right to lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).",
+        "Your rights: you have the right to access, rectify, erase, or request portability of your personal data, as well as the right to object to or restrict its processing. To exercise any of these rights, email legal@usemewithstyle.shop, use the form on the Help page, or contact us by WhatsApp at +244 933 617 878. For general customer support, email support@usemewithstyle.shop. If you reside in Portugal or the European Union, you also have the right to lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).",
         'Cookies: this site uses cookies to improve the browsing experience and, when authorized by you, for analytics purposes. You can manage your cookie preferences at any time via the "Cookie preferences" option in the site footer.',
         'Changes to this policy: this policy may be updated periodically. The version in effect will always be the one published on this page.',
       ].join('\n\n'),
@@ -293,6 +293,7 @@ async function seed() {
         'Resolução de litígios: em caso de litígio de consumo, o cliente residente em Portugal ou na União Europeia pode recorrer à Plataforma Europeia de Resolução de Litígios em Linha, disponível em ec.europa.eu/consumers/odr, ou apresentar reclamação através do Livro de Reclamações Eletrónico.',
         'Propriedade intelectual: todo o conteúdo deste site, incluindo textos, imagens e logótipos, é propriedade da USE ME WITH STYLE ou dos seus licenciadores, não podendo ser reproduzido sem autorização prévia.',
         'Alterações a estes termos: estes termos poderão ser atualizados periodicamente. A versão em vigor será sempre a publicada nesta página.',
+        'Contactos: para apoio ao cliente, contacte support@usemewithstyle.shop ou +244 933 617 878 por WhatsApp. Para assuntos legais e de privacidade, contacte legal@usemewithstyle.shop.',
       ].join('\n\n'),
       termsTextEN: [
         'These Terms & Conditions govern the use of this site and the purchase of products from USE ME WITH STYLE, an apparel and lifestyle brand operating in Angola and Portugal. By placing an order or using this site, you accept the terms described here.',
@@ -304,6 +305,7 @@ async function seed() {
         'Dispute resolution: in the event of a consumer dispute, customers residing in Portugal or the European Union may use the European Online Dispute Resolution Platform, available at ec.europa.eu/consumers/odr, or file a complaint through the electronic complaints book (Livro de Reclamações Eletrónico).',
         'Intellectual property: all content on this site, including text, images, and logos, is the property of USE ME WITH STYLE or its licensors and may not be reproduced without prior authorization.',
         'Changes to these terms: these terms may be updated periodically. The version in effect will always be the one published on this page.',
+        'Contacts: for customer support, email support@usemewithstyle.shop or contact +244 933 617 878 by WhatsApp. For legal and privacy matters, email legal@usemewithstyle.shop.',
       ].join('\n\n'),
     },
   })
