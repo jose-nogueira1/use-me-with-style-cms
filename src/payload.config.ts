@@ -93,14 +93,20 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://1
 // Postgres/SQLite switch above. Media.ts's own `upload.staticDir` config is
 // unaffected either way; this plugin only changes WHERE files end up.
 const s3Bucket = process.env.S3_BUCKET
-const plugins = s3Bucket
-  ? [
+// Keep the plugin in the config even when local/build-time env does not carry
+// the production bucket. Payload's import-map generator only sees components
+// contributed by configured plugins; making the whole plugin conditional
+// produced a build whose authenticated Admin crashed in production once S3
+// was enabled at runtime. `enabled` disables all storage behaviour locally
+// while keeping the client component discoverable in the committed map.
+const plugins = [
       s3Storage({
+        enabled: Boolean(s3Bucket),
         collections: {
           media: { disableLocalStorage: true },
           invoices: { disableLocalStorage: true },
         },
-        bucket: s3Bucket,
+        bucket: s3Bucket || 'disabled-local-storage',
         config: {
           credentials: {
             accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
@@ -115,7 +121,6 @@ const plugins = s3Bucket
         },
       }),
     ]
-  : []
 
 // Order-confirmation email (JOS-61 follow-up), via Resend -- same "env
 // decides, no code change" pattern as the S3/Postgres switches above. While
