@@ -1,4 +1,5 @@
 import type { Endpoint } from 'payload'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage, sendWhatsAppMessage } from '../lib/messaging'
 
@@ -44,7 +45,7 @@ type InboundMessage = {
   externalId?: string
 }
 
-function extractInboundMessages(payload: unknown): InboundMessage[] {
+export function extractInboundMessages(payload: unknown): InboundMessage[] {
   const messages: InboundMessage[] = []
   if (!payload || typeof payload !== 'object') return messages
   const body = payload as Record<string, unknown>
@@ -93,7 +94,18 @@ const eventsEndpoint: Endpoint = {
   handler: async (req) => {
     let payload: unknown
     try {
-      payload = await req.json?.()
+      const rawBody = await req.text?.()
+      if (typeof rawBody !== 'string') return new Response('Bad Request', { status: 400 })
+
+      const appSecret = process.env.META_APP_SECRET
+      if (appSecret) {
+        const signature = req.headers.get('x-hub-signature-256')
+        if (!verifyMetaWebhookSignature(rawBody, signature, appSecret)) {
+          return new Response('Unauthorized', { status: 401 })
+        }
+      }
+
+      payload = JSON.parse(rawBody)
     } catch {
       return new Response('Bad Request', { status: 400 })
     }
@@ -113,6 +125,18 @@ const eventsEndpoint: Endpoint = {
 
     return new Response('EVENT_RECEIVED', { status: 200 })
   },
+}
+
+export function verifyMetaWebhookSignature(
+  rawBody: string,
+  signature: string | null,
+  appSecret: string,
+): boolean {
+  if (!signature?.startsWith('sha256=')) return false
+  const provided = signature.slice('sha256='.length)
+  const expected = createHmac('sha256', appSecret).update(rawBody).digest('hex')
+  if (provided.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'))
 }
 
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {

@@ -45,7 +45,8 @@ reached over REST/GraphQL.
     WhatsApp notices (as before) and now also logs them to `messages`.
   - **Credentials needed to go live** (see `.env.example` for the full list
     with owners): `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`,
-    `INSTAGRAM_ACCESS_TOKEN`/`INSTAGRAM_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`.
+    `INSTAGRAM_ACCESS_TOKEN`/`INSTAGRAM_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`,
+    and `META_APP_SECRET` (validates signed inbound webhook deliveries).
     Until set, sends log to the console instead of calling the Graph API --
     checkout and the webhook itself never fail because of this.
   - Admin view: "Mensagens" in the SPA admin (`use-me-with-style-platform`).
