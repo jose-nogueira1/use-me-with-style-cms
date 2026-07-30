@@ -33,6 +33,7 @@ import * as migration_20260729_180000_portugal_shipping_and_tracking from './202
 import * as migration_20260729_183000_angola_delivery_prices from './20260729_183000_angola_delivery_prices'
 import * as migration_20260729_190000_portugal_heavy_parcels from './20260729_190000_portugal_heavy_parcels'
 import * as migration_20260730_130000_invoice_payment_details from './20260730_130000_invoice_payment_details'
+import * as migration_20260730_140000_fix_invoice_payment_detail_columns from './20260730_140000_fix_invoice_payment_detail_columns'
 
 export const migrations = [
   {
@@ -209,5 +210,10 @@ export const migrations = [
     up: migration_20260730_130000_invoice_payment_details.up,
     down: migration_20260730_130000_invoice_payment_details.down,
     name: '20260730_130000_invoice_payment_details',
+  },
+  {
+    up: migration_20260730_140000_fix_invoice_payment_detail_columns.up,
+    down: migration_20260730_140000_fix_invoice_payment_detail_columns.down,
+    name: '20260730_140000_fix_invoice_payment_detail_columns',
   },
 ]
