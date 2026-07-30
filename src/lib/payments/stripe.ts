@@ -47,8 +47,24 @@ type CreateCheckoutSessionInput = {
   discountLabel?: string
 }
 
-function siteUrl(): string {
-  return (process.env.PUBLIC_SITE_URL || 'http://localhost:5173').replace(/\/$/, '')
+export function stripeReturnSiteUrl(): string {
+  const explicit = process.env.PORTUGAL_SITE_URL?.trim()
+  if (explicit) return explicit.replace(/\/$/, '')
+
+  const publicSite = (process.env.PUBLIC_SITE_URL || 'http://localhost:5173').replace(/\/$/, '')
+  try {
+    const url = new URL(publicSite)
+    // Stripe is a Portugal-only checkout. Returning via the geo-routed apex
+    // could switch a PT order to AO when the buyer happens to be in Angola,
+    // so production apex URLs are pinned to the PT market host. Local and
+    // preview hosts remain unchanged for development.
+    if (url.hostname === 'usemewithstyle.shop' || url.hostname === 'www.usemewithstyle.shop') {
+      url.hostname = 'pt.usemewithstyle.shop'
+    }
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return publicSite
+  }
 }
 
 export async function createCheckoutSession(
@@ -92,7 +108,7 @@ export async function createCheckoutSession(
     discounts = [{ coupon: coupon.id }]
   }
 
-  const base = siteUrl()
+  const base = stripeReturnSiteUrl()
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
