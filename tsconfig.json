@@ -13,6 +13,12 @@
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
+    // Test files (tests/*.test.ts) import each other/src with an explicit
+    // .ts extension -- fine for tsx/Node's ESM loader at runtime, but a
+    // plain `tsc --noEmit` (as run by the push scripts' verify gate) errors
+    // TS5097 on every one of them without this. Requires noEmit, already
+    // set above.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./src/*"],
       "@payload-config": ["./src/payload.config.ts"]

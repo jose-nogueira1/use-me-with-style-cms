@@ -7,7 +7,7 @@ type CouponDoc = {
   id: string | number
   code: string
   active?: boolean | null
-  type: 'percent' | 'fixed'
+  type: 'percent' | 'fixed' | 'free_shipping'
   percentOff?: number | null
   fixedOffAOKz?: number | null
   fixedOffPTEur?: number | null
@@ -23,7 +23,15 @@ type CouponDoc = {
 }
 
 export type CouponResolution =
-  | { valid: true; code: string; discountAmount: number; label: string }
+  // freeShipping (2026-07-31, "let admins create a code that gives the
+  // customer free delivery"): a coupon is either a merchandise discount
+  // (percent/fixed, discountAmount > 0, freeShipping false) or a shipping
+  // waiver (free_shipping, discountAmount always 0, freeShipping true) --
+  // never both, same mutually-exclusive `type` field as percent vs fixed.
+  // Callers (authoritativeOrder.ts, Checkout.tsx) zero the shipping cost
+  // themselves when freeShipping is true; this function never touches
+  // shipping math directly, same separation as today.
+  | { valid: true; code: string; discountAmount: number; freeShipping: boolean; label: string }
   | { valid: false; reason: string }
 
 const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
@@ -118,6 +126,10 @@ export async function resolveCoupon(
     }
   }
 
+  if (coupon.type === 'free_shipping') {
+    return { valid: true, code, discountAmount: 0, freeShipping: true, label: `${code} (free shipping)` }
+  }
+
   const rawDiscount =
     coupon.type === 'percent'
       ? (params.subtotal * (coupon.percentOff ?? 0)) / 100
@@ -126,7 +138,7 @@ export async function resolveCoupon(
   if (discountAmount <= 0) return { valid: false, reason: 'This code is not available for this order.' }
 
   const label = coupon.type === 'percent' ? `${code} (${coupon.percentOff}% off)` : `${code} (discount)`
-  return { valid: true, code, discountAmount, label }
+  return { valid: true, code, discountAmount, freeShipping: false, label }
 }
 
 async function lockCouponRow(req: PayloadRequest, code: string): Promise<void> {

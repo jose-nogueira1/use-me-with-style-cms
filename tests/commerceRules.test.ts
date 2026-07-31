@@ -48,10 +48,28 @@ test('coupon validation enforces market, window, limits, minimum and amount cap'
   }
   assert.deepEqual(
     await resolveCoupon(payload as never, { code: 'save20', market: 'PT', pricingMarket: 'PT', subtotal: 100, now: NOW }),
-    { valid: true, code: 'SAVE20', discountAmount: 20, label: 'SAVE20 (20% off)' },
+    { valid: true, code: 'SAVE20', discountAmount: 20, freeShipping: false, label: 'SAVE20 (20% off)' },
   )
   assert.equal((await resolveCoupon(payload as never, { code: 'save20', market: 'AO', pricingMarket: 'AO', subtotal: 100, now: NOW })).valid, false)
   assert.equal((await resolveCoupon(payload as never, { code: 'save20', market: 'PT', pricingMarket: 'PT', subtotal: 20, now: NOW })).valid, false)
+})
+
+// Free delivery coupon type (2026-07-31 admin request): resolveCoupon
+// returns freeShipping instead of a discountAmount -- it never touches
+// shipping math itself (see authoritativeOrder.ts/Checkout.tsx for where
+// the actual waiver happens), so discountAmount stays 0 even though the
+// coupon is fully valid and should NOT be rejected the way a genuine
+// zero-value percent/fixed coupon would be.
+test('free-shipping coupon resolves with a shipping waiver instead of a discount amount', async () => {
+  const coupon = { id: 11, code: 'FREESHIP', active: true, type: 'free_shipping', availableAO: true, availablePT: true }
+  const payload = {
+    find: async () => ({ docs: [coupon] }),
+    count: async () => ({ totalDocs: 0 }),
+  }
+  assert.deepEqual(
+    await resolveCoupon(payload as never, { code: 'freeship', market: 'PT', pricingMarket: 'PT', subtotal: 50, now: NOW }),
+    { valid: true, code: 'FREESHIP', discountAmount: 0, freeShipping: true, label: 'FREESHIP (free shipping)' },
+  )
 })
 
 test('coupon claim increments usage inside the request transaction', async () => {
@@ -177,6 +195,41 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
     operation: 'create',
     req: { payload, url: 'http://localhost/api/orders' },
   } as never), /tracked delivery/)
+})
+
+test('a free-shipping coupon zeroes shippingCost without discounting merchandise', async () => {
+  const coupon = { id: 12, code: 'FREESHIP', active: true, type: 'free_shipping', usageCount: 0 }
+  const payload = {
+    db: {},
+    findByID: async () => ({
+      id: 4, active: true, availableAO: true, availablePT: true,
+      name: 'Vestido', nameEN: 'Dress', namePT: 'Vestido', priceAOKz: 50_000, pricePTEur: 50,
+      shippingWeightGrams: 500,
+      variants: [{ color: 3, size: 'M', stockAO: 2, stockPT: 2 }],
+    }),
+    find: async (options: { collection: string }) => options.collection === 'colors'
+      ? { docs: [{ id: 3, namePT: 'Preto', nameEN: 'Black' }] }
+      : { docs: [coupon] },
+    count: async () => ({ totalDocs: 0 }),
+    update: async () => coupon,
+    findGlobal: async () => ({ portugalPaymentsEnabled: true }),
+  }
+  const data = await applyAuthoritativeOrderValues({
+    data: {
+      market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: 'user@example.com', postalCode: '1000-001',
+      couponCode: 'FREESHIP', items: [{ product: 4, size: 'M', color: '3', qty: 1 }],
+      subtotal: 1, total: 1,
+    },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never)
+  // Below the EUR 75 free-shipping threshold, so this proves the zero came
+  // from the coupon, not from the pre-existing threshold.
+  assert.equal(data?.subtotal, 50)
+  assert.equal(data?.discountAmount, 0)
+  assert.equal(data?.shippingCost, 0)
+  assert.equal(data?.total, 50)
+  assert.equal(data?.discountLabel, 'FREESHIP (free shipping)')
 })
 
 test('inventory groups duplicate variants and reserves stock once', async () => {

@@ -81,13 +81,44 @@ export const HomeContent: GlobalConfig = {
       defaultValue: 'Shop all',
     },
     {
-      name: 'heroCtaHref',
+      // 2026-07-31 (admin bug report: hero pointed at a "SS26" collection
+      // but the button sent shoppers to the full catalogue): replaces the
+      // old free-text `heroCtaHref` URL field, which required an admin to
+      // correctly hand-type e.g. "/catalogo?tag=ss26" -- a typo, or the tag
+      // being renamed/deleted later, silently degraded back to "shows
+      // everything" with no warning (exactly this bug). heroCtaType +
+      // heroCtaCategorySlug/heroCtaTagSlug are driven by a dropdown in the
+      // admin UI (Settings.tsx) sourced from the real Categories/MerchTags
+      // lists, so the stored slug always corresponds to something that
+      // actually exists at save time. The storefront (Home.tsx) derives the
+      // button's href from these instead of reading a raw URL string.
+      name: 'heroCtaType',
+      type: 'select',
+      label: 'Button link type',
+      defaultValue: 'all',
+      options: [
+        { label: 'All products', value: 'all' },
+        { label: 'One category', value: 'category' },
+        { label: 'Merchandising tag / themed collection', value: 'tag' },
+      ],
+      admin: { description: 'Where the hero button sends shoppers.' },
+    },
+    {
+      name: 'heroCtaCategorySlug',
       type: 'text',
-      label: 'Button link',
-      defaultValue: '/catalogo',
+      label: 'Category',
       admin: {
-        description:
-          'Where the button goes -- usually /catalogo, /catalogo?cat=vestidos to point at one category, or /catalogo?tag=ss26 to point at a themed collection (create a merchandising tag, e.g. "SS26", apply it to the relevant products, and use its slug here).',
+        description: 'Only used when link type is "One category".',
+        condition: (_, siblingData) => siblingData?.heroCtaType === 'category',
+      },
+    },
+    {
+      name: 'heroCtaTagSlug',
+      type: 'text',
+      label: 'Merchandising tag',
+      admin: {
+        description: 'Only used when link type is "Merchandising tag". Pick a tag on the right.',
+        condition: (_, siblingData) => siblingData?.heroCtaType === 'tag',
       },
     },
     {

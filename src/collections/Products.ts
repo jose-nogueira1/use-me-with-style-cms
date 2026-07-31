@@ -100,11 +100,18 @@ export const Products: CollectionConfig = {
     },
     // Was a hardcoded select until 2026-07-25 -- same relationship
     // conversion as `category` above so admins can create their own badges.
+    // hasMany since 2026-07-31 (admin bug report: "I can only select one
+    // merchandising tag per item") -- a product can legitimately be both
+    // e.g. "Novidade" and "Bestseller" at once. Stored in a new products_rels
+    // join table by Payload's own convention for hasMany relationships; see
+    // migrations/20260731_*_merch_tags_multiselect.ts for the data-preserving
+    // conversion from the old single tag_id column.
     {
       name: 'tag',
       type: 'relationship',
       relationTo: 'merch-tags',
-      admin: { description: 'Optional merchandising badge shown on the product card.' },
+      hasMany: true,
+      admin: { description: 'Optional merchandising badge(s) shown on the product card.' },
     },
     {
       name: 'images',

@@ -110,7 +110,14 @@ test('browser conversion endpoint requires consent and preserves the shared dedu
     }),
   } as never)
   assert.equal(accepted.status, 204)
-  const event = (requestBody?.data as Array<Record<string, unknown>>)[0]
+  // Cast through the declared type rather than reading requestBody directly:
+  // assert.equal(requestBody, undefined) above is an assertion function, so
+  // TS narrows requestBody to `undefined` for the rest of this scope -- it
+  // can't see that the fetch mock's closure reassigns it when `handler`
+  // calls back into `json()` above, so a plain `requestBody?.data` reads as
+  // a property access on `never`. Purely a type-checker limitation; the
+  // runtime value is correct.
+  const event = ((requestBody as Record<string, unknown> | undefined)?.data as Array<Record<string, unknown>>)[0]
   assert.equal(event.event_id, 'dedupe-123')
   assert.deepEqual(event.custom_data, { value: 24.9, currency: 'EUR' })
 })

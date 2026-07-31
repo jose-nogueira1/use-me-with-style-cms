@@ -264,6 +264,12 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   let couponCode: string | undefined
   let discountAmount = 0
   let discountLabel: string | undefined
+  // freeShipping (2026-07-31 "free delivery" coupon type): kept separate
+  // from discountAmount, which only ever discounts merchandise -- applied
+  // below by zeroing shippingCost rather than folding into the subtotal
+  // math, so the invoice still shows the real shipping price alongside the
+  // waiver (see discountLabel, e.g. "FREESHIP (free shipping)").
+  let freeShipping = false
   const submittedCode = typeof data.couponCode === 'string' ? data.couponCode.trim() : ''
   if (submittedCode) {
     const result = await claimCouponRedemption(req, {
@@ -277,6 +283,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     couponCode = result.code
     discountAmount = result.discountAmount
     discountLabel = result.label
+    freeShipping = result.freeShipping
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
@@ -288,7 +295,9 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   if (market === 'PT' && totalWeightGrams > portugalSettings.standardWeightLimitGrams && deliveryMethod !== 'courier_pt') {
     badRequest('Parcels over the standard weight limit require tracked delivery.')
   }
-  const shippingCost = authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
+  const shippingCost = freeShipping
+    ? 0
+    : authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
 
   return {
     ...data,

@@ -35,6 +35,9 @@ import * as migration_20260729_190000_portugal_heavy_parcels from './20260729_19
 import * as migration_20260730_130000_invoice_payment_details from './20260730_130000_invoice_payment_details'
 import * as migration_20260730_140000_fix_invoice_payment_detail_columns from './20260730_140000_fix_invoice_payment_detail_columns'
 import * as migration_20260730_150000_defer_portugal_payments from './20260730_150000_defer_portugal_payments'
+import * as migration_20260731_140000_merch_tags_multiselect from './20260731_140000_merch_tags_multiselect'
+import * as migration_20260731_150000_home_hero_cta_picker from './20260731_150000_home_hero_cta_picker'
+import * as migration_20260731_160000_coupons_free_shipping from './20260731_160000_coupons_free_shipping'
 
 export const migrations = [
   {
@@ -221,5 +224,20 @@ export const migrations = [
     up: migration_20260730_150000_defer_portugal_payments.up,
     down: migration_20260730_150000_defer_portugal_payments.down,
     name: '20260730_150000_defer_portugal_payments',
+  },
+  {
+    up: migration_20260731_140000_merch_tags_multiselect.up,
+    down: migration_20260731_140000_merch_tags_multiselect.down,
+    name: '20260731_140000_merch_tags_multiselect',
+  },
+  {
+    up: migration_20260731_150000_home_hero_cta_picker.up,
+    down: migration_20260731_150000_home_hero_cta_picker.down,
+    name: '20260731_150000_home_hero_cta_picker',
+  },
+  {
+    up: migration_20260731_160000_coupons_free_shipping.up,
+    down: migration_20260731_160000_coupons_free_shipping.down,
+    name: '20260731_160000_coupons_free_shipping',
   },
 ]

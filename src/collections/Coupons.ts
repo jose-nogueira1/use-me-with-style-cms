@@ -70,6 +70,14 @@ export const Coupons: CollectionConfig = {
       options: [
         { label: 'Percentage off', value: 'percent' },
         { label: 'Fixed amount off', value: 'fixed' },
+        // Free delivery (2026-07-31 admin request): waives shipping instead
+        // of discounting merchandise -- no amount fields of its own (see
+        // percentOff/fixedOffAOKz/fixedOffPTEur above, all conditioned on
+        // the other two types so they stay hidden here). Enforcement lives
+        // in lib/couponPricing.ts's resolveCoupon (returns freeShipping
+        // instead of a discountAmount) and authoritativeOrder.ts (zeroes
+        // shippingCost when freeShipping is true).
+        { label: 'Free delivery', value: 'free_shipping' },
       ],
     },
     {

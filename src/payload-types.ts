@@ -243,9 +243,9 @@ export interface Product {
   fitNotePT?: string | null;
   fitNoteEN?: string | null;
   /**
-   * Optional merchandising badge shown on the product card.
+   * Optional merchandising badge(s) shown on the product card.
    */
-  tag?: (number | null) | MerchTag;
+  tag?: (number | MerchTag)[] | null;
   images?:
     | {
         image: number | Media;
@@ -619,7 +619,7 @@ export interface Coupon {
    * Internal note (e.g. which campaign this is for) -- not shown to shoppers.
    */
   description?: string | null;
-  type: 'percent' | 'fixed';
+  type: 'percent' | 'fixed' | 'free_shipping';
   /**
    * 1-100.
    */
@@ -1380,9 +1380,17 @@ export interface HomeContent {
   heroCtaLabelPT?: string | null;
   heroCtaLabelEN?: string | null;
   /**
-   * Where the button goes -- usually /catalogo, /catalogo?cat=vestidos to point at one category, or /catalogo?tag=ss26 to point at a themed collection (create a merchandising tag, e.g. "SS26", apply it to the relevant products, and use its slug here).
+   * Where the hero button sends shoppers.
    */
-  heroCtaHref?: string | null;
+  heroCtaType?: ('all' | 'category' | 'tag') | null;
+  /**
+   * Only used when link type is "One category".
+   */
+  heroCtaCategorySlug?: string | null;
+  /**
+   * Only used when link type is "Merchandising tag".
+   */
+  heroCtaTagSlug?: string | null;
   /**
    * Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.
    */
@@ -1490,7 +1498,9 @@ export interface HomeContentSelect<T extends boolean = true> {
   heroSubtitleEN?: T;
   heroCtaLabelPT?: T;
   heroCtaLabelEN?: T;
-  heroCtaHref?: T;
+  heroCtaType?: T;
+  heroCtaCategorySlug?: T;
+  heroCtaTagSlug?: T;
   heroImage?: T;
   updatedAt?: T;
   createdAt?: T;
