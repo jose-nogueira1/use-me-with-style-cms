@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionConfig } from 'payload'
 
 import { notifyOrderEvent } from '../hooks/notifyOrderEvent'
 import { applyAuthoritativeOrderValues } from '../lib/authoritativeOrder'
@@ -59,13 +59,52 @@ export const Orders: CollectionConfig = {
     beforeValidate: [applyAuthoritativeOrderValues],
     beforeChange: [
       manageInventoryReservation,
-      ({ data, operation }) => {
+      ({ data, operation, originalDoc, req }) => {
         if (operation === 'create' && !data.orderNumber) {
           const prefix = data.market === 'AO' ? 'AO' : 'PT'
           data.orderNumber = `${prefix}-${Date.now().toString().slice(-6)}`
         }
         if (operation === 'create' && !data.status) {
           data.status = 'new'
+        }
+        // Status-change audit trail (2026-08-01) -- appended here so it's
+        // part of the same write as the status change it's describing, not
+        // a separate afterChange call that could race or fail on its own.
+        // Covers both create (the order's very first status, always
+        // 'new' -- see above) and any update that actually changes status;
+        // a same-status re-save (e.g. editing customer notes) adds nothing.
+        // `req.user` is only set for authenticated admin requests -- a
+        // storefront checkout create has none, so 'system' distinguishes
+        // an automated transition from an admin's own action.
+        const statusChanged = operation === 'create' || (typeof data.status === 'string' && data.status !== originalDoc?.status)
+        if (statusChanged) {
+          const nextStatus = typeof data.status === 'string' ? data.status : originalDoc?.status
+          data.statusHistory = [
+            ...(Array.isArray(originalDoc?.statusHistory) ? originalDoc.statusHistory : []),
+            { status: nextStatus, changedAt: new Date().toISOString(), changedBy: req.user?.email ?? 'system' },
+          ]
+        }
+        // 'cancelled' is a terminal state (2026-07-31, found via a screen
+        // recording of manual admin QA that walked a shipped order back
+        // through the pipeline via the status pills -- nothing previously
+        // stopped that from landing on, or leaving, 'cancelled'). The admin
+        // UI now confirms before any backward status click, but that's a
+        // speed bump, not a guarantee, and this collection is also reachable
+        // directly via the API. Reopening a cancelled order specifically is
+        // worse than an ordinary backward click: manageInventoryReservation
+        // only ever transitions a reservation OUT of 'active' once, to
+        // either 'committed' or 'released' -- there is no path back from
+        // 'released' to 'committed'/'active'. So a reopened order can end up
+        // showing paymentStatus 'paid' and status 'processing' (a normal-
+        // looking live order) while its stock was already given back to
+        // general inventory and never re-reserved -- a real oversell risk,
+        // confirmed by reproducing exactly this in the recording (an
+        // AO order sitting at paymentStatus 'paid' / status 'processing'
+        // with inventoryReservationStatus stuck at 'released'). Blocking the
+        // transition out of 'cancelled' entirely closes that gap; there's no
+        // "reopen" flow anywhere else in this codebase to preserve.
+        if (operation === 'update' && originalDoc?.status === 'cancelled' && data.status && data.status !== 'cancelled') {
+          throw new APIError('This order is cancelled and cannot be reopened. Create a new order instead.', 400, null, true)
         }
         return data
       },
@@ -306,5 +345,25 @@ export const Orders: CollectionConfig = {
     { name: 'appyPayReferenceNumber', type: 'text', admin: { readOnly: true } },
     { name: 'appyPayReferenceDueDate', type: 'date', admin: { readOnly: true } },
     { name: 'appyPayVerifiedAt', type: 'date', admin: { readOnly: true } },
+    // Status-change audit trail (2026-08-01 request: accountability once
+    // more than one admin touches an order -- "who changed what, when").
+    // An array field, same mechanism `items` above already uses (a child
+    // table Payload manages itself) -- appended to in the beforeChange hook
+    // below rather than a separate collection, so it's part of the same
+    // document write the status change itself is, with no risk of a
+    // separate afterChange write racing or failing independently.
+    {
+      name: 'statusHistory',
+      type: 'array',
+      admin: {
+        readOnly: true,
+        description: 'Automatic log of every status change -- who changed it and when. Not manually editable.',
+      },
+      fields: [
+        { name: 'status', type: 'text', required: true },
+        { name: 'changedAt', type: 'date', required: true },
+        { name: 'changedBy', type: 'text' },
+      ],
+    },
   ],
 }

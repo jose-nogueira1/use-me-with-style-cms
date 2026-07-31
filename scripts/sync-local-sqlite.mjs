@@ -16,6 +16,8 @@ const orderColumns = await columns('orders')
 const marketColumns = await columns('market_settings')
 const productColumns = await columns('products')
 const homeColumns = await columns('home_content')
+const invoiceSettingsColumns = await columns('invoice_settings')
+const invoicesColumns = await columns('invoices')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -33,6 +35,31 @@ if (!productColumns.has('shipping_weight_grams')) statements.push('ALTER TABLE p
 if (!marketColumns.has('portugal_standard_weight_limit_grams')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_standard_weight_limit_grams REAL NOT NULL DEFAULT 2000')
 if (!marketColumns.has('portugal_heavy_mainland_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_heavy_mainland_shipping_price REAL NOT NULL DEFAULT 9.9')
 if (!marketColumns.has('portugal_heavy_islands_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_heavy_islands_shipping_price REAL NOT NULL DEFAULT 14.9')
+// Missing since 20260730_150000_defer_portugal_payments.ts (Postgres-only
+// migration, never mirrored here -- found 2026-07-31 while QA-ing orders
+// locally: creating a Portugal order crashed with "no such column:
+// portugal_payments_enabled" because applyAuthoritativeOrderValues reads
+// this global on every order CREATE (checkout), PT or AO -- one
+// unconditional query regardless of which fields end up used. Same
+// boolean/default as the Postgres migration.
+if (!marketColumns.has('portugal_payments_enabled')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_payments_enabled INTEGER NOT NULL DEFAULT false')
+// Missing since 20260730_130000_invoice_payment_details.ts (Postgres-only,
+// also never mirrored -- found in the same QA pass: confirming an order's
+// payment (paymentStatus -> paid) generates an internal invoice
+// (internalInvoice.ts), which crashed with "no such column: bank_name"
+// because these columns never existed locally. Column names match the
+// corrected set from 20260730_140000_fix_invoice_payment_detail_columns.ts
+// (Payload's snake_case mapping expands AO/PT to _a_o/_p_t, not _ao/_pt).
+const invoiceSettingsBankFields = ['bank_name', 'account_holder', 'bank_account', 'swift_bic', 'payment_instructions']
+for (const market of ['a_o', 'p_t']) {
+  for (const field of invoiceSettingsBankFields) {
+    const col = `${field}_${market}`
+    if (!invoiceSettingsColumns.has(col)) statements.push(`ALTER TABLE invoice_settings ADD COLUMN ${col} TEXT`)
+  }
+}
+for (const field of invoiceSettingsBankFields) {
+  if (!invoicesColumns.has(field)) statements.push(`ALTER TABLE invoices ADD COLUMN ${field} TEXT`)
+}
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_type')) statements.push("ALTER TABLE home_content ADD COLUMN hero_cta_type TEXT DEFAULT 'all'")
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_category_slug')) statements.push('ALTER TABLE home_content ADD COLUMN hero_cta_category_slug TEXT')
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_tag_slug')) statements.push('ALTER TABLE home_content ADD COLUMN hero_cta_tag_slug TEXT')
@@ -123,6 +150,34 @@ if (homeColumns.has('hero_cta_href')) {
   }
   await client.execute('ALTER TABLE home_content DROP COLUMN hero_cta_href')
   console.log('Converted local SQLite home_content.hero_cta_href into hero_cta_type/hero_cta_category_slug/hero_cta_tag_slug.')
+}
+
+// Status-change audit trail (2026-08-01, Orders.ts's new `statusHistory`
+// array field -- see src/migrations/20260801_100000_order_status_history.ts
+// for the Postgres version). Confirmed empirically: unlike a plain ALTER
+// TABLE ADD COLUMN, a brand-new array-field child table is NOT
+// auto-created by Payload's SQLite adapter on startup -- querying an order
+// immediately failed with "no such table: orders_status_history" until
+// this was added. Column shape mirrors orders_items (`_order` integer,
+// `_parent_id` integer, `id` text primary key, then the field's own
+// columns) -- confirmed against the real local schema via `PRAGMA
+// table_info(orders_items)` before writing this.
+const statusHistoryExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'orders_status_history'`)).rows
+    .length > 0
+if (!statusHistoryExists) {
+  await client.execute(`
+    CREATE TABLE orders_status_history (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      status text NOT NULL,
+      changed_at text NOT NULL,
+      changed_by text,
+      FOREIGN KEY ("_parent_id") REFERENCES orders(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  console.log('Created local SQLite orders_status_history table.')
 }
 
 client.close()

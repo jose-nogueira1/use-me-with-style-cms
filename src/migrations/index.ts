@@ -38,6 +38,7 @@ import * as migration_20260730_150000_defer_portugal_payments from './20260730_1
 import * as migration_20260731_140000_merch_tags_multiselect from './20260731_140000_merch_tags_multiselect'
 import * as migration_20260731_150000_home_hero_cta_picker from './20260731_150000_home_hero_cta_picker'
 import * as migration_20260731_160000_coupons_free_shipping from './20260731_160000_coupons_free_shipping'
+import * as migration_20260801_100000_order_status_history from './20260801_100000_order_status_history'
 
 export const migrations = [
   {
@@ -239,5 +240,10 @@ export const migrations = [
     up: migration_20260731_160000_coupons_free_shipping.up,
     down: migration_20260731_160000_coupons_free_shipping.down,
     name: '20260731_160000_coupons_free_shipping',
+  },
+  {
+    up: migration_20260801_100000_order_status_history.up,
+    down: migration_20260801_100000_order_status_history.down,
+    name: '20260801_100000_order_status_history',
   },
 ]

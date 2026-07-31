@@ -491,6 +491,17 @@ export interface Order {
   appyPayReferenceNumber?: string | null;
   appyPayReferenceDueDate?: string | null;
   appyPayVerifiedAt?: string | null;
+  /**
+   * Automatic log of every status change -- who changed it and when. Not manually editable.
+   */
+  statusHistory?:
+    | {
+        status: string;
+        changedAt: string;
+        changedBy?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1011,6 +1022,14 @@ export interface OrdersSelect<T extends boolean = true> {
   appyPayReferenceNumber?: T;
   appyPayReferenceDueDate?: T;
   appyPayVerifiedAt?: T;
+  statusHistory?:
+    | T
+    | {
+        status?: T;
+        changedAt?: T;
+        changedBy?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1388,7 +1407,7 @@ export interface HomeContent {
    */
   heroCtaCategorySlug?: string | null;
   /**
-   * Only used when link type is "Merchandising tag".
+   * Only used when link type is "Merchandising tag". Pick a tag on the right.
    */
   heroCtaTagSlug?: string | null;
   /**

@@ -68,6 +68,17 @@ export function buildAutoReply(
   }
 }
 
+// CTT Portugal's real public tracking URL (2026-08-01 request: include a
+// tracking link in the shipped notice). Verified format --
+// https://appserver2.ctt.pt/feapl_2/app/open/objectSearch/objectSearch.jspx?objects=<CODE>&request_locale=<pt|en>
+// -- not guessed; CTT codes (the ones cttTrackingCode's own validator
+// accepts) work directly as the `objects` param. Only meaningful for PT
+// orders -- Angola's `courier_ao` delivery has no equivalent tracking
+// system, so there's nothing to build a link for there.
+export function buildCttTrackingUrl(code: string, lang: 'pt' | 'en' = 'pt'): string {
+  return `https://appserver2.ctt.pt/feapl_2/app/open/objectSearch/objectSearch.jspx?objects=${encodeURIComponent(code)}&request_locale=${lang === 'en' ? 'en' : 'pt'}`
+}
+
 export async function sendWhatsAppMessage(toPhone: string, message: string): Promise<void> {
   const token = process.env.WHATSAPP_ACCESS_TOKEN
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID

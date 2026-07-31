@@ -199,20 +199,45 @@ export const manageInventoryReservation: CollectionBeforeChangeHook = async ({
   }
 
   const original = originalDoc as ReservationOrder | undefined
-  if (!original || original.inventoryReservationStatus !== 'active') return data
+  if (!original) return data
 
   const nextPaymentStatus = String(data.paymentStatus ?? original.paymentStatus ?? '')
   const nextOrderStatus = String(data.status ?? original.status ?? '')
-  const terminalState = reservationTerminalState(nextPaymentStatus, nextOrderStatus)
-  if (terminalState === 'committed') {
-    return {
-      ...data,
-      inventoryReservationStatus: 'committed',
-      inventoryReservationExpiresAt: null,
+
+  if (original.inventoryReservationStatus === 'active') {
+    const terminalState = reservationTerminalState(nextPaymentStatus, nextOrderStatus)
+    if (terminalState === 'committed') {
+      return {
+        ...data,
+        inventoryReservationStatus: 'committed',
+        inventoryReservationExpiresAt: null,
+      }
     }
+
+    if (terminalState === 'released') {
+      await applyStockDelta(req, original, 'release')
+      return {
+        ...data,
+        inventoryReservationStatus: 'released',
+        inventoryReservationExpiresAt: null,
+        inventoryReservationReleasedAt: new Date().toISOString(),
+      }
+    }
+
+    return data
   }
 
-  if (terminalState === 'released') {
+  // Cancelling an order whose inventory was already 'committed' (i.e. it
+  // had been marked paid) -- a return/refund, essentially. Found during
+  // 2026-07-31 Orders QA: the guard above used to be `!== 'active'`, so it
+  // returned `data` unchanged for a committed reservation too, and stock
+  // was NEVER restored no matter how the order was cancelled afterwards.
+  // Verified against the Payload Local API: cancelling a paid order left
+  // stock counts untouched. `original.status !== 'cancelled'` makes this
+  // fire exactly once, the same idempotency pattern the 'active' branch
+  // above already relies on (re-saving an already-terminal order is a
+  // no-op).
+  if (original.inventoryReservationStatus === 'committed' && nextOrderStatus === 'cancelled' && original.status !== 'cancelled') {
     await applyStockDelta(req, original, 'release')
     return {
       ...data,

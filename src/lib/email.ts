@@ -136,6 +136,126 @@ export async function sendOrderConfirmationEmail(
   }
 }
 
+// Shipped/delivered status emails (2026-08-01 request: "the buttons we use
+// for mark as shipped and marked as delivered should automatically send
+// customer updates via email and whatsapp" -- previously only the WhatsApp
+// half of that existed for 'shipped' and NEITHER channel existed for
+// 'delivered'; see notifyOrderEvent.ts for the transitions that call this).
+// Deliberately a separate, lighter template from the order-confirmation
+// email above (no price breakdown -- there's nothing new to confirm
+// financially at these stages) rather than overloading one function with an
+// optional "stage" no caller actually varies independently.
+export type OrderStatusEmailStage = 'shipped' | 'delivered'
+
+type OrderStatusEmailInput = {
+  to: string
+  orderNumber: string
+  customerName: string
+  lang?: EmailLang
+  stage: OrderStatusEmailStage
+  // CTT tracking code + its public tracking URL (2026-08-01 request), PT
+  // orders only -- see lib/messaging.ts's buildCttTrackingUrl. Optional:
+  // most 'shipped' emails still won't have one (the admin may not have
+  // entered the code yet, or the order is Angola's untracked local
+  // courier), and 'delivered' emails never pass this at all.
+  courierTrackingCode?: string
+  courierTrackingUrl?: string
+}
+
+const STATUS_EMAIL_COPY: Record<
+  OrderStatusEmailStage,
+  Record<EmailLang, { subject: (orderNumber: string) => string; heading: (customerName: string) => string; body: string }>
+> = {
+  shipped: {
+    pt: {
+      subject: (orderNumber) => `Encomenda ${orderNumber} enviada -- Use Me With Style`,
+      heading: (customerName) => `Boas notícias, ${customerName}!`,
+      body: 'A sua encomenda foi enviada e está a caminho.',
+    },
+    en: {
+      subject: (orderNumber) => `Order ${orderNumber} shipped -- Use Me With Style`,
+      heading: (customerName) => `Good news, ${customerName}!`,
+      body: 'Your order has shipped and is on its way.',
+    },
+  },
+  delivered: {
+    pt: {
+      subject: (orderNumber) => `Encomenda ${orderNumber} entregue -- Use Me With Style`,
+      heading: (customerName) => `A sua encomenda chegou, ${customerName}!`,
+      body: 'A sua encomenda foi entregue. Esperamos que goste!',
+    },
+    en: {
+      subject: (orderNumber) => `Order ${orderNumber} delivered -- Use Me With Style`,
+      heading: (customerName) => `Your order has arrived, ${customerName}!`,
+      body: 'Your order has been delivered. We hope you love it!',
+    },
+  },
+}
+
+export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: string; html: string } {
+  const lang: EmailLang = input.lang === 'en' ? 'en' : 'pt'
+  const copy = STATUS_EMAIL_COPY[input.stage][lang]
+  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop'
+  const trackingUrl = `${siteUrl}/conta`
+  const trackingIntro = lang === 'pt' ? 'Pode acompanhar o estado da sua encomenda a qualquer momento em' : 'You can check your order status any time at'
+  const trackingLinkText = lang === 'pt' ? 'consultar encomenda' : 'track your order'
+  const orderNumberLabel = lang === 'pt' ? 'Número da encomenda' : 'Order number'
+
+  const courierLabel = lang === 'pt' ? 'Código de rastreio CTT' : 'CTT tracking code'
+  const courierLinkText = lang === 'pt' ? 'Seguir encomenda nos CTT' : 'Track with CTT'
+
+  const subject = copy.subject(input.orderNumber)
+  const html = `
+    <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+      <h2 style="margin-bottom: 4px;">${escapeHtml(copy.heading(input.customerName))}</h2>
+      <p>${escapeHtml(copy.body)}</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr>
+          <td style="padding: 8px 0; color: #666;">${escapeHtml(orderNumberLabel)}</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: bold;">${escapeHtml(input.orderNumber)}</td>
+        </tr>
+        ${
+          input.courierTrackingCode
+            ? `<tr>
+                <td style="padding: 8px 0; color: #666;">${escapeHtml(courierLabel)}</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: bold;">${escapeHtml(input.courierTrackingCode)}</td>
+              </tr>`
+            : ''
+        }
+      </table>
+      ${
+        input.courierTrackingUrl
+          ? `<p><a href="${input.courierTrackingUrl}">${escapeHtml(courierLinkText)}</a></p>`
+          : ''
+      }
+      <p>
+        ${escapeHtml(trackingIntro)}
+        <a href="${trackingUrl}">${escapeHtml(trackingLinkText)}</a>.
+      </p>
+    </div>
+  `.trim()
+
+  return { subject, html }
+}
+
+export async function sendOrderStatusEmail(payload: Payload, input: OrderStatusEmailInput): Promise<void> {
+  const { subject, html } = buildOrderStatusEmail(input)
+
+  if (!process.env.RESEND_API_KEY) {
+    // eslint-disable-next-line no-console
+    console.log(`[email:not-configured] would send ${input.stage} notice (${input.lang ?? 'pt'}) for ${input.orderNumber} to ${input.to}`)
+    return
+  }
+
+  try {
+    await payload.sendEmail({ to: input.to, subject, html })
+  } catch (err) {
+    // Never let an email failure break the order write itself.
+    // eslint-disable-next-line no-console
+    console.error('[email:send-failed]', err)
+  }
+}
+
 // Help page "send us an email" form (JOS-64 follow-up, added 2026-07-24).
 // Unlike the order confirmation email above (sent TO the customer), this
 // goes TO the internal team's inbox, with reply-to set to the customer's
