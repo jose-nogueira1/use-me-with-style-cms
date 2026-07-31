@@ -148,6 +148,36 @@ test('merch tags migration is idempotent and does not duplicate rows', { skip: !
   })
 })
 
+// Live incident, 2026-08-01: production had a "products_rels" table that
+// already existed WITHOUT "merch_tags_id" by the time this migration first
+// ran for real -- CREATE TABLE IF NOT EXISTS was a no-op against it, so the
+// very next CREATE INDEX on that column crashed the app on every single
+// deploy from then on (this migration's statements were never wrapped in a
+// transaction, so a table created via CREATE TABLE IF NOT EXISTS without
+// merch_tags_id is exactly the kind of state a mid-batch failure on an
+// earlier attempt could leave behind). Reproduces that exact broken state
+// and confirms the ADD COLUMN IF NOT EXISTS fix recovers from it, same
+// "partial state" pattern already covered for the catalogue migration above.
+test('merch tags migration recovers from a products_rels table missing merch_tags_id', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createTagPrerequisites(pool)
+    await pool.query(`
+      CREATE TABLE "products_rels" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "order" integer,
+        "parent_id" integer NOT NULL,
+        "path" varchar NOT NULL
+      );
+    `)
+    await runTagsUp(pool)
+    const columns = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'products_rels'`)
+    assert.ok(columns.rows.some((row) => row.column_name === 'merch_tags_id'))
+    const rels = await pool.query(`SELECT parent_id, path, merch_tags_id FROM products_rels ORDER BY parent_id`)
+    assert.equal(rels.rows.length, 1)
+    assert.equal(rels.rows[0].merch_tags_id, 1)
+  })
+})
+
 test('merch tags migration down restores a single tag_id per product', { skip: !adminUrl }, async () => {
   await withDatabase(async (pool) => {
     await createTagPrerequisites(pool)

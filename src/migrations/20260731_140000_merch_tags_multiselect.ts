@@ -26,6 +26,20 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       "path" varchar NOT NULL,
       "merch_tags_id" integer
     );
+    -- Self-heal a partial-state production incident (found 2026-08-01, live
+    -- crash-loop): "products_rels" already existed WITHOUT "merch_tags_id"
+    -- by the time this migration first got a chance to run against real
+    -- Postgres -- every deploy since has hit "column merch_tags_id does not
+    -- exist" on the CREATE INDEX below and crashed on startup, since
+    -- CREATE TABLE IF NOT EXISTS is a no-op against an already-existing
+    -- table and this migration never wrapped its statements in a
+    -- transaction, so nothing here was atomic across restarts. ADD COLUMN
+    -- IF NOT EXISTS is a no-op on a fresh table (already has the column
+    -- from CREATE TABLE above) and fixes exactly the broken state
+    -- otherwise -- same "recovers from the production partial state"
+    -- pattern this repo's other migrations already use (see
+    -- postgresMigrations.test.ts).
+    ALTER TABLE "products_rels" ADD COLUMN IF NOT EXISTS "merch_tags_id" integer;
     CREATE INDEX IF NOT EXISTS "products_rels_order_idx" ON "products_rels" ("order");
     CREATE INDEX IF NOT EXISTS "products_rels_parent_idx" ON "products_rels" ("parent_id");
     CREATE INDEX IF NOT EXISTS "products_rels_path_idx" ON "products_rels" ("path");
