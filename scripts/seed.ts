@@ -309,6 +309,25 @@ async function seed() {
         'Changes to these terms: these terms may be updated periodically. The version in effect will always be the one published on this page.',
         'Contacts: for customer support, email support@usemewithstyle.shop or contact +244 933 617 878 by WhatsApp. For legal and privacy matters, email legal@usemewithstyle.shop.',
       ].join('\n\n'),
+      // Added 2026-08-01 for the Meta App Dashboard's "Data Deletion
+      // Instructions URL" requirement, needed to publish the WhatsApp/
+      // Instagram messaging app (JOS-58) -- until the app is published,
+      // Meta silently drops all real webhook deliveries. AI-drafted, same
+      // caveat as the rest of this global: needs legal review before final.
+      dataDeletionTextPT: [
+        'Tem o direito de solicitar a eliminação dos seus dados pessoais guardados pela USE ME WITH STYLE a qualquer momento, incluindo os dados recolhidos através das nossas conversas de apoio ao cliente no WhatsApp e no Instagram (por exemplo, o seu número de telefone ou nome de utilizador, e o conteúdo das mensagens trocadas).',
+        'Como pedir a eliminação: envie um email para legal@usemewithstyle.shop com o assunto "Eliminação de dados", indicando o seu nome, número de telefone ou nome de utilizador de Instagram associado à conversa, e o endereço de email ou número de encomenda, se aplicável. Também pode fazer o pedido por WhatsApp através do número +244 933 617 878, ou através do formulário disponível na página de Ajuda.',
+        'O que acontece a seguir: confirmamos a receção do seu pedido no prazo de 5 dias úteis e eliminamos os dados identificados no prazo de 30 dias, exceto quando a lei nos obrigue a conservar determinados registos por mais tempo (por exemplo, documentos fiscais e contabilísticos relativos a encomendas já processadas).',
+        'Se tiver desligado a nossa app do WhatsApp ou do Instagram na sua conta Meta, isso não elimina automaticamente o histórico de mensagens já guardado do nosso lado — utilize um dos meios acima para pedir essa eliminação de forma explícita.',
+        'Para mais informação sobre como tratamos os seus dados pessoais em geral, consulte a nossa Política de Privacidade.',
+      ].join('\n\n'),
+      dataDeletionTextEN: [
+        'You have the right to request the deletion of your personal data held by USE ME WITH STYLE at any time, including data collected through our customer support conversations on WhatsApp and Instagram (for example, your phone number or Instagram username, and the content of messages exchanged).',
+        'How to request deletion: email legal@usemewithstyle.shop with the subject "Data deletion request", including your name, the phone number or Instagram username associated with the conversation, and your email address or order number, if applicable. You can also make the request by WhatsApp at +244 933 617 878, or via the form available on the Help page.',
+        'What happens next: we confirm receipt of your request within 5 business days and delete the identified data within 30 days, except where the law requires us to retain certain records for longer (for example, tax and accounting documents relating to orders already processed).',
+        'Disconnecting our app from WhatsApp or Instagram in your Meta account settings does not automatically delete the message history already stored on our side -- use one of the methods above to explicitly request that deletion.',
+        'For more information on how we handle your personal data in general, see our Privacy Policy.',
+      ].join('\n\n'),
     },
   })
 

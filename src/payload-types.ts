@@ -1376,6 +1376,14 @@ export interface LegalContent {
    * AI-drafted generic template, added 2026-07-24. Needs legal review before final.
    */
   termsTextEN?: string | null;
+  /**
+   * Added 2026-08-01 for the Meta App Dashboard "Data Deletion Instructions URL" requirement (needed to publish the WhatsApp/Instagram messaging app). AI-drafted -- needs legal review before final.
+   */
+  dataDeletionTextPT?: string | null;
+  /**
+   * Added 2026-08-01 for the Meta App Dashboard "Data Deletion Instructions URL" requirement (needed to publish the WhatsApp/Instagram messaging app). AI-drafted -- needs legal review before final.
+   */
+  dataDeletionTextEN?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1500,6 +1508,8 @@ export interface LegalContentSelect<T extends boolean = true> {
   privacyPolicyTextEN?: T;
   termsTextPT?: T;
   termsTextEN?: T;
+  dataDeletionTextPT?: T;
+  dataDeletionTextEN?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

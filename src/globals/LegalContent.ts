@@ -47,5 +47,23 @@ export const LegalContent: GlobalConfig = {
       label: 'Terms & Conditions — English',
       admin: { description: 'AI-drafted generic template, added 2026-07-24. Needs legal review before final.' },
     },
+    {
+      name: 'dataDeletionTextPT',
+      type: 'textarea',
+      label: 'Data Deletion Instructions — Portuguese',
+      admin: {
+        description:
+          'Added 2026-08-01 for the Meta App Dashboard "Data Deletion Instructions URL" requirement (needed to publish the WhatsApp/Instagram messaging app). AI-drafted -- needs legal review before final.',
+      },
+    },
+    {
+      name: 'dataDeletionTextEN',
+      type: 'textarea',
+      label: 'Data Deletion Instructions — English',
+      admin: {
+        description:
+          'Added 2026-08-01 for the Meta App Dashboard "Data Deletion Instructions URL" requirement (needed to publish the WhatsApp/Instagram messaging app). AI-drafted -- needs legal review before final.',
+      },
+    },
   ],
 }
