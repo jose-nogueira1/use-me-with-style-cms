@@ -8,6 +8,7 @@ import { up } from '../src/migrations/20260725_150000_catalogue_taxonomies.ts'
 import { up as tagsUp, down as tagsDown } from '../src/migrations/20260731_140000_merch_tags_multiselect.ts'
 import { up as heroUp, down as heroDown } from '../src/migrations/20260731_150000_home_hero_cta_picker.ts'
 import { up as freeShippingUp } from '../src/migrations/20260731_160000_coupons_free_shipping.ts'
+import { up as legalDataDeletionUp } from '../src/migrations/20260801_110000_legal_content_data_deletion.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -296,5 +297,64 @@ test('coupons free-shipping migration is idempotent', { skip: !adminUrl }, async
     await pool.query(`INSERT INTO coupons (code, type) VALUES ('FREESHIP2', 'free_shipping')`)
     const inserted = (await pool.query(`SELECT type FROM coupons WHERE code = 'FREESHIP2'`)).rows[0]
     assert.equal(inserted.type, 'free_shipping')
+  })
+})
+
+// Live incident, 2026-08-01: dataDeletionTextPT/EN were added to the
+// legal-content global (LegalContent.ts) without a matching migration.
+// Production's "legal_content" table never got the columns, so Payload's
+// generated SELECT for the whole global started failing with a 500 --
+// not just the new field, but Privacy Policy and Terms too, since all
+// three live on the same row. Confirmed live: usemewithstyle.shop
+// /politica-privacidade was stuck on "A carregar..." forever until this
+// migration ran. Reproduces the production table (pre-fix shape, from
+// 20260724_170000_legal_content) and confirms the ADD COLUMN IF NOT
+// EXISTS fix both adds the columns and leaves the existing PT/EN privacy
+// and terms text completely untouched.
+async function createLegalContentPrerequisites(pool: pg.Pool) {
+  await pool.query(`
+    CREATE TABLE "legal_content" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "privacy_policy_text_p_t" varchar,
+      "privacy_policy_text_e_n" varchar,
+      "terms_text_p_t" varchar,
+      "terms_text_e_n" varchar,
+      "updated_at" timestamp(3) with time zone,
+      "created_at" timestamp(3) with time zone
+    );
+    INSERT INTO legal_content (id, privacy_policy_text_p_t, terms_text_e_n)
+    VALUES (1, 'Texto de privacidade real.', 'Real terms text.');
+  `)
+}
+
+async function runLegalDataDeletionUp(pool: pg.Pool) {
+  const db = drizzle(pool)
+  await legalDataDeletionUp({ db } as never)
+}
+
+test('legal content data-deletion migration adds the missing columns without touching existing text', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createLegalContentPrerequisites(pool)
+    await runLegalDataDeletionUp(pool)
+
+    const columns = (await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'legal_content'`)).rows.map((row) => row.column_name)
+    assert.ok(columns.includes('data_deletion_text_p_t'))
+    assert.ok(columns.includes('data_deletion_text_e_n'))
+
+    const row = (await pool.query(`SELECT privacy_policy_text_p_t, terms_text_e_n, data_deletion_text_p_t FROM legal_content WHERE id = 1`)).rows[0]
+    assert.equal(row.privacy_policy_text_p_t, 'Texto de privacidade real.')
+    assert.equal(row.terms_text_e_n, 'Real terms text.')
+    assert.equal(row.data_deletion_text_p_t, null)
+  })
+})
+
+test('legal content data-deletion migration is idempotent', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createLegalContentPrerequisites(pool)
+    await runLegalDataDeletionUp(pool)
+    await runLegalDataDeletionUp(pool)
+    await pool.query(`UPDATE legal_content SET data_deletion_text_p_t = 'ok' WHERE id = 1`)
+    const row = (await pool.query(`SELECT data_deletion_text_p_t FROM legal_content WHERE id = 1`)).rows[0]
+    assert.equal(row.data_deletion_text_p_t, 'ok')
   })
 })

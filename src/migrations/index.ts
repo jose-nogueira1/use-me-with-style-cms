@@ -39,6 +39,7 @@ import * as migration_20260731_140000_merch_tags_multiselect from './20260731_14
 import * as migration_20260731_150000_home_hero_cta_picker from './20260731_150000_home_hero_cta_picker'
 import * as migration_20260731_160000_coupons_free_shipping from './20260731_160000_coupons_free_shipping'
 import * as migration_20260801_100000_order_status_history from './20260801_100000_order_status_history'
+import * as migration_20260801_110000_legal_content_data_deletion from './20260801_110000_legal_content_data_deletion'
 
 export const migrations = [
   {
@@ -245,5 +246,10 @@ export const migrations = [
     up: migration_20260801_100000_order_status_history.up,
     down: migration_20260801_100000_order_status_history.down,
     name: '20260801_100000_order_status_history',
+  },
+  {
+    up: migration_20260801_110000_legal_content_data_deletion.up,
+    down: migration_20260801_110000_legal_content_data_deletion.down,
+    name: '20260801_110000_legal_content_data_deletion',
   },
 ]
