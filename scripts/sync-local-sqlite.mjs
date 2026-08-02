@@ -192,8 +192,8 @@ if (!statusHistoryExists) {
 
 // New global (2026-08-02, Instagram feed curation -- see
 // src/migrations/20260802_150000_instagram_spotlight.ts for the Postgres
-// version). Entirely new tables, not just added columns, so push:false means
-// SQLite won't create them on its own -- same situation as
+// version). Entirely new table, not just an added column, so push:false
+// means SQLite won't create it on its own -- same situation as
 // orders_status_history above, so the same guarded CREATE TABLE approach.
 const instagramSpotlightExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'instagram_spotlight'`)).rows
@@ -202,25 +202,33 @@ if (!instagramSpotlightExists) {
   await client.execute(`
     CREATE TABLE instagram_spotlight (
       id integer PRIMARY KEY NOT NULL,
+      highlighted_permalink text,
       updated_at text,
       created_at text
     )
   `)
-  await client.execute(`
-    CREATE TABLE instagram_spotlight_entries (
-      "_order" integer NOT NULL,
-      "_parent_id" integer NOT NULL,
-      id text PRIMARY KEY NOT NULL,
-      permalink text NOT NULL,
-      label_p_t text,
-      label_e_n text,
-      size text DEFAULT 'regular',
-      FOREIGN KEY ("_parent_id") REFERENCES instagram_spotlight(id) ON UPDATE no action ON DELETE cascade
-    )
-  `)
-  await client.execute('CREATE INDEX instagram_spotlight_entries_order_idx ON instagram_spotlight_entries ("_order")')
-  await client.execute('CREATE INDEX instagram_spotlight_entries_parent_idx ON instagram_spotlight_entries (_parent_id)')
-  console.log('Created local SQLite instagram_spotlight and instagram_spotlight_entries tables.')
+  console.log('Created local SQLite instagram_spotlight table.')
+}
+
+// Simplified same day (20260802_180000_instagram_spotlight_simplify.ts) --
+// the ordered/labelled entries list turned out to be overkill for what's
+// really "highlight one recent post". Two follow-up steps, each guarded so
+// a fresh checkout (which creates the table with highlighted_permalink
+// already, above) and an existing local dev.db (which still has the old
+// shape from before this simplification) both end up correct:
+if (instagramSpotlightExists) {
+  const instagramSpotlightColumns = await columns('instagram_spotlight')
+  if (!instagramSpotlightColumns.has('highlighted_permalink')) {
+    await client.execute('ALTER TABLE instagram_spotlight ADD COLUMN highlighted_permalink text')
+    console.log('Added highlighted_permalink to local SQLite instagram_spotlight.')
+  }
+}
+const instagramSpotlightEntriesExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'instagram_spotlight_entries'`))
+    .rows.length > 0
+if (instagramSpotlightEntriesExists) {
+  await client.execute('DROP TABLE instagram_spotlight_entries')
+  console.log('Dropped local SQLite instagram_spotlight_entries (replaced by a single highlighted_permalink column).')
 }
 
 client.close()

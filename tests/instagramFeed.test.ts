@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  applySpotlightCuration,
+  applyHighlight,
   cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
@@ -107,42 +107,39 @@ test('cleanCaptionForDisplay returns an empty string for a caption that is only 
   assert.equal(cleanCaptionForDisplay('#usemewithstyle #angola'), '')
 })
 
-test('applySpotlightCuration orders posts by the entries list, not the pool order', () => {
+test('applyHighlight marks only the matching post large, everything else regular', () => {
   const pool = [
     { id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: 'First' },
     { id: '2', imageUrl: 'https://cdn.example/2.jpg', permalink: 'https://www.instagram.com/p/two/', caption: 'Second' },
   ]
-  const curated = applySpotlightCuration(pool, [
-    { permalink: 'https://www.instagram.com/p/two/' },
-    { permalink: 'https://www.instagram.com/p/one/' },
-  ])
-  assert.deepEqual(curated.map((p) => p.id), ['2', '1'])
+  const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/two/')
+  assert.deepEqual(highlighted.map((p) => p.size), ['regular', 'large'])
 })
 
-test('applySpotlightCuration skips entries with no match in the pool instead of erroring', () => {
-  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
-  const curated = applySpotlightCuration(pool, [
-    { permalink: 'https://www.instagram.com/p/aged-out/' },
-    { permalink: 'https://www.instagram.com/p/one/' },
-  ])
-  assert.equal(curated.length, 1)
-  assert.equal(curated[0].id, '1')
+test('applyHighlight preserves pool order and membership -- it never reorders or drops posts', () => {
+  const pool = [
+    { id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' },
+    { id: '2', imageUrl: 'https://cdn.example/2.jpg', permalink: 'https://www.instagram.com/p/two/', caption: '' },
+  ]
+  const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/two/')
+  assert.deepEqual(highlighted.map((p) => p.id), ['1', '2'])
 })
 
-test('applySpotlightCuration matches permalinks loosely (trailing slash, query string) but keeps labels/size exact', () => {
+test('applyHighlight matches permalinks loosely (trailing slash, query string)', () => {
   const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
-  const curated = applySpotlightCuration(pool, [
-    { permalink: 'instagram.com/p/one', labelPT: 'Conjunto Chocolate', labelEN: 'Chocolate Set', size: 'large' },
-  ])
-  assert.equal(curated[0].labelPT, 'Conjunto Chocolate')
-  assert.equal(curated[0].labelEN, 'Chocolate Set')
-  assert.equal(curated[0].size, 'large')
+  const highlighted = applyHighlight(pool, 'instagram.com/p/one?igsh=xyz')
+  assert.equal(highlighted[0].size, 'large')
 })
 
-test('applySpotlightCuration defaults size to regular and omits blank labels', () => {
+test('applyHighlight highlights nothing when the permalink has aged out of the pool', () => {
   const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
-  const curated = applySpotlightCuration(pool, [{ permalink: 'https://www.instagram.com/p/one/', labelPT: '  ', size: null }])
-  assert.equal(curated[0].size, 'regular')
-  assert.equal(curated[0].labelPT, undefined)
-  assert.equal(curated[0].labelEN, undefined)
+  const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/aged-out/')
+  assert.equal(highlighted[0].size, 'regular')
+})
+
+test('applyHighlight highlights nothing when no permalink is set', () => {
+  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
+  assert.equal(applyHighlight(pool, null)[0].size, 'regular')
+  assert.equal(applyHighlight(pool, undefined)[0].size, 'regular')
+  assert.equal(applyHighlight(pool, '   ')[0].size, 'regular')
 })

@@ -2,13 +2,13 @@ import type { Endpoint } from 'payload'
 import {
   INSTAGRAM_GRAPH_FIELDS,
   INSTAGRAM_GRAPH_VERSION,
-  applySpotlightCuration,
+  applyHighlight,
   cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   type GraphMediaItem,
+  type HighlightedInstagramPost,
   type InstagramPost,
-  type SpotlightEntry,
 } from '../lib/instagramFeed'
 
 const MAX_LIMIT = 12
@@ -18,9 +18,9 @@ const DEFAULT_LIMIT = 6
 // doesn't hit Meta on every visitor. Cache lives in process memory, which is
 // fine here since the CMS runs as a long-lived Railway service, not
 // per-request serverless functions. This caches the raw recent-posts POOL
-// only -- curation (see below) is re-applied on every request, uncached, so
-// an admin editing the spotlight global sees it reflected immediately
-// without waiting out the 15-minute TTL.
+// only -- the highlight pick (see below) is re-applied on every request,
+// uncached, so an admin changing it shows up immediately without waiting
+// out the 15-minute TTL.
 const CACHE_TTL_MS = 15 * 60 * 1000
 let cache: { posts: InstagramPost[]; fetchedAt: number } | null = null
 
@@ -36,36 +36,34 @@ async function fetchFromGraphApi(limit: number): Promise<InstagramPost[]> {
   return mapGraphMediaToPosts(data.data ?? [])
 }
 
-async function fetchSpotlightEntries(reqPayload: any): Promise<SpotlightEntry[]> {
+async function fetchHighlightedPermalink(reqPayload: any): Promise<string | null> {
   try {
     const global = await reqPayload.findGlobal({ slug: 'instagram-spotlight' })
-    return (global?.entries ?? []) as SpotlightEntry[]
+    const value = global?.highlightedPermalink
+    return typeof value === 'string' && value.trim() ? value : null
   } catch (err) {
     // A missing/misconfigured global shouldn't take down the whole feed --
-    // same "degrade to latest N" fallback as an unmatched curation entry.
+    // just means nothing gets highlighted this request.
     reqPayload.logger.error(
       { err: err instanceof Error ? err.message : String(err) },
       '[instagram:spotlight-fetch-failed]',
     )
-    return []
+    return null
   }
 }
 
-// Shapes a pool post (curated or not) into the wire format the storefront
-// consumes. `captionDisplay` is always server-computed (hashtags/newlines
-// stripped, truncated) so the tile always has *something* short to show,
-// whether or not an admin has set a curated label override -- "give each
-// tile a reason to exist beyond a photo" applies with or without curation.
-function toApiPost(post: InstagramPost, curatedFields?: { labelPT?: string; labelEN?: string; size: 'regular' | 'large' }) {
+// Shapes a pool post into the wire format the storefront consumes.
+// `captionDisplay` is always server-computed (hashtags/newlines stripped,
+// truncated) from the real Instagram caption -- "give each tile a reason to
+// exist beyond a photo" applies to every post, not just a highlighted one.
+function toApiPost(post: HighlightedInstagramPost) {
   return {
     id: post.id,
     imageUrl: post.imageUrl,
     permalink: post.permalink,
     caption: post.caption,
     captionDisplay: cleanCaptionForDisplay(post.caption),
-    labelPT: curatedFields?.labelPT,
-    labelEN: curatedFields?.labelEN,
-    size: curatedFields?.size ?? 'regular',
+    size: post.size,
   }
 }
 
@@ -83,7 +81,7 @@ export const instagramFeedEndpoints: Endpoint[] = [
       // unconfigured" pattern used elsewhere (see lib/messaging.ts,
       // lib/payments/appypay.ts).
       if (!isInstagramFeedConfigured()) {
-        return Response.json({ configured: false, curated: false, posts: [] })
+        return Response.json({ configured: false, posts: [] })
       }
 
       const now = Date.now()
@@ -101,22 +99,15 @@ export const instagramFeedEndpoints: Endpoint[] = [
           // Serve a stale cache over an empty grid if we have one; otherwise
           // let the storefront fall back to placeholders for this request.
           pool = cache?.posts ?? null
-          if (!pool) return Response.json({ configured: true, curated: false, posts: [] })
+          if (!pool) return Response.json({ configured: true, posts: [] })
         }
       }
 
-      const entries = await fetchSpotlightEntries(req.payload)
-      const curatedMatches = entries.length > 0 ? applySpotlightCuration(pool, entries) : []
-
-      if (curatedMatches.length > 0) {
-        const posts = curatedMatches
-          .slice(0, limit)
-          .map((post) => toApiPost(post, { labelPT: post.labelPT, labelEN: post.labelEN, size: post.size }))
-        return Response.json({ configured: true, curated: true, posts })
-      }
-
-      const posts = pool.slice(0, limit).map((post) => toApiPost(post))
-      return Response.json({ configured: true, curated: false, posts })
+      const highlightedPermalink = await fetchHighlightedPermalink(req.payload)
+      const posts = applyHighlight(pool, highlightedPermalink)
+        .slice(0, limit)
+        .map(toApiPost)
+      return Response.json({ configured: true, posts })
     },
   },
 ]

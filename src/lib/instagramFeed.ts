@@ -27,21 +27,13 @@ export type InstagramPost = {
   caption: string
 }
 
-// Curation (2026-08-02, "curate instead of latest N" -- see
-// globals/InstagramSpotlight.ts). An admin-configured entry: which recent
-// post to feature, an optional bilingual override for the caption shown on
-// the tile, and whether it should render as a "large" tile to break up the
-// otherwise-uniform row.
-export type SpotlightEntry = {
-  permalink: string
-  labelPT?: string | null
-  labelEN?: string | null
-  size?: 'regular' | 'large' | null
-}
-
-export type CuratedInstagramPost = InstagramPost & {
-  labelPT?: string
-  labelEN?: string
+// Highlighting (2026-08-02, simplified from an earlier ordered/labelled
+// curation list -- see globals/InstagramSpotlight.ts's comment for why:
+// Jay-P found the array-of-entries version overkill and confusing. Now
+// there's exactly one admin choice: which of the recent posts, if any, gets
+// the large tile. Everything else about the feed -- which posts appear, in
+// what order, what caption shows -- is automatic (latest N, real caption).
+export type HighlightedInstagramPost = InstagramPost & {
   size: 'regular' | 'large'
 }
 
@@ -114,26 +106,18 @@ export function cleanCaptionForDisplay(caption: string, maxLength = 70): string 
 }
 
 /**
- * Matches curated entries against the pool of recently-fetched posts (see
- * the module comment on globals/InstagramSpotlight.ts for why curation is
- * scoped to that recent pool rather than arbitrary historical posts).
- * Entries with no match in the pool -- most likely because the post has
- * aged out of the last ~12 -- are silently skipped rather than shown
- * broken. Order follows the entries list, not the pool's chronological
- * order, since the whole point is admin-controlled ordering.
+ * Marks every post in the pool 'regular', except the one matching
+ * `highlightedPermalink` (if any), which gets 'large'. Order and membership
+ * are otherwise untouched -- still the plain latest-N pool, just with at
+ * most one tile called out as bigger. A highlighted permalink that no
+ * longer matches anything in the pool (aged out of the last ~12) simply
+ * results in nothing being marked large, rather than an error -- same
+ * "degrade gracefully" spirit as the rest of this module.
  */
-export function applySpotlightCuration(pool: InstagramPost[], entries: SpotlightEntry[]): CuratedInstagramPost[] {
-  const byPermalink = new Map(pool.map((post) => [normalizePermalink(post.permalink), post]))
-  const curated: CuratedInstagramPost[] = []
-  for (const entry of entries) {
-    const match = byPermalink.get(normalizePermalink(entry.permalink))
-    if (!match) continue
-    curated.push({
-      ...match,
-      labelPT: entry.labelPT?.trim() || undefined,
-      labelEN: entry.labelEN?.trim() || undefined,
-      size: entry.size === 'large' ? 'large' : 'regular',
-    })
-  }
-  return curated
+export function applyHighlight(pool: InstagramPost[], highlightedPermalink?: string | null): HighlightedInstagramPost[] {
+  const target = highlightedPermalink?.trim() ? normalizePermalink(highlightedPermalink) : null
+  return pool.map((post) => ({
+    ...post,
+    size: target && normalizePermalink(post.permalink) === target ? 'large' : 'regular',
+  }))
 }

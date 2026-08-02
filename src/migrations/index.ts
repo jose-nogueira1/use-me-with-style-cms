@@ -41,6 +41,7 @@ import * as migration_20260731_160000_coupons_free_shipping from './20260731_160
 import * as migration_20260801_100000_order_status_history from './20260801_100000_order_status_history'
 import * as migration_20260801_110000_legal_content_data_deletion from './20260801_110000_legal_content_data_deletion'
 import * as migration_20260802_150000_instagram_spotlight from './20260802_150000_instagram_spotlight'
+import * as migration_20260802_180000_instagram_spotlight_simplify from './20260802_180000_instagram_spotlight_simplify'
 
 export const migrations = [
   {
@@ -257,5 +258,10 @@ export const migrations = [
     up: migration_20260802_150000_instagram_spotlight.up,
     down: migration_20260802_150000_instagram_spotlight.down,
     name: '20260802_150000_instagram_spotlight',
+  },
+  {
+    up: migration_20260802_180000_instagram_spotlight_simplify.up,
+    down: migration_20260802_180000_instagram_spotlight_simplify.down,
+    name: '20260802_180000_instagram_spotlight_simplify',
   },
 ]

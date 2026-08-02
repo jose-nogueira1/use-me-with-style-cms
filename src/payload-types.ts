@@ -1428,7 +1428,7 @@ export interface HomeContent {
   createdAt?: string | null;
 }
 /**
- * Curate which Instagram posts show in the homepage "Instagram feed" section, and in what order. Paste the post URL from Instagram (e.g. https://www.instagram.com/p/AbCdEfG/) -- it must still be one of the ~12 most recent posts on @use_me_withstyle. Leave empty to show the latest posts automatically, as before.
+ * Pick which of the ~12 most recent Instagram posts is shown as the large, highlighted tile in the homepage "Instagram feed" section. Leave empty to show all recent posts the same size. Managed from the storefront admin's Settings > Instagram feed tab.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "instagram-spotlight".
@@ -1436,26 +1436,9 @@ export interface HomeContent {
 export interface InstagramSpotlight {
   id: number;
   /**
-   * Drag to reorder -- this is the order they appear in on the homepage.
+   * e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.
    */
-  entries?:
-    | {
-        /**
-         * e.g. https://www.instagram.com/p/AbCdEfG/ -- copy this from the Instagram app or website.
-         */
-        permalink: string;
-        /**
-         * Optional. A short line shown over the photo, e.g. "Conjunto Chocolate". Falls back to a shortened version of the real Instagram caption if left blank.
-         */
-        labelPT?: string | null;
-        labelEN?: string | null;
-        /**
-         * Use "Large" sparingly -- a couple of standout tiles read as curated; too many and it’s just a bigger grid again.
-         */
-        size?: ('regular' | 'large') | null;
-        id?: string | null;
-      }[]
-    | null;
+  highlightedPermalink?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1574,15 +1557,7 @@ export interface HomeContentSelect<T extends boolean = true> {
  * via the `definition` "instagram-spotlight_select".
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
-  entries?:
-    | T
-    | {
-        permalink?: T;
-        labelPT?: T;
-        labelEN?: T;
-        size?: T;
-        id?: T;
-      };
+  highlightedPermalink?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
