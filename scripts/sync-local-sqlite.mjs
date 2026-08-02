@@ -18,6 +18,7 @@ const productColumns = await columns('products')
 const homeColumns = await columns('home_content')
 const invoiceSettingsColumns = await columns('invoice_settings')
 const invoicesColumns = await columns('invoices')
+const legalContentColumns = await columns('legal_content')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -63,6 +64,15 @@ for (const field of invoiceSettingsBankFields) {
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_type')) statements.push("ALTER TABLE home_content ADD COLUMN hero_cta_type TEXT DEFAULT 'all'")
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_category_slug')) statements.push('ALTER TABLE home_content ADD COLUMN hero_cta_category_slug TEXT')
 if (homeColumns.size > 0 && !homeColumns.has('hero_cta_tag_slug')) statements.push('ALTER TABLE home_content ADD COLUMN hero_cta_tag_slug TEXT')
+// Missing since 20260801_110000_legal_content_data_deletion.ts (Postgres-only,
+// never mirrored here -- found 2026-08-02 when a fresh `npm run dev` crashed
+// every read of the legal-content global, Privacy Policy/Terms included,
+// with "no such column: data_deletion_text_p_t". Same lesson as every other
+// gap in this file: a Postgres migration alone doesn't touch dev.db.
+if (legalContentColumns.size > 0 && !legalContentColumns.has('data_deletion_text_p_t'))
+  statements.push('ALTER TABLE legal_content ADD COLUMN data_deletion_text_p_t TEXT')
+if (legalContentColumns.size > 0 && !legalContentColumns.has('data_deletion_text_e_n'))
+  statements.push('ALTER TABLE legal_content ADD COLUMN data_deletion_text_e_n TEXT')
 
 if (statements.length > 0) await client.batch(statements, 'write')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
@@ -178,6 +188,39 @@ if (!statusHistoryExists) {
     )
   `)
   console.log('Created local SQLite orders_status_history table.')
+}
+
+// New global (2026-08-02, Instagram feed curation -- see
+// src/migrations/20260802_150000_instagram_spotlight.ts for the Postgres
+// version). Entirely new tables, not just added columns, so push:false means
+// SQLite won't create them on its own -- same situation as
+// orders_status_history above, so the same guarded CREATE TABLE approach.
+const instagramSpotlightExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'instagram_spotlight'`)).rows
+    .length > 0
+if (!instagramSpotlightExists) {
+  await client.execute(`
+    CREATE TABLE instagram_spotlight (
+      id integer PRIMARY KEY NOT NULL,
+      updated_at text,
+      created_at text
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE instagram_spotlight_entries (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      permalink text NOT NULL,
+      label_p_t text,
+      label_e_n text,
+      size text DEFAULT 'regular',
+      FOREIGN KEY ("_parent_id") REFERENCES instagram_spotlight(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute('CREATE INDEX instagram_spotlight_entries_order_idx ON instagram_spotlight_entries ("_order")')
+  await client.execute('CREATE INDEX instagram_spotlight_entries_parent_idx ON instagram_spotlight_entries (_parent_id)')
+  console.log('Created local SQLite instagram_spotlight and instagram_spotlight_entries tables.')
 }
 
 client.close()
