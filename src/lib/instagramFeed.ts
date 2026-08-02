@@ -27,6 +27,24 @@ export type InstagramPost = {
   caption: string
 }
 
+// Curation (2026-08-02, "curate instead of latest N" -- see
+// globals/InstagramSpotlight.ts). An admin-configured entry: which recent
+// post to feature, an optional bilingual override for the caption shown on
+// the tile, and whether it should render as a "large" tile to break up the
+// otherwise-uniform row.
+export type SpotlightEntry = {
+  permalink: string
+  labelPT?: string | null
+  labelEN?: string | null
+  size?: 'regular' | 'large' | null
+}
+
+export type CuratedInstagramPost = InstagramPost & {
+  labelPT?: string
+  labelEN?: string
+  size: 'regular' | 'large'
+}
+
 export function isInstagramFeedConfigured(env: Record<string, string | undefined> = process.env): boolean {
   return Boolean(env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_PAGE_ID)
 }
@@ -57,3 +75,65 @@ export function mapGraphMediaToPosts(items: GraphMediaItem[]): InstagramPost[] {
 
 export const INSTAGRAM_GRAPH_FIELDS = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp'
 export const INSTAGRAM_GRAPH_VERSION = 'v21.0'
+
+/**
+ * Reduces an Instagram permalink to just its path, ignoring scheme, host,
+ * query string, and a trailing slash -- so
+ * "https://www.instagram.com/p/AbCdEfG/?igsh=xyz" and
+ * "instagram.com/p/AbCdEfG" (an admin typing/pasting either form) both
+ * match the same post. Falls back to a lowercased trim of the raw string if
+ * it isn't a parseable URL at all, rather than throwing.
+ */
+export function normalizePermalink(url: string): string {
+  const trimmed = url.trim()
+  try {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    const parsed = new URL(withScheme)
+    return parsed.pathname.replace(/\/+$/, '').toLowerCase()
+  } catch {
+    return trimmed.replace(/\/+$/, '').toLowerCase()
+  }
+}
+
+/**
+ * Fallback tile caption when an admin hasn't set a curated label: strips
+ * hashtags and emoji-adjacent line breaks out of the raw Instagram caption
+ * (real captions look like "Elegância, confiança...\n\n#usemewithstyle
+ * #newcollection" -- the hashtag block is noise on a small tile) and
+ * truncates to a length that reads as a caption, not a paragraph.
+ */
+export function cleanCaptionForDisplay(caption: string, maxLength = 70): string {
+  const withoutHashtags = caption
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join(' ')
+    .replace(/#\S+/g, '')
+  const collapsed = withoutHashtags.replace(/\s+/g, ' ').trim()
+  if (collapsed.length <= maxLength) return collapsed
+  return `${collapsed.slice(0, maxLength).trimEnd()}…`
+}
+
+/**
+ * Matches curated entries against the pool of recently-fetched posts (see
+ * the module comment on globals/InstagramSpotlight.ts for why curation is
+ * scoped to that recent pool rather than arbitrary historical posts).
+ * Entries with no match in the pool -- most likely because the post has
+ * aged out of the last ~12 -- are silently skipped rather than shown
+ * broken. Order follows the entries list, not the pool's chronological
+ * order, since the whole point is admin-controlled ordering.
+ */
+export function applySpotlightCuration(pool: InstagramPost[], entries: SpotlightEntry[]): CuratedInstagramPost[] {
+  const byPermalink = new Map(pool.map((post) => [normalizePermalink(post.permalink), post]))
+  const curated: CuratedInstagramPost[] = []
+  for (const entry of entries) {
+    const match = byPermalink.get(normalizePermalink(entry.permalink))
+    if (!match) continue
+    curated.push({
+      ...match,
+      labelPT: entry.labelPT?.trim() || undefined,
+      labelEN: entry.labelEN?.trim() || undefined,
+      size: entry.size === 'large' ? 'large' : 'regular',
+    })
+  }
+  return curated
+}

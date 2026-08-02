@@ -2,10 +2,13 @@ import type { Endpoint } from 'payload'
 import {
   INSTAGRAM_GRAPH_FIELDS,
   INSTAGRAM_GRAPH_VERSION,
+  applySpotlightCuration,
+  cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   type GraphMediaItem,
   type InstagramPost,
+  type SpotlightEntry,
 } from '../lib/instagramFeed'
 
 const MAX_LIMIT = 12
@@ -14,7 +17,10 @@ const DEFAULT_LIMIT = 6
 // rate-limited per app -- cache across requests so a busy storefront homepage
 // doesn't hit Meta on every visitor. Cache lives in process memory, which is
 // fine here since the CMS runs as a long-lived Railway service, not
-// per-request serverless functions.
+// per-request serverless functions. This caches the raw recent-posts POOL
+// only -- curation (see below) is re-applied on every request, uncached, so
+// an admin editing the spotlight global sees it reflected immediately
+// without waiting out the 15-minute TTL.
 const CACHE_TTL_MS = 15 * 60 * 1000
 let cache: { posts: InstagramPost[]; fetchedAt: number } | null = null
 
@@ -30,6 +36,39 @@ async function fetchFromGraphApi(limit: number): Promise<InstagramPost[]> {
   return mapGraphMediaToPosts(data.data ?? [])
 }
 
+async function fetchSpotlightEntries(reqPayload: any): Promise<SpotlightEntry[]> {
+  try {
+    const global = await reqPayload.findGlobal({ slug: 'instagram-spotlight' })
+    return (global?.entries ?? []) as SpotlightEntry[]
+  } catch (err) {
+    // A missing/misconfigured global shouldn't take down the whole feed --
+    // same "degrade to latest N" fallback as an unmatched curation entry.
+    reqPayload.logger.error(
+      { err: err instanceof Error ? err.message : String(err) },
+      '[instagram:spotlight-fetch-failed]',
+    )
+    return []
+  }
+}
+
+// Shapes a pool post (curated or not) into the wire format the storefront
+// consumes. `captionDisplay` is always server-computed (hashtags/newlines
+// stripped, truncated) so the tile always has *something* short to show,
+// whether or not an admin has set a curated label override -- "give each
+// tile a reason to exist beyond a photo" applies with or without curation.
+function toApiPost(post: InstagramPost, curatedFields?: { labelPT?: string; labelEN?: string; size: 'regular' | 'large' }) {
+  return {
+    id: post.id,
+    imageUrl: post.imageUrl,
+    permalink: post.permalink,
+    caption: post.caption,
+    captionDisplay: cleanCaptionForDisplay(post.caption),
+    labelPT: curatedFields?.labelPT,
+    labelEN: curatedFields?.labelEN,
+    size: curatedFields?.size ?? 'regular',
+  }
+}
+
 export const instagramFeedEndpoints: Endpoint[] = [
   {
     path: '/instagram-feed',
@@ -39,33 +78,45 @@ export const instagramFeedEndpoints: Endpoint[] = [
       const limitParam = Number(url.searchParams.get('limit'))
       const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(Math.floor(limitParam), MAX_LIMIT) : DEFAULT_LIMIT
 
-      // Not configured yet (JOS-58 credentials pending) -- tell the
-      // storefront so it can fall back to the static placeholder grid,
-      // same "log instead of throw when unconfigured" pattern used
-      // elsewhere (see lib/messaging.ts, lib/payments/appypay.ts).
+      // Not configured yet -- tell the storefront so it can fall back to
+      // the static placeholder grid, same "log instead of throw when
+      // unconfigured" pattern used elsewhere (see lib/messaging.ts,
+      // lib/payments/appypay.ts).
       if (!isInstagramFeedConfigured()) {
-        return Response.json({ configured: false, posts: [] })
+        return Response.json({ configured: false, curated: false, posts: [] })
       }
 
       const now = Date.now()
-      if (cache && now - cache.fetchedAt < CACHE_TTL_MS) {
-        return Response.json({ configured: true, posts: cache.posts.slice(0, limit) })
+      let pool: InstagramPost[] | null = cache && now - cache.fetchedAt < CACHE_TTL_MS ? cache.posts : null
+
+      if (!pool) {
+        try {
+          pool = await fetchFromGraphApi(MAX_LIMIT)
+          cache = { posts: pool, fetchedAt: now }
+        } catch (err) {
+          req.payload.logger.error(
+            { err: err instanceof Error ? err.message : String(err) },
+            '[instagram:feed-fetch-failed]',
+          )
+          // Serve a stale cache over an empty grid if we have one; otherwise
+          // let the storefront fall back to placeholders for this request.
+          pool = cache?.posts ?? null
+          if (!pool) return Response.json({ configured: true, curated: false, posts: [] })
+        }
       }
 
-      try {
-        const posts = await fetchFromGraphApi(MAX_LIMIT)
-        cache = { posts, fetchedAt: now }
-        return Response.json({ configured: true, posts: posts.slice(0, limit) })
-      } catch (err) {
-        req.payload.logger.error(
-          { err: err instanceof Error ? err.message : String(err) },
-          '[instagram:feed-fetch-failed]',
-        )
-        // Serve a stale cache over an empty grid if we have one; otherwise
-        // let the storefront fall back to placeholders for this request.
-        if (cache) return Response.json({ configured: true, posts: cache.posts.slice(0, limit) })
-        return Response.json({ configured: true, posts: [] })
+      const entries = await fetchSpotlightEntries(req.payload)
+      const curatedMatches = entries.length > 0 ? applySpotlightCuration(pool, entries) : []
+
+      if (curatedMatches.length > 0) {
+        const posts = curatedMatches
+          .slice(0, limit)
+          .map((post) => toApiPost(post, { labelPT: post.labelPT, labelEN: post.labelEN, size: post.size }))
+        return Response.json({ configured: true, curated: true, posts })
       }
+
+      const posts = pool.slice(0, limit).map((post) => toApiPost(post))
+      return Response.json({ configured: true, curated: false, posts })
     },
   },
 ]

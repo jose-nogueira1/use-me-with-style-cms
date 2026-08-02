@@ -25,6 +25,7 @@ import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
 import { LegalContent } from './globals/LegalContent'
 import { HomeContent } from './globals/HomeContent'
+import { InstagramSpotlight } from './globals/InstagramSpotlight'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
@@ -146,7 +147,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Orders, Customers, Messages, Invoices, Coupons],
-  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeContent],
+  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeContent, InstagramSpotlight],
   endpoints: [
     orderLookupEndpoint,
     contactEndpoint,
