@@ -44,9 +44,10 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
   // admin, which is also an `update`, so gating on the paid transition
   // (rather than create) covers every payment method correctly with one
   // check.
-  const justPaid =
+  const justPaid = doc.status !== 'cancelled' && (
     (operation === 'create' && doc.paymentStatus === 'paid') ||
     (operation === 'update' && previousDoc?.paymentStatus !== 'paid' && doc.paymentStatus === 'paid')
+  )
   // CTT tracking code added (2026-08-01, alongside the shipped/delivered
   // emails below) -- an admin often only gets the tracking code from the
   // courier AFTER clicking "mark as shipped" (or fills it in separately,

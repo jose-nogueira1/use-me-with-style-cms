@@ -1,5 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 import {
   createCheckoutSession,
@@ -157,6 +157,12 @@ function safeEqual(actual: string, expected: string): boolean {
   return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
 }
 
+function appyPayCancellationToken(merchantTransactionId: string): string {
+  const secret = process.env.ORDER_CANCELLATION_SECRET || process.env.CRON_SECRET || process.env.PAYLOAD_SECRET
+  if (!secret) throw new Error('A server signing secret is required')
+  return createHmac('sha256', secret).update(`appypay-cancel:${merchantTransactionId}`).digest('base64url')
+}
+
 function isAppyPayWebhookAuthorized(req: PayloadRequest): boolean {
   const username = process.env.APPY_PAY_WEBHOOK_USERNAME
   const password = process.env.APPY_PAY_WEBHOOK_PASSWORD
@@ -189,7 +195,7 @@ function appyPayAmountMatches(actual: number, expected: number): boolean {
   return Number.isFinite(actual) && Math.abs(actual - expected) < 0.005
 }
 
-async function applyVerifiedAppyPayCharge(
+export async function applyVerifiedAppyPayCharge(
   req: PayloadRequest,
   order: Record<string, unknown> & { id: string | number },
   charge: AppyPayCharge,
@@ -231,6 +237,39 @@ async function applyVerifiedAppyPayCharge(
 
   if (charge.status === 'Success') {
     if (order.paymentStatus === 'paid' && existingTransactionId === charge.id) return order
+
+    // A success may arrive after an explicit shopper cancellation or the
+    // reservation timeout. First try to atomically reserve the original
+    // variants again. If somebody else bought the released stock, retain
+    // the truthful paid/cancelled combination for manual refund/review and
+    // never reopen an unfulfillable order or drive stock below zero.
+    if (order.inventoryReservationStatus === 'released' || order.status === 'cancelled') {
+      try {
+        return await req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: {
+            ...common,
+            paymentStatus: 'paid',
+            status: 'processing',
+          } as any,
+          context: { lateVerifiedPayment: true },
+        })
+      } catch (err) {
+        req.payload.logger.error({ err, orderId: order.id, transactionId: charge.id }, '[payments:appypay:late-success-stock-conflict]')
+        return req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: {
+            ...common,
+            paymentStatus: 'paid',
+            status: 'cancelled',
+          } as any,
+        })
+      }
+    }
     return req.payload.update({
       collection: 'orders',
       id: order.id,
@@ -284,11 +323,59 @@ const appyPayCreateOrder: Endpoint = {
       return Response.json({
         orderNumber: updated.orderNumber ?? String(updated.id),
         merchantTransactionId,
+        cancellationToken: appyPayCancellationToken(merchantTransactionId),
+        reservationExpiresAt: updated.inventoryReservationExpiresAt,
       })
     } catch (err) {
       req.payload.logger.error({ err }, '[payments:appypay:create-order-failed]')
       return Response.json({ error: 'Could not start AppyPay checkout.' }, { status: 500 })
     }
+  },
+}
+
+const appyPayCancelOrder: Endpoint = {
+  path: '/payments/appypay/cancel-order',
+  method: 'post',
+  handler: async (req) => {
+    const body = await readJsonBody<{ merchantTransactionId?: string; cancellationToken?: string }>(req)
+    if (!body?.merchantTransactionId || !body.cancellationToken) {
+      return Response.json({ error: 'Cancellation details are required.' }, { status: 400 })
+    }
+
+    let expectedToken: string
+    try {
+      expectedToken = appyPayCancellationToken(body.merchantTransactionId)
+    } catch (err) {
+      req.payload.logger.error({ err }, '[payments:appypay:cancellation-secret-missing]')
+      return Response.json({ error: 'Cancellation is unavailable.' }, { status: 503 })
+    }
+    if (!safeEqual(body.cancellationToken, expectedToken)) {
+      return Response.json({ error: 'Invalid cancellation token.' }, { status: 403 })
+    }
+
+    const matches = await req.payload.find({
+      collection: 'orders',
+      where: { appyPayMerchantTransactionId: { equals: body.merchantTransactionId } },
+      limit: 1,
+      overrideAccess: true,
+    })
+    const order = matches.docs[0]
+    if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 })
+    if (order.paymentStatus === 'paid' || order.inventoryReservationStatus === 'committed') {
+      return Response.json({ error: 'A confirmed payment cannot be cancelled here.' }, { status: 409 })
+    }
+    if (order.status === 'cancelled' || order.inventoryReservationStatus === 'released') {
+      return Response.json({ cancelled: true })
+    }
+
+    await req.payload.update({
+      collection: 'orders',
+      id: order.id,
+      overrideAccess: true,
+      data: { status: 'cancelled', paymentStatus: 'failed' },
+      context: { inventoryReleaseReason: 'shopper_cancelled' },
+    })
+    return Response.json({ cancelled: true })
   },
 }
 
@@ -576,6 +663,7 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 
 export const paymentsEndpoints: Endpoint[] = [
   appyPayCreateOrder,
+  appyPayCancelOrder,
   appyPayWebhook,
   appyPayReconcile,
   stripeCreateSession,

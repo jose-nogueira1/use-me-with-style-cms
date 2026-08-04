@@ -65,7 +65,7 @@ export const Orders: CollectionConfig = {
     beforeValidate: [applyAuthoritativeOrderValues],
     beforeChange: [
       manageInventoryReservation,
-      ({ data, operation, originalDoc, req }) => {
+      ({ context, data, operation, originalDoc, req }) => {
         if (operation === 'create' && !data.orderNumber) {
           const prefix = data.market === 'AO' ? 'AO' : 'PT'
           data.orderNumber = `${prefix}-${Date.now().toString().slice(-6)}`
@@ -109,7 +109,13 @@ export const Orders: CollectionConfig = {
         // with inventoryReservationStatus stuck at 'released'). Blocking the
         // transition out of 'cancelled' entirely closes that gap; there's no
         // "reopen" flow anywhere else in this codebase to preserve.
-        if (operation === 'update' && originalDoc?.status === 'cancelled' && data.status && data.status !== 'cancelled') {
+        if (
+          operation === 'update' &&
+          originalDoc?.status === 'cancelled' &&
+          data.status &&
+          data.status !== 'cancelled' &&
+          !context.lateVerifiedPayment
+        ) {
           throw new APIError('This order is cancelled and cannot be reopened. Create a new order instead.', 400, null, true)
         }
         return data

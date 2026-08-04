@@ -247,6 +247,25 @@ export const manageInventoryReservation: CollectionBeforeChangeHook = async ({
     }
   }
 
+  // A gateway success can arrive after the shopper cancelled or the
+  // reservation expired. Re-acquire the exact variants before reopening
+  // the order so a late callback can never oversell inventory. The payment
+  // endpoint catches a 409 here and records the genuine payment against the
+  // cancelled order for manual refund/review instead.
+  if (
+    context.lateVerifiedPayment &&
+    original.inventoryReservationStatus === 'released' &&
+    nextPaymentStatus === 'paid'
+  ) {
+    await applyStockDelta(req, original, 'reserve')
+    return {
+      ...data,
+      inventoryReservationStatus: 'committed',
+      inventoryReservationExpiresAt: null,
+      inventoryReservationReleasedAt: null,
+    }
+  }
+
   return data
 }
 
