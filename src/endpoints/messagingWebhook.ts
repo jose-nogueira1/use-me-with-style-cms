@@ -1,7 +1,10 @@
 import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage } from '../lib/messaging'
+import { classifyIncomingMessage } from '../lib/messaging'
+// The AI/product-aware reply assistant is a later feature. Keep the existing
+// reply helpers dormant until that plan is implemented and approved.
+// import { buildAutoReply, sendInstagramMessage } from '../lib/messaging'
 // WhatsApp is dormant, not deleted. Restore this import with the commented
 // parser and reply branch below when the channel is brought back.
 // import { sendWhatsAppMessage } from '../lib/messaging'
@@ -164,24 +167,29 @@ export function verifyMetaWebhookSignature(
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   const intent = classifyIncomingMessage(msg.body)
 
+  // Meta retries webhooks when acknowledgements are delayed. `externalId` is
+  // the stable message id, so ignore an event we have already persisted.
+  if (msg.externalId) {
+    const existing = await payloadClient.find({
+      collection: 'messages',
+      where: { externalId: { equals: msg.externalId } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    if (existing.docs.length > 0) return
+  }
+
   // WhatsApp could match a sender phone number directly to an order. An
   // Instagram-scoped ID cannot be matched safely, so Instagram order-status
   // questions remain open for an admin unless the customer supplies details.
   // if (msg.channel === 'whatsapp' && intent === 'order_status') { ... }
 
-  let status: 'open' | 'auto_handled' | 'escalated' = 'open'
-  let automationNote = 'unclassified -- needs manual review'
+  let status: 'open' | 'escalated' = 'open'
+  let automationNote = 'instagram-inbox -- manual reply required'
   if (intent === 'sensitive') {
     status = 'escalated'
     automationNote = 'sensitive-topic -- escalated to Raisa'
-  } else if (intent === 'order_status') {
-    automationNote = 'order-status-question -- no matching order found'
-  } else if (intent === 'payment') {
-    status = 'auto_handled'
-    automationNote = 'payment-faq-auto-reply'
-  } else if (intent === 'delivery') {
-    status = 'auto_handled'
-    automationNote = 'delivery-faq-auto-reply'
   }
 
   await payloadClient.create({
@@ -199,30 +207,13 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     },
   })
 
-  const reply = buildAutoReply(intent)
-  if (!reply) return
-
-  await sendInstagramMessage(msg.contactHandle, reply)
+  // Future AI-assisted reply path (deliberately dormant):
+  // const reply = await buildProductAwareInstagramReply(...)
+  // await sendInstagramMessage(msg.contactHandle, reply)
+  // await payloadClient.create({ collection: 'messages', ... })
 
   // Dormant WhatsApp reply path (future reactivation):
-  // if (msg.channel === 'whatsapp') {
-  //   await sendWhatsAppMessage(msg.contactHandle, reply)
-  // }
-
-  await payloadClient.create({
-    collection: 'messages',
-    overrideAccess: true,
-    data: {
-      channel: msg.channel,
-      direction: 'outbound',
-      contactHandle: msg.contactHandle,
-      customerName: msg.customerName,
-      body: reply,
-      status,
-      automationNote,
-      sentByAutomation: true,
-    },
-  })
+  // await sendWhatsAppMessage(msg.contactHandle, reply)
 }
 
 export const messagingWebhookEndpoints: Endpoint[] = [verifyEndpoint, eventsEndpoint]

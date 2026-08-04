@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { extractInboundMessages, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
 import { buildAutoReply, classifyIncomingMessage } from '../src/lib/messaging'
 
-test('sensitive messages always take priority and receive only an acknowledgement', () => {
+test('legacy rule helpers remain deterministic for a future assisted-reply plan', () => {
   assert.equal(classifyIncomingMessage('Quero cancelar a minha encomenda e receber reembolso'), 'sensitive')
   assert.match(buildAutoReply('sensitive') ?? '', /equipa vai analisar/i)
 })
