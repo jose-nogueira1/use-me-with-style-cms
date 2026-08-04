@@ -24,11 +24,17 @@ export const ORDER_STATUSES = [
 // credentials/API docs still pending). `bank_transfer_ao` / `sweg_appypay`
 // are kept only so any existing order rows using those values stay valid;
 // they're no longer offered at checkout.
+// 2026-08-04 addition: 'manual_whatsapp' is Portugal's checkout fallback
+// while portugalPaymentsEnabled is off -- same idea as Angola's manual
+// bank-transfer path, coordinated by WhatsApp instead of a real gateway.
+// See authoritativeOrder.ts for the server-side gate that only allows it
+// while PT payments are deferred (and blocks it once they go live).
 export const PAYMENT_METHODS = [
   { label: 'PayPal', value: 'paypal' },
   { label: 'Stripe', value: 'stripe' },
   { label: 'MB WAY (PT)', value: 'mbway' },
   { label: 'Multicaixa Express -- via AppyPay (AO)', value: 'multicaixa_express' },
+  { label: 'Manual WhatsApp coordination (PT, while payments are deferred)', value: 'manual_whatsapp' },
   { label: 'Bank transfer -- manual review (AO, legacy)', value: 'bank_transfer_ao' },
   { label: 'SWEG / AppyPay (AO, legacy) -- not implemented', value: 'sweg_appypay' },
 ] as const
@@ -134,6 +140,14 @@ export const Orders: CollectionConfig = {
       options: [...ORDER_STATUSES],
     },
     { name: 'customerName', type: 'text', required: true },
+    // First/last name collected separately at checkout (2026-08-04) --
+    // customerName above is still the combined value and remains the field
+    // every existing consumer (admin list/search, invoices, emails) reads.
+    // These two are optional, additive snapshot fields for future use (e.g.
+    // a shipping-label API that wants them split); not required so existing
+    // order rows and any older cached storefront bundle both stay valid.
+    { name: 'customerFirstName', type: 'text', label: 'First name' },
+    { name: 'customerLastName', type: 'text', label: 'Last name' },
     { name: 'customerPhone', type: 'text', required: true, label: 'Phone / WhatsApp' },
     { name: 'customerEmail', type: 'email', required: true },
     {
@@ -158,12 +172,13 @@ export const Orders: CollectionConfig = {
           'Storefront language the customer had selected at checkout -- determines the language of the order-confirmation email.',
       },
     },
-    { name: 'address', type: 'text', required: true },
+    { name: 'address', type: 'text', required: true, label: 'Street name' },
     {
       name: 'addressLine2',
       type: 'text',
-      label: 'Floor / Door (Andar / Porta)',
-      admin: { description: 'Optional PT address line -- not collected for Angola orders.' },
+      required: true,
+      label: 'House number / other',
+      admin: { description: 'House number, floor/door, or other locator info -- collected for both Angola and Portugal orders since 2026-08-04.' },
     },
     {
       name: 'postalCode',

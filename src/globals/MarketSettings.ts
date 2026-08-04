@@ -101,6 +101,28 @@ export const MarketSettings: GlobalConfig = {
           'Keep OFF until the Portuguese legal entity, invoicing process, and payment-provider accounts are approved. Turning this on re-enables PT checkout.',
       },
     },
+    // Manual WhatsApp coordination while portugalPaymentsEnabled is off
+    // (2026-08-04, Jay-P request) -- mirrors Angola's bank-transfer
+    // fallback above: instead of hard-blocking PT checkout with an error,
+    // the storefront now offers this one manual method and still creates a
+    // real (pending) order for follow-up. Same bilingual PT/EN pattern as
+    // the Angola instructions.
+    {
+      name: 'portugalManualCheckoutInstructionsPT',
+      type: 'textarea',
+      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — Portuguese',
+      admin: {
+        description: 'Shown at checkout while portugalPaymentsEnabled is off (e.g. "Vamos entrar em contacto por WhatsApp para combinar o pagamento.").',
+      },
+    },
+    {
+      name: 'portugalManualCheckoutInstructionsEN',
+      type: 'textarea',
+      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — English',
+      admin: {
+        description: 'English translation of the field above (e.g. "We\'ll reach out on WhatsApp to arrange payment.").',
+      },
+    },
     {
       name: 'portugalPaymentMethods',
       type: 'select',

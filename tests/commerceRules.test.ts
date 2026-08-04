@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { applyAuthoritativeOrderValues, authoritativeShippingCost } from '../src/lib/authoritativeOrder.ts'
 import { claimCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.ts'
-import { calculateIncludedVatInvoice } from '../src/lib/internalInvoice.ts'
+import { calculateIncludedVatInvoice, resolveVatRate } from '../src/lib/internalInvoice.ts'
 import { inventoryDeltasForOrder, manageInventoryReservation } from '../src/lib/inventoryReservation.ts'
 import { effectiveUnitPrice, isProductOnSale } from '../src/lib/salePricing.ts'
 import { portugalDeliveryRegion } from '../src/lib/portugalShipping.ts'
@@ -197,6 +197,59 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   } as never), /tracked delivery/)
 })
 
+test('Portugal manual-WhatsApp checkout is only accepted while payments are deferred', async () => {
+  const payload = {
+    db: {},
+    findByID: async () => ({
+      id: 4, active: true, availableAO: true, availablePT: true,
+      name: 'Vestido', nameEN: 'Dress', namePT: 'Vestido', priceAOKz: 50_000, pricePTEur: 50,
+      shippingWeightGrams: 500,
+      variants: [{ color: 3, size: 'M', stockAO: 2, stockPT: 2 }],
+    }),
+    find: async (options: { collection: string }) => options.collection === 'colors'
+      ? { docs: [{ id: 3, namePT: 'Preto', nameEN: 'Black' }] }
+      : { docs: [] },
+    count: async () => ({ totalDocs: 0 }),
+    update: async () => ({}),
+    findGlobal: async () => ({ portugalPaymentsEnabled: false }),
+  }
+  const orderInput = {
+    market: 'PT', lang: 'en', paymentMethod: 'manual_whatsapp', deliveryMethod: 'ctt',
+    customerEmail: 'user@example.com', postalCode: '1000-001',
+    items: [{ product: 4, size: 'M', color: '3', qty: 1 }],
+  }
+
+  // Deferred (portugalPaymentsEnabled: false): manual_whatsapp is accepted,
+  // a real gateway is not.
+  const data = await applyAuthoritativeOrderValues({
+    data: orderInput,
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never)
+  assert.equal(data?.deliveryRegion, 'mainland')
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: { ...orderInput, paymentMethod: 'mbway' },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /temporarily unavailable/)
+
+  // Live (portugalPaymentsEnabled: true): the reverse -- a real gateway is
+  // accepted, manual_whatsapp is not, so every PT order goes through a real
+  // payment method once the market is actually live.
+  payload.findGlobal = async () => ({ portugalPaymentsEnabled: true })
+  const liveData = await applyAuthoritativeOrderValues({
+    data: { ...orderInput, paymentMethod: 'mbway' },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never)
+  assert.equal(liveData?.deliveryRegion, 'mainland')
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: orderInput,
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /Portugal checkout is live/)
+})
+
 test('a free-shipping coupon zeroes shippingCost without discounting merchandise', async () => {
   const coupon = { id: 12, code: 'FREESHIP', active: true, type: 'free_shipping', usageCount: 0 }
   const payload = {
@@ -268,4 +321,22 @@ test('invoice calculation reconciles products, shipping, coupon and included VAT
   assert.equal(result.taxTotal, 14.21)
   assert.equal(result.lines.find((line) => line.description.startsWith('SAVE10'))?.grossAmount, -8)
   assert.equal(result.lines.some((line) => line.description === 'Order adjustment'), false)
+})
+
+test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s delivery region', () => {
+  const global = {
+    vatRateAO: 14,
+    vatRatePortugalMainland: 23,
+    vatRatePortugalMadeira: 22,
+    vatRatePortugalAzores: 16,
+  }
+  assert.equal(resolveVatRate(global, 'AO', null), 14)
+  assert.equal(resolveVatRate(global, 'AO', 'azores'), 14) // deliveryRegion is meaningless for AO -- ignored
+  assert.equal(resolveVatRate(global, 'PT', 'mainland'), 23)
+  assert.equal(resolveVatRate(global, 'PT', 'madeira'), 22)
+  assert.equal(resolveVatRate(global, 'PT', 'azores'), 16)
+  // A PT order with no recorded region falls back to mainland's rate
+  // rather than 0% -- silently charging no VAT is a worse failure mode.
+  assert.equal(resolveVatRate(global, 'PT', null), 23)
+  assert.equal(resolveVatRate(global, 'PT', undefined), 23)
 })

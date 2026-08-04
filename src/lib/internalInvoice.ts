@@ -24,6 +24,11 @@ export type OrderForInternalInvoice = {
   customerTaxId?: string
   customerAddress: string
   currency: 'Kz' | 'EUR'
+  // PT-only, already computed server-side at order-create time (see
+  // authoritativeOrder.ts) -- decides which of the three regional VAT rates
+  // applies (2026-08-04, regional VAT). Absent/null for AO orders, which
+  // use a single flat rate regardless.
+  deliveryRegion?: 'mainland' | 'madeira' | 'azores' | null
   subtotal: number
   shippingCost: number
   // Coupon codes (2026-07-25, discounts phase 2) -- discountAmount is
@@ -232,7 +237,38 @@ export function calculateIncludedVatInvoice(
   return { lines, netTotal, taxTotal, total: paidTotal }
 }
 
-async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?: Partial<PayloadRequest>): Promise<InternalInvoiceSettings> {
+// VAT rates (2026-08-04): Angola is a flat 14% everywhere, but Portugal
+// isn't -- mainland/Madeira/Azores each have their own legal rate. This
+// resolves down to the single number the rest of this file (
+// calculateIncludedVatInvoice, renderInvoicePdf's "VAT included (X%)" line)
+// already expects, so nothing downstream needed to change -- only this
+// selection is new. `deliveryRegion` is already computed server-side at
+// order-create time (see authoritativeOrder.ts); null/missing (AO orders,
+// or a PT order somehow missing it) falls back to mainland's rate rather
+// than 0%, since silently charging no VAT is a worse failure mode than
+// using the most common region's rate.
+export function resolveVatRate(
+  global: Record<string, unknown>,
+  market: Market,
+  deliveryRegion: 'mainland' | 'madeira' | 'azores' | null | undefined,
+): number {
+  if (market === 'AO') return Math.max(0, Number(global.vatRateAO) || 0)
+  const key =
+    deliveryRegion === 'madeira'
+      ? 'vatRatePortugalMadeira'
+      : deliveryRegion === 'azores'
+        ? 'vatRatePortugalAzores'
+        : 'vatRatePortugalMainland'
+  return Math.max(0, Number(global[key]) || 0)
+}
+
+async function getSettings(
+  payload: Payload,
+  market: Market,
+  lang: PdfLang,
+  deliveryRegion: 'mainland' | 'madeira' | 'azores' | null | undefined,
+  req?: Partial<PayloadRequest>,
+): Promise<InternalInvoiceSettings> {
   const global = (await payload.findGlobal({ slug: 'invoice-settings', overrideAccess: true, req })) as unknown as Record<
     string,
     unknown
@@ -257,7 +293,7 @@ async function getSettings(payload: Payload, market: Market, lang: PdfLang, req?
     bankAccount: readString('bankAccount'),
     swiftBic: readString('swiftBic'),
     paymentInstructions: readString('paymentInstructions'),
-    vatRate: Math.max(0, Number(global[`vatRate${suffix}`]) || 0),
+    vatRate: resolveVatRate(global, market, deliveryRegion),
     taxNote: readString('taxNote'),
     prefix: (readString('invoicePrefix') || `UMWS-${market}`).replace(/[^A-Za-z0-9-]/g, '-'),
     footer: readString('invoiceFooter'),
@@ -566,7 +602,7 @@ export async function generateInternalInvoiceForOrder(
   if (existing.docs.some((invoice) => invoice.status === 'issued')) return null
 
   const lang: PdfLang = order.lang ?? 'pt'
-  const settings = await getSettings(payload, order.market, lang, req)
+  const settings = await getSettings(payload, order.market, lang, order.deliveryRegion, req)
   if (!settings.enabled) return null
 
   const calculation = calculateIncludedVatInvoice(order, settings.vatRate, lang)
@@ -610,6 +646,14 @@ export async function generateInternalInvoiceForOrder(
     lines: calculation.lines,
     currency: order.currency,
     vatRate: settings.vatRate,
+    // Audit-trail only (2026-08-04, regional VAT) -- see resolveVatRate's
+    // comment for why a PT order with no recorded region still falls back
+    // to 'mainland' rather than leaving this ambiguous.
+    vatRegion: (order.market === 'AO' ? 'flat' : (order.deliveryRegion ?? 'mainland')) as
+      | 'mainland'
+      | 'madeira'
+      | 'azores'
+      | 'flat',
     taxNote: settings.taxNote,
     subtotal: roundMoney(order.subtotal),
     shipping: roundMoney(order.shippingCost),

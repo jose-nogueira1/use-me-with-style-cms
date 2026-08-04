@@ -206,6 +206,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       customerPhone: doc.customerPhone,
       customerTaxId: doc.taxId || undefined,
       customerAddress: addressParts.join(', '),
+      deliveryRegion: doc.deliveryRegion || undefined,
       currency: doc.currency,
       subtotal: doc.subtotal,
       shippingCost: doc.shippingCost,

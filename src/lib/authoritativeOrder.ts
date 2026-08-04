@@ -54,9 +54,14 @@ export function authoritativeShippingCost(
   return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings, totalWeightGrams, portugalDeliveryRegion(postalCode) ?? 'mainland')
 }
 
+// 'manual_whatsapp' (2026-08-04): Portugal's checkout fallback while
+// portugalPaymentsEnabled is off. Listed here so it passes this allow-list;
+// whether it's actually usable in the current live/deferred state is
+// enforced separately below, right next to the deferred-checkout block it
+// replaces.
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
   AO: ['multicaixa_express'],
-  PT: ['paypal', 'stripe', 'mbway'],
+  PT: ['paypal', 'stripe', 'mbway', 'manual_whatsapp'],
 }
 
 const ALLOWED_DELIVERY_METHODS: Record<Market, string[]> = {
@@ -110,12 +115,24 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       overrideAccess: true,
     })) as PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean }
   }
-  if (market === 'PT' && shippingSettings?.portugalPaymentsEnabled !== true) {
-    badRequest('Portugal checkout is temporarily unavailable.')
-  }
-
   const paymentMethod = String(data.paymentMethod ?? '')
   const deliveryMethod = String(data.deliveryMethod ?? '')
+
+  // Portugal manual-WhatsApp fallback (2026-08-04): while payments are
+  // deferred, only 'manual_whatsapp' is accepted (real gateways would
+  // silently fail, since Stripe/PayPal/MB WAY aren't actually wired up for
+  // this market yet). Once portugalPaymentsEnabled flips on, the reverse
+  // applies -- 'manual_whatsapp' stops being accepted so every PT order
+  // goes through a real payment method from then on.
+  if (market === 'PT') {
+    const portugalLive = shippingSettings?.portugalPaymentsEnabled === true
+    if (!portugalLive && paymentMethod !== 'manual_whatsapp') {
+      badRequest('Portugal checkout is temporarily unavailable.')
+    }
+    if (portugalLive && paymentMethod === 'manual_whatsapp') {
+      badRequest('Portugal checkout is live -- please choose a payment method.')
+    }
+  }
   if (!ALLOWED_PAYMENT_METHODS[market].includes(paymentMethod)) {
     badRequest('Payment method is not available for this market.')
   }

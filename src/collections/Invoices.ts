@@ -69,6 +69,16 @@ export const Invoices: CollectionConfig = {
     },
     { name: 'currency', type: 'select', required: true, options: ['Kz', 'EUR'] },
     { name: 'vatRate', type: 'number', required: true, min: 0 },
+    // 2026-08-04, regional VAT: which of the three PT rates (or "flat" for
+    // AO) vatRate above actually came from -- an audit-trail snapshot, not
+    // used in any calculation. Optional: invoices issued before this
+    // change have no region recorded.
+    {
+      name: 'vatRegion',
+      type: 'select',
+      options: ['mainland', 'madeira', 'azores', 'flat'],
+      admin: { readOnly: true, description: 'Which VAT rate applied: PT region, or "flat" for Angola.' },
+    },
     { name: 'taxNote', type: 'text' },
     { name: 'subtotal', type: 'number', required: true },
     { name: 'shipping', type: 'number', required: true },

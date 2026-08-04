@@ -35,6 +35,7 @@ import { contactEndpoint } from './endpoints/contact'
 import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { couponsEndpoints } from './endpoints/coupons'
+import { taxRatesEndpoint } from './endpoints/taxRates'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -158,6 +159,7 @@ export default buildConfig({
     ...metaConversionEndpoints,
     ...instagramFeedEndpoints,
     ...couponsEndpoints,
+    taxRatesEndpoint,
   ],
   editor: lexicalEditor(),
   plugins,

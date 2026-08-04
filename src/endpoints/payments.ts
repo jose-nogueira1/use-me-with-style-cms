@@ -37,6 +37,8 @@ import {
 type CreateOrderBody = {
   market: 'AO' | 'PT'
   customerName: string
+  customerFirstName?: string
+  customerLastName?: string
   customerPhone: string
   customerEmail: string
   address: string

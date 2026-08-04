@@ -1,6 +1,67 @@
 import type { GlobalConfig } from 'payload'
 
-const marketFields = (market: 'AO' | 'PT') => {
+// VAT rates (2026-08-04, Jay-P decision): Angola is a flat 14% everywhere.
+// Portugal is NOT flat -- mainland, Madeira, and the Azores each have their
+// own legal rate (23% / 22% / 16%). `vatRatePT` (a single PT-wide rate) has
+// been replaced with three region-specific fields; which one applies to a
+// given order is decided by `order.deliveryRegion` (already computed
+// server-side from the postal code at order-create time, see
+// authoritativeOrder.ts) -- see calculateIncludedVatInvoice in
+// lib/internalInvoice.ts for where that selection actually happens.
+//
+// Field names deliberately avoid stacking the two-letter market code
+// directly against another capitalized word (e.g. NOT `vatRatePTMainland`)
+// -- Payload's Postgres column-naming splits consecutive capitals letter by
+// letter (confirmed via `vatRatePT` -> `vat_rate_p_t` in the original
+// single-rate migration), which would have made `vatRatePTMainland`'s
+// column name a genuinely ambiguous guess. `vatRatePortugalMainland` etc.
+// sidesteps that entirely: unambiguous `vat_rate_portugal_mainland`.
+const angolaVatFields = [
+  {
+    name: 'vatRateAO',
+    type: 'number' as const,
+    min: 0,
+    max: 100,
+    defaultValue: 14,
+    label: 'Angola: VAT rate included in storefront prices (%)',
+    admin: {
+      description:
+        'The paid total never changes. This rate extracts the VAT portion already included in the price. Angola VAT is a flat 14% nationwide.',
+    },
+  },
+]
+
+const portugalVatFields = [
+  {
+    name: 'vatRatePortugalMainland',
+    type: 'number' as const,
+    min: 0,
+    max: 100,
+    defaultValue: 23,
+    label: 'Portugal: VAT rate — mainland (%)',
+    admin: { description: 'Applied to PT orders whose postal code classifies as mainland.' },
+  },
+  {
+    name: 'vatRatePortugalMadeira',
+    type: 'number' as const,
+    min: 0,
+    max: 100,
+    defaultValue: 22,
+    label: 'Portugal: VAT rate — Madeira (%)',
+    admin: { description: 'Applied to PT orders whose postal code classifies as Madeira.' },
+  },
+  {
+    name: 'vatRatePortugalAzores',
+    type: 'number' as const,
+    min: 0,
+    max: 100,
+    defaultValue: 16,
+    label: 'Portugal: VAT rate — Azores (%)',
+    admin: { description: 'Applied to PT orders whose postal code classifies as Azores.' },
+  },
+]
+
+const marketFields = (market: 'AO' | 'PT', vatFields: typeof angolaVatFields | typeof portugalVatFields) => {
   const isAngola = market === 'AO'
   const label = isAngola ? 'Angola' : 'Portugal'
   const suffix = market
@@ -44,18 +105,7 @@ const marketFields = (market: 'AO' | 'PT') => {
         },
       ],
     },
-    {
-      name: `vatRate${suffix}`,
-      type: 'number' as const,
-      min: 0,
-      max: 100,
-      defaultValue: 0,
-      label: `${label}: VAT rate included in storefront prices (%)`,
-      admin: {
-        description:
-          'The paid total never changes. This rate extracts the VAT portion already included in the price.',
-      },
-    },
+    ...vatFields,
     {
       name: `taxNote${suffix}`,
       type: 'text' as const,
@@ -115,12 +165,12 @@ export const InvoiceSettings: GlobalConfig = {
     {
       type: 'collapsible',
       label: 'Angola',
-      fields: marketFields('AO'),
+      fields: marketFields('AO', angolaVatFields),
     },
     {
       type: 'collapsible',
       label: 'Portugal',
-      fields: marketFields('PT'),
+      fields: marketFields('PT', portugalVatFields),
     },
   ],
 }

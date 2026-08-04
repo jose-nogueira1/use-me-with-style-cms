@@ -407,6 +407,8 @@ export interface Order {
   market: 'AO' | 'PT';
   status?: ('new' | 'payment_review' | 'processing' | 'shipped' | 'delivered' | 'cancelled') | null;
   customerName: string;
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
   customerPhone: string;
   customerEmail: string;
   analyticsConsent?: boolean | null;
@@ -419,9 +421,9 @@ export interface Order {
   lang?: ('pt' | 'en') | null;
   address: string;
   /**
-   * Optional PT address line -- not collected for Angola orders.
+   * House number, floor/door, or other locator info -- collected for both Angola and Portugal orders since 2026-08-04.
    */
-  addressLine2?: string | null;
+  addressLine2: string;
   /**
    * CTT format 0000-000 -- validated client-side on the PT storefront, not collected for Angola.
    */
@@ -463,7 +465,8 @@ export interface Order {
    */
   discountLabel?: string | null;
   total: number;
-  paymentMethod: 'paypal' | 'stripe' | 'mbway' | 'multicaixa_express' | 'bank_transfer_ao' | 'sweg_appypay';
+  paymentMethod:
+    'paypal' | 'stripe' | 'mbway' | 'multicaixa_express' | 'manual_whatsapp' | 'bank_transfer_ao' | 'sweg_appypay';
   paymentStatus?: ('pending' | 'awaiting_manual_review' | 'paid' | 'failed') | null;
   inventoryReservationStatus?: ('none' | 'active' | 'committed' | 'released') | null;
   inventoryReservationExpiresAt?: string | null;
@@ -581,6 +584,10 @@ export interface Invoice {
   }[];
   currency: 'Kz' | 'EUR';
   vatRate: number;
+  /**
+   * Which VAT rate applied: PT region, or "flat" for Angola.
+   */
+  vatRegion?: ('mainland' | 'madeira' | 'azores' | 'flat') | null;
   taxNote?: string | null;
   subtotal: number;
   shipping: number;
@@ -972,6 +979,8 @@ export interface OrdersSelect<T extends boolean = true> {
   market?: T;
   status?: T;
   customerName?: T;
+  customerFirstName?: T;
+  customerLastName?: T;
   customerPhone?: T;
   customerEmail?: T;
   analyticsConsent?: T;
@@ -1106,6 +1115,7 @@ export interface InvoicesSelect<T extends boolean = true> {
       };
   currency?: T;
   vatRate?: T;
+  vatRegion?: T;
   taxNote?: T;
   subtotal?: T;
   shipping?: T;
@@ -1235,6 +1245,14 @@ export interface MarketSetting {
    * Keep OFF until the Portuguese legal entity, invoicing process, and payment-provider accounts are approved. Turning this on re-enables PT checkout.
    */
   portugalPaymentsEnabled?: boolean | null;
+  /**
+   * Shown at checkout while portugalPaymentsEnabled is off (e.g. "Vamos entrar em contacto por WhatsApp para combinar o pagamento.").
+   */
+  portugalManualCheckoutInstructionsPT?: string | null;
+  /**
+   * English translation of the field above (e.g. "We'll reach out on WhatsApp to arrange payment.").
+   */
+  portugalManualCheckoutInstructionsEN?: string | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
   portugalDeliveryMethods?: ('ctt' | 'courier_pt')[] | null;
   /**
@@ -1323,7 +1341,7 @@ export interface InvoiceSetting {
   swiftBicAO?: string | null;
   paymentInstructionsAO?: string | null;
   /**
-   * The paid total never changes. This rate extracts the VAT portion already included in the price.
+   * The paid total never changes. This rate extracts the VAT portion already included in the price. Angola VAT is a flat 14% nationwide.
    */
   vatRateAO?: number | null;
   /**
@@ -1342,9 +1360,17 @@ export interface InvoiceSetting {
   swiftBicPT?: string | null;
   paymentInstructionsPT?: string | null;
   /**
-   * The paid total never changes. This rate extracts the VAT portion already included in the price.
+   * Applied to PT orders whose postal code classifies as mainland.
    */
-  vatRatePT?: number | null;
+  vatRatePortugalMainland?: number | null;
+  /**
+   * Applied to PT orders whose postal code classifies as Madeira.
+   */
+  vatRatePortugalMadeira?: number | null;
+  /**
+   * Applied to PT orders whose postal code classifies as Azores.
+   */
+  vatRatePortugalAzores?: number | null;
   /**
    * Optional note supplied by the accountant.
    */
@@ -1455,6 +1481,8 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaMunicipalityPrices?: T;
   angolaFreeShippingThreshold?: T;
   portugalPaymentsEnabled?: T;
+  portugalManualCheckoutInstructionsPT?: T;
+  portugalManualCheckoutInstructionsEN?: T;
   portugalPaymentMethods?: T;
   portugalDeliveryMethods?: T;
   portugalStandardShippingPrice?: T;
@@ -1508,7 +1536,9 @@ export interface InvoiceSettingsSelect<T extends boolean = true> {
   bankAccountPT?: T;
   swiftBicPT?: T;
   paymentInstructionsPT?: T;
-  vatRatePT?: T;
+  vatRatePortugalMainland?: T;
+  vatRatePortugalMadeira?: T;
+  vatRatePortugalAzores?: T;
   taxNotePT?: T;
   invoicePrefixPT?: T;
   invoiceFooterPT?: T;

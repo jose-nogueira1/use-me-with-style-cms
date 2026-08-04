@@ -42,6 +42,11 @@ import * as migration_20260801_100000_order_status_history from './20260801_1000
 import * as migration_20260801_110000_legal_content_data_deletion from './20260801_110000_legal_content_data_deletion'
 import * as migration_20260802_150000_instagram_spotlight from './20260802_150000_instagram_spotlight'
 import * as migration_20260802_180000_instagram_spotlight_simplify from './20260802_180000_instagram_spotlight_simplify'
+import * as migration_20260804_120000_order_customer_name_split from './20260804_120000_order_customer_name_split'
+import * as migration_20260804_130000_portugal_manual_checkout_instructions from './20260804_130000_portugal_manual_checkout_instructions'
+import * as migration_20260804_140000_order_manual_whatsapp_payment_method from './20260804_140000_order_manual_whatsapp_payment_method'
+import * as migration_20260804_150000_regional_vat_rates from './20260804_150000_regional_vat_rates'
+import * as migration_20260804_160000_invoice_vat_region from './20260804_160000_invoice_vat_region'
 
 export const migrations = [
   {
@@ -263,5 +268,30 @@ export const migrations = [
     up: migration_20260802_180000_instagram_spotlight_simplify.up,
     down: migration_20260802_180000_instagram_spotlight_simplify.down,
     name: '20260802_180000_instagram_spotlight_simplify',
+  },
+  {
+    up: migration_20260804_120000_order_customer_name_split.up,
+    down: migration_20260804_120000_order_customer_name_split.down,
+    name: '20260804_120000_order_customer_name_split',
+  },
+  {
+    up: migration_20260804_130000_portugal_manual_checkout_instructions.up,
+    down: migration_20260804_130000_portugal_manual_checkout_instructions.down,
+    name: '20260804_130000_portugal_manual_checkout_instructions',
+  },
+  {
+    up: migration_20260804_140000_order_manual_whatsapp_payment_method.up,
+    down: migration_20260804_140000_order_manual_whatsapp_payment_method.down,
+    name: '20260804_140000_order_manual_whatsapp_payment_method',
+  },
+  {
+    up: migration_20260804_150000_regional_vat_rates.up,
+    down: migration_20260804_150000_regional_vat_rates.down,
+    name: '20260804_150000_regional_vat_rates',
+  },
+  {
+    up: migration_20260804_160000_invoice_vat_region.up,
+    down: migration_20260804_160000_invoice_vat_region.down,
+    name: '20260804_160000_invoice_vat_region',
   },
 ]
