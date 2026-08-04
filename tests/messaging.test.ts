@@ -23,7 +23,7 @@ test('FAQ and order-status automation is deterministic', () => {
   assert.equal(buildAutoReply('unknown'), null)
 })
 
-test('WhatsApp text messages are extracted and non-text events ignored', () => {
+test('WhatsApp webhook events stay dormant while the admin inbox is Instagram-only', () => {
   const messages = extractInboundMessages({
     object: 'whatsapp_business_account',
     entry: [{ changes: [{ value: {
@@ -34,10 +34,7 @@ test('WhatsApp text messages are extracted and non-text events ignored', () => {
       ],
     } }] }],
   })
-  assert.deepEqual(messages, [{
-    channel: 'whatsapp', contactHandle: '244933617878', customerName: 'Cliente',
-    body: 'Entrega?', externalId: 'wamid.1',
-  }])
+  assert.deepEqual(messages, [])
 })
 
 test('Instagram text messages are extracted', () => {
