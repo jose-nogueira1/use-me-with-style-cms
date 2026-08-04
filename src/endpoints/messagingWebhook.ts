@@ -122,10 +122,16 @@ const eventsEndpoint: Endpoint = {
       const rawBody = await req.text?.()
       if (typeof rawBody !== 'string') return new Response('Bad Request', { status: 400 })
 
-      const appSecret = process.env.META_APP_SECRET
-      if (appSecret) {
+      const appSecrets = [process.env.META_APP_SECRET, process.env.INSTAGRAM_APP_SECRET].filter(
+        (secret): secret is string => Boolean(secret),
+      )
+      if (appSecrets.length > 0) {
         const signature = req.headers.get('x-hub-signature-256')
-        if (!verifyMetaWebhookSignature(rawBody, signature, appSecret)) {
+        // Meta's Page/Facebook Login and Instagram Login products use
+        // different app secrets even when they share one callback URL.
+        // Accept a valid signature from either configured product while
+        // keeping unsigned or incorrectly signed requests rejected.
+        if (!appSecrets.some((secret) => verifyMetaWebhookSignature(rawBody, signature, secret))) {
           return new Response('Unauthorized', { status: 401 })
         }
       }
