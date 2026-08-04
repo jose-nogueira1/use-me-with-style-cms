@@ -1,7 +1,10 @@
 import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage, sendWhatsAppMessage } from '../lib/messaging'
+import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage } from '../lib/messaging'
+// WhatsApp is dormant, not deleted. Restore this import with the commented
+// parser and reply branch below when the channel is brought back.
+// import { sendWhatsAppMessage } from '../lib/messaging'
 
 // Unified Meta webhook for both WhatsApp Business and Instagram messaging
 // (JOS-58, Phase 1 messaging automation foundation). Meta's webhook
@@ -38,7 +41,7 @@ const verifyEndpoint: Endpoint = {
 }
 
 type InboundMessage = {
-  channel: 'whatsapp' | 'instagram'
+  channel: 'instagram'
   contactHandle: string
   customerName?: string
   body: string
@@ -50,25 +53,26 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
   if (!payload || typeof payload !== 'object') return messages
   const body = payload as Record<string, unknown>
 
-  if (body.object === 'whatsapp_business_account') {
-    const entries = (body.entry as any[]) ?? []
-    for (const entry of entries) {
-      for (const change of entry.changes ?? []) {
-        const value = change.value ?? {}
-        const contacts = value.contacts ?? []
-        for (const msg of value.messages ?? []) {
-          if (msg.type !== 'text') continue
-          messages.push({
-            channel: 'whatsapp',
-            contactHandle: msg.from,
-            customerName: contacts.find((c: any) => c.wa_id === msg.from)?.profile?.name,
-            body: msg.text?.body ?? '',
-            externalId: msg.id,
-          })
-        }
-      }
-    }
-  }
+  // Dormant WhatsApp parser (future reactivation):
+  // if (body.object === 'whatsapp_business_account') {
+  //   const entries = (body.entry as any[]) ?? []
+  //   for (const entry of entries) {
+  //     for (const change of entry.changes ?? []) {
+  //       const value = change.value ?? {}
+  //       const contacts = value.contacts ?? []
+  //       for (const msg of value.messages ?? []) {
+  //         if (msg.type !== 'text') continue
+  //         messages.push({
+  //           channel: 'whatsapp',
+  //           contactHandle: msg.from,
+  //           customerName: contacts.find((c: any) => c.wa_id === msg.from)?.profile?.name,
+  //           body: msg.text?.body ?? '',
+  //           externalId: msg.id,
+  //         })
+  //       }
+  //     }
+  //   }
+  // }
 
   if (body.object === 'instagram') {
     const entries = (body.entry as any[]) ?? []
@@ -142,27 +146,17 @@ export function verifyMetaWebhookSignature(
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   const intent = classifyIncomingMessage(msg.body)
 
-  let matchedOrder: { id: string; orderNumber: string; status: string } | null = null
-  if (intent === 'order_status' && msg.channel === 'whatsapp') {
-    const result = await payloadClient.find({
-      collection: 'orders',
-      where: { customerPhone: { equals: msg.contactHandle } },
-      sort: '-createdAt',
-      limit: 1,
-      overrideAccess: true,
-    })
-    matchedOrder = result.docs[0] ?? null
-  }
+  // WhatsApp could match a sender phone number directly to an order. An
+  // Instagram-scoped ID cannot be matched safely, so Instagram order-status
+  // questions remain open for an admin unless the customer supplies details.
+  // if (msg.channel === 'whatsapp' && intent === 'order_status') { ... }
 
   let status: 'open' | 'auto_handled' | 'escalated' = 'open'
   let automationNote = 'unclassified -- needs manual review'
   if (intent === 'sensitive') {
     status = 'escalated'
     automationNote = 'sensitive-topic -- escalated to Raisa'
-  } else if (intent === 'order_status' && matchedOrder) {
-    status = 'auto_handled'
-    automationNote = 'order-status-auto-reply'
-  } else if (intent === 'order_status' && !matchedOrder) {
+  } else if (intent === 'order_status') {
     automationNote = 'order-status-question -- no matching order found'
   } else if (intent === 'payment') {
     status = 'auto_handled'
@@ -183,19 +177,19 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       body: msg.body,
       status,
       automationNote,
-      relatedOrder: matchedOrder?.id,
       externalId: msg.externalId,
     },
   })
 
-  const reply = buildAutoReply(intent, matchedOrder)
+  const reply = buildAutoReply(intent)
   if (!reply) return
 
-  if (msg.channel === 'instagram') {
-    await sendInstagramMessage(msg.contactHandle, reply)
-  } else {
-    await sendWhatsAppMessage(msg.contactHandle, reply)
-  }
+  await sendInstagramMessage(msg.contactHandle, reply)
+
+  // Dormant WhatsApp reply path (future reactivation):
+  // if (msg.channel === 'whatsapp') {
+  //   await sendWhatsAppMessage(msg.contactHandle, reply)
+  // }
 
   await payloadClient.create({
     collection: 'messages',
@@ -208,7 +202,6 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       body: reply,
       status,
       automationNote,
-      relatedOrder: matchedOrder?.id,
       sentByAutomation: true,
     },
   })

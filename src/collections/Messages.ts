@@ -2,7 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { sendOutboundMessage } from '../hooks/sendOutboundMessage'
 
-// WhatsApp/Instagram messaging automation FOUNDATION (Phase 1, JOS-58 --
+// Instagram messaging foundation (Phase 1, JOS-58 --
 // narrowly scoped, not a full AI agent). Every inbound message received via
 // the webhook and every outbound message (automated or admin-composed) is
 // logged here so there's one place ("Mensagens" in admin) to see
@@ -30,9 +30,14 @@ export const Messages: CollectionConfig = {
       type: 'select',
       required: true,
       options: [
-        { label: 'WhatsApp', value: 'whatsapp' },
         { label: 'Instagram', value: 'instagram' },
+        // WhatsApp is intentionally dormant for now. Keep the option close
+        // to the active channel so it can be restored without reconstructing
+        // the old schema when WhatsApp support returns.
+        // { label: 'WhatsApp', value: 'whatsapp' },
       ],
+      defaultValue: 'instagram',
+      admin: { readOnly: true },
     },
     {
       name: 'direction',
@@ -43,10 +48,9 @@ export const Messages: CollectionConfig = {
         { label: 'Outbound', value: 'outbound' },
       ],
     },
-    // The customer's WhatsApp phone number or Instagram-scoped user id --
-    // this is the conversation key (grouped by channel + this field in the
-    // admin Mensagens page).
-    { name: 'contactHandle', type: 'text', required: true, label: 'Phone / Instagram ID' },
+    // Instagram-scoped user id -- the conversation key used by the admin
+    // inbox. (Previously also held WhatsApp phone numbers.)
+    { name: 'contactHandle', type: 'text', required: true, label: 'Instagram user ID' },
     { name: 'customerName', type: 'text' },
     { name: 'body', type: 'textarea', required: true },
     {
