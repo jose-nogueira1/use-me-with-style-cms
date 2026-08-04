@@ -1450,6 +1450,36 @@ export interface HomeContent {
    * Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.
    */
   heroImage?: (number | null) | Media;
+  /**
+   * Which categories appear in the homepage category row, and in what order. Leave empty to show every category (today's behaviour).
+   */
+  homepageCategorySlugs?:
+    | {
+        /**
+         * Picked from the real category list in Settings -- see Settings.tsx.
+         */
+        slug: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Each row is one product shelf on the homepage, driven by a merchandising tag (e.g. "New", "Bestseller", "SS26"). Leave empty to keep the previous fixed New Arrivals / Featured sections.
+   */
+  collections?:
+    | {
+        /**
+         * Picked from the real merch tag list in Settings.
+         */
+        tagSlug: string;
+        titlePT: string;
+        titleEN: string;
+        /**
+         * Maximum products shown in this shelf.
+         */
+        itemLimit?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1578,6 +1608,21 @@ export interface HomeContentSelect<T extends boolean = true> {
   heroCtaCategorySlug?: T;
   heroCtaTagSlug?: T;
   heroImage?: T;
+  homepageCategorySlugs?:
+    | T
+    | {
+        slug?: T;
+        id?: T;
+      };
+  collections?:
+    | T
+    | {
+        tagSlug?: T;
+        titlePT?: T;
+        titleEN?: T;
+        itemLimit?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

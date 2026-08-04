@@ -72,6 +72,49 @@ test('free-shipping coupon resolves with a shipping waiver instead of a discount
   )
 })
 
+// Percent-off excludes sale items (2026-08-04 user request: "if a product
+// already has a promotion going on... the coupon with discount percentage
+// should not work on those products"). Fixed-amount deliberately ignores
+// eligibleSubtotal -- confirmed decision: "Fixed value coupon should just
+// discount from the total amount regardless of what products she has in
+// the cart."
+test('percent-off coupons only discount the non-sale portion of the cart; fixed-off ignores it', async () => {
+  const percentCoupon = { id: 20, code: 'SAVE20', active: true, type: 'percent', percentOff: 20, availableAO: true, availablePT: true }
+  const percentPayload = { find: async () => ({ docs: [percentCoupon] }), count: async () => ({ totalDocs: 0 }) }
+  // Cart: EUR 60 full-price + EUR 40 already on sale = 100 subtotal, but
+  // only the 60 is eligible. 20% of 60 = 12, not 20% of 100 = 20.
+  assert.deepEqual(
+    await resolveCoupon(percentPayload as never, {
+      code: 'save20', market: 'PT', pricingMarket: 'PT', subtotal: 100, eligibleSubtotal: 60, now: NOW,
+    }),
+    { valid: true, code: 'SAVE20', discountAmount: 12, freeShipping: false, label: 'SAVE20 (20% off)' },
+  )
+  // Every line on sale -- nothing left for a percentage to discount.
+  assert.equal(
+    (await resolveCoupon(percentPayload as never, {
+      code: 'save20', market: 'PT', pricingMarket: 'PT', subtotal: 100, eligibleSubtotal: 0, now: NOW,
+    })).valid,
+    false,
+  )
+  // Omitting eligibleSubtotal entirely (an un-updated caller) keeps the old
+  // full-subtotal behaviour -- backward compatible.
+  assert.deepEqual(
+    await resolveCoupon(percentPayload as never, { code: 'save20', market: 'PT', pricingMarket: 'PT', subtotal: 100, now: NOW }),
+    { valid: true, code: 'SAVE20', discountAmount: 20, freeShipping: false, label: 'SAVE20 (20% off)' },
+  )
+
+  const fixedCoupon = { id: 21, code: 'FLAT10', active: true, type: 'fixed', fixedOffPTEur: 10, availableAO: true, availablePT: true }
+  const fixedPayload = { find: async () => ({ docs: [fixedCoupon] }), count: async () => ({ totalDocs: 0 }) }
+  // Same cart (60 eligible / 100 total) -- a fixed EUR 10 off applies in
+  // full regardless of eligibleSubtotal being far smaller.
+  assert.deepEqual(
+    await resolveCoupon(fixedPayload as never, {
+      code: 'flat10', market: 'PT', pricingMarket: 'PT', subtotal: 100, eligibleSubtotal: 0, now: NOW,
+    }),
+    { valid: true, code: 'FLAT10', discountAmount: 10, freeShipping: false, label: 'FLAT10 (discount)' },
+  )
+})
+
 test('coupon claim increments usage inside the request transaction', async () => {
   const calls: string[] = []
   const coupon = { id: 7, code: 'SAVE10', active: true, type: 'percent', percentOff: 10, usageCount: 0 }
@@ -160,10 +203,15 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
     update: async () => coupon,
     findGlobal: async () => ({ portugalPaymentsEnabled: true }),
   }
+  // Product 4 is on sale (salePTEur: 40) -- no percent coupon should apply
+  // (2026-08-04 rule), so this cart legitimately has no eligible subtotal.
+  // The happy path here submits WITHOUT a coupon (verified separately,
+  // below, and in dedicated resolveCoupon-level tests) so this stays a
+  // clean check of sale-price + shipping + market handling.
   const data = await applyAuthoritativeOrderValues({
     data: {
       market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: ' USER@EXAMPLE.COM ', postalCode: '9500-001',
-      couponCode: 'SAVE10', items: [{ product: 4, size: 'M', color: '3', qty: 2, unitPrice: 1 }],
+      items: [{ product: 4, size: 'M', color: '3', qty: 2, unitPrice: 1 }],
       subtotal: 2, total: 2,
     },
     operation: 'create',
@@ -171,12 +219,27 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   } as never)
   assert.equal(data?.items?.[0]?.unitPrice, 40)
   assert.equal(data?.subtotal, 80)
-  assert.equal(data?.discountAmount, 8)
-  assert.equal(data?.shippingCost, 4.9)
-  assert.equal(data?.total, 76.9)
+  assert.equal(data?.discountAmount, 0)
+  // Without the (now-rejected) coupon, merchandise-after-discount is the
+  // full 80 -- above Portugal's EUR 75 free-shipping threshold, so
+  // shipping is correctly free here (it wasn't, before this change, only
+  // because the coupon had knocked the discounted total below 75).
+  assert.equal(data?.shippingCost, 0)
+  assert.equal(data?.total, 80)
   assert.equal(data?.deliveryRegion, 'azores')
   assert.equal(data?.country, 'Portugal')
   assert.equal(data?.customerEmail, 'user@example.com')
+
+  // A percent coupon on this same all-on-sale cart is correctly rejected --
+  // there's no non-sale line left for it to discount.
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: {
+      market: 'PT', lang: 'en', paymentMethod: 'mbway', deliveryMethod: 'ctt', customerEmail: 'user@example.com', postalCode: '9500-001',
+      couponCode: 'SAVE10', items: [{ product: 4, size: 'M', color: '3', qty: 2, unitPrice: 1 }],
+    },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /already on sale/)
 
   payload.findGlobal = async () => ({ portugalPaymentsEnabled: false })
   await assert.rejects(() => applyAuthoritativeOrderValues({
@@ -308,7 +371,15 @@ test('inventory groups duplicate variants and reserves stock once', async () => 
   assert.equal(result?.inventoryReservationStatus, 'active')
 })
 
-test('invoice calculation reconciles products, shipping, coupon and included VAT', () => {
+// Shipping zero-rated, discount taken before VAT (2026-08-04, user rules:
+// "VAT & discount should never affect shipping cost... shipping should
+// never be included in the VAT calculation" and "if a coupon is applied
+// then VAT is calculated from the final price"). Merchandise-after-discount
+// here is 80 - 8 = 72; 72 / 1.23 = 58.5365... -> net 58.54, tax 13.46.
+// Shipping (4) carries zero tax and lands entirely in netTotal alongside
+// the merchandise net, so netTotal + taxTotal still reconciles exactly to
+// the 76 total actually paid.
+test('invoice calculation reconciles products, shipping, coupon and included VAT -- shipping zero-rated', () => {
   const result = calculateIncludedVatInvoice({
     items: [{ productName: 'Dress', size: 'M', color: 'Black', qty: 2, unitPrice: 40 }],
     shippingCost: 4,
@@ -317,10 +388,31 @@ test('invoice calculation reconciles products, shipping, coupon and included VAT
     total: 76,
   }, 23, 'en')
   assert.equal(result.total, 76)
-  assert.equal(result.netTotal, 61.79)
-  assert.equal(result.taxTotal, 14.21)
+  assert.equal(result.netTotal, 62.54)
+  assert.equal(result.taxTotal, 13.46)
   assert.equal(result.lines.find((line) => line.description.startsWith('SAVE10'))?.grossAmount, -8)
+  const shippingLine = result.lines.find((line) => line.description === 'Shipping')
+  assert.equal(shippingLine?.taxAmount, 0)
+  assert.equal(shippingLine?.netAmount, 4)
   assert.equal(result.lines.some((line) => line.description === 'Order adjustment'), false)
+})
+
+// Back-calculation formula confirmed with Jay-P (2026-08-04): "Price before
+// VAT = VAT-inclusive price / (1 + VAT rate); VAT amount = VAT-inclusive
+// price - price before VAT" -- NOT rate * gross (which double-counts, since
+// the price already includes VAT). A pure product-only sanity check with no
+// shipping/discount noise: EUR 33 gross at 23% -> net 26.83, VAT 6.17 (not
+// 33 * 0.23 = 7.59).
+test('invoice VAT uses the back-calculation formula, not rate times the VAT-inclusive price', () => {
+  const result = calculateIncludedVatInvoice({
+    items: [{ productName: 'Aurora Set', size: 'M', color: undefined, qty: 1, unitPrice: 33 }],
+    shippingCost: 0,
+    discountAmount: 0,
+    discountLabel: null,
+    total: 33,
+  }, 23, 'en')
+  assert.equal(result.netTotal, 26.83)
+  assert.equal(result.taxTotal, 6.17)
 })
 
 test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s delivery region', () => {

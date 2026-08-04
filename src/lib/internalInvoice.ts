@@ -183,15 +183,20 @@ export function calculateIncludedVatInvoice(
     }
   })
 
+  // Shipping is zero-rated (2026-08-04, user rule: "VAT & discount should
+  // never affect shipping cost... shipping should never be included in the
+  // VAT calculation"). Previously this ran the same gross/divisor split as
+  // every merchandise line, which meant shipping silently carried a "VAT
+  // portion" too -- net === gross, taxAmount === 0 here, always, regardless
+  // of `rate`.
   if (order.shippingCost > 0) {
     const grossAmount = roundMoney(order.shippingCost)
-    const netAmount = rate > 0 ? roundMoney(grossAmount / divisor) : grossAmount
     lines.push({
       description: labels.shippingLine,
       quantity: 1,
       unitPrice: grossAmount,
-      netAmount,
-      taxAmount: roundMoney(grossAmount - netAmount),
+      netAmount: grossAmount,
+      taxAmount: 0,
       grossAmount,
     })
   }
@@ -224,8 +229,17 @@ export function calculateIncludedVatInvoice(
     })
   }
 
-  const netTotal = rate > 0 ? roundMoney(paidTotal / divisor) : paidTotal
-  const taxTotal = roundMoney(paidTotal - netTotal)
+  // Net/tax are computed from merchandise-after-discount ONLY (shipping
+  // excluded, 2026-08-04) -- paidTotal is discount already applied
+  // (authoritativeOrder.ts's merchandiseTotalAfterDiscount + shippingCost),
+  // so subtracting shippingCost back out here recovers exactly that
+  // discounted merchandise figure, the same base Checkout.tsx's own VAT
+  // display uses (see shipping.ts's vatIncludedAmount) -- checkout and the
+  // invoice can never show a different VAT amount for the same order.
+  const merchandiseGross = roundMoney(paidTotal - order.shippingCost)
+  const merchandiseNet = rate > 0 ? roundMoney(merchandiseGross / divisor) : merchandiseGross
+  const netTotal = roundMoney(merchandiseNet + order.shippingCost)
+  const taxTotal = roundMoney(merchandiseGross - merchandiseNet)
   const lineTaxTotal = roundMoney(lines.reduce((sum, line) => sum + line.taxAmount, 0))
   const taxRoundingDifference = roundMoney(taxTotal - lineTaxTotal)
   if (taxRoundingDifference !== 0 && lines.length) {

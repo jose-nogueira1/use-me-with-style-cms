@@ -1,53 +1,53 @@
-import * as migration_20260708_220620_initial from './20260708_220620_initial'
-import * as migration_20260709_171700_add_order_payment_reference from './20260709_171700_add_order_payment_reference'
-import * as migration_20260710_010000_add_order_lang from './20260710_010000_add_order_lang'
-import * as migration_20260718_183031 from './20260718_183031'
-import * as migration_20260720_120500_internal_invoicing from './20260720_120500_internal_invoicing'
-import * as migration_20260721_230000_meta_order_tracking from './20260721_230000_meta_order_tracking'
-import * as migration_20260722_010000_appypay_verification from './20260722_010000_appypay_verification'
-import * as migration_20260722_150000_product_localization from './20260722_150000_product_localization'
-import * as migration_20260722_152800_fix_product_localization_columns from './20260722_152800_fix_product_localization_columns'
-import * as migration_20260722_220000_inventory_reservations from './20260722_220000_inventory_reservations'
-import * as migration_20260723_120000_returns_policy_per_market from './20260723_120000_returns_policy_per_market'
-import * as migration_20260724_130000_bilingual_returns_policy from './20260724_130000_bilingual_returns_policy'
-import * as migration_20260724_133000_fix_returns_policy_column_names from './20260724_133000_fix_returns_policy_column_names'
-import * as migration_20260724_150000_business_hours_and_shipping_info from './20260724_150000_business_hours_and_shipping_info'
-import * as migration_20260724_170000_legal_content from './20260724_170000_legal_content'
-import * as migration_20260725_090000_product_size_guide from './20260725_090000_product_size_guide'
-import * as migration_20260725_150000_catalogue_taxonomies from './20260725_150000_catalogue_taxonomies'
-import * as migration_20260725_160000_colors_bilingual from './20260725_160000_colors_bilingual'
-import * as migration_20260725_180000_colors_hex2 from './20260725_180000_colors_hex2'
-import * as migration_20260725_190000_home_content from './20260725_190000_home_content'
-import * as migration_20260725_200000_home_content_versions from './20260725_200000_home_content_versions'
-import * as migration_20260725_210000_merch_tags_slug from './20260725_210000_merch_tags_slug'
-import * as migration_20260725_220000_categories_image from './20260725_220000_categories_image'
-import * as migration_20260725_230000_product_sale_pricing from './20260725_230000_product_sale_pricing'
-import * as migration_20260725_231500_coupons from './20260725_231500_coupons'
-import * as migration_20260725_232000_order_coupon_fields from './20260725_232000_order_coupon_fields'
-import * as migration_20260725_233000_fix_home_content_versions_columns from './20260725_233000_fix_home_content_versions_columns'
-import * as migration_20260725_234000_fix_home_content_timestamps from './20260725_234000_fix_home_content_timestamps'
-import * as migration_20260725_235000_coupons_locked_documents_rel from './20260725_235000_coupons_locked_documents_rel'
-import * as migration_20260726_100000_bilingual_bank_transfer_and_disclaimer from './20260726_100000_bilingual_bank_transfer_and_disclaimer'
-import * as migration_20260727_100000_coupons_market_availability from './20260727_100000_coupons_market_availability'
-import * as migration_20260729_180000_portugal_shipping_and_tracking from './20260729_180000_portugal_shipping_and_tracking'
-import * as migration_20260729_183000_angola_delivery_prices from './20260729_183000_angola_delivery_prices'
-import * as migration_20260729_190000_portugal_heavy_parcels from './20260729_190000_portugal_heavy_parcels'
-import * as migration_20260730_130000_invoice_payment_details from './20260730_130000_invoice_payment_details'
-import * as migration_20260730_140000_fix_invoice_payment_detail_columns from './20260730_140000_fix_invoice_payment_detail_columns'
-import * as migration_20260730_150000_defer_portugal_payments from './20260730_150000_defer_portugal_payments'
-import * as migration_20260731_140000_merch_tags_multiselect from './20260731_140000_merch_tags_multiselect'
-import * as migration_20260731_150000_home_hero_cta_picker from './20260731_150000_home_hero_cta_picker'
-import * as migration_20260731_160000_coupons_free_shipping from './20260731_160000_coupons_free_shipping'
-import * as migration_20260801_100000_order_status_history from './20260801_100000_order_status_history'
-import * as migration_20260801_110000_legal_content_data_deletion from './20260801_110000_legal_content_data_deletion'
-import * as migration_20260802_150000_instagram_spotlight from './20260802_150000_instagram_spotlight'
-import * as migration_20260802_180000_instagram_spotlight_simplify from './20260802_180000_instagram_spotlight_simplify'
-import * as migration_20260804_120000_order_customer_name_split from './20260804_120000_order_customer_name_split'
-import * as migration_20260804_130000_portugal_manual_checkout_instructions from './20260804_130000_portugal_manual_checkout_instructions'
-import * as migration_20260804_140000_order_manual_whatsapp_payment_method from './20260804_140000_order_manual_whatsapp_payment_method'
-import * as migration_20260804_150000_regional_vat_rates from './20260804_150000_regional_vat_rates'
-import * as migration_20260804_160000_invoice_vat_region from './20260804_160000_invoice_vat_region'
-
+import * as migration_20260708_220620_initial from './20260708_220620_initial';
+import * as migration_20260709_171700_add_order_payment_reference from './20260709_171700_add_order_payment_reference';
+import * as migration_20260710_010000_add_order_lang from './20260710_010000_add_order_lang';
+import * as migration_20260718_183031 from './20260718_183031';
+import * as migration_20260720_120500_internal_invoicing from './20260720_120500_internal_invoicing';
+import * as migration_20260721_230000_meta_order_tracking from './20260721_230000_meta_order_tracking';
+import * as migration_20260722_010000_appypay_verification from './20260722_010000_appypay_verification';
+import * as migration_20260722_150000_product_localization from './20260722_150000_product_localization';
+import * as migration_20260722_152800_fix_product_localization_columns from './20260722_152800_fix_product_localization_columns';
+import * as migration_20260722_220000_inventory_reservations from './20260722_220000_inventory_reservations';
+import * as migration_20260723_120000_returns_policy_per_market from './20260723_120000_returns_policy_per_market';
+import * as migration_20260724_130000_bilingual_returns_policy from './20260724_130000_bilingual_returns_policy';
+import * as migration_20260724_133000_fix_returns_policy_column_names from './20260724_133000_fix_returns_policy_column_names';
+import * as migration_20260724_150000_business_hours_and_shipping_info from './20260724_150000_business_hours_and_shipping_info';
+import * as migration_20260724_170000_legal_content from './20260724_170000_legal_content';
+import * as migration_20260725_090000_product_size_guide from './20260725_090000_product_size_guide';
+import * as migration_20260725_150000_catalogue_taxonomies from './20260725_150000_catalogue_taxonomies';
+import * as migration_20260725_160000_colors_bilingual from './20260725_160000_colors_bilingual';
+import * as migration_20260725_180000_colors_hex2 from './20260725_180000_colors_hex2';
+import * as migration_20260725_190000_home_content from './20260725_190000_home_content';
+import * as migration_20260725_200000_home_content_versions from './20260725_200000_home_content_versions';
+import * as migration_20260725_210000_merch_tags_slug from './20260725_210000_merch_tags_slug';
+import * as migration_20260725_220000_categories_image from './20260725_220000_categories_image';
+import * as migration_20260725_230000_product_sale_pricing from './20260725_230000_product_sale_pricing';
+import * as migration_20260725_231500_coupons from './20260725_231500_coupons';
+import * as migration_20260725_232000_order_coupon_fields from './20260725_232000_order_coupon_fields';
+import * as migration_20260725_233000_fix_home_content_versions_columns from './20260725_233000_fix_home_content_versions_columns';
+import * as migration_20260725_234000_fix_home_content_timestamps from './20260725_234000_fix_home_content_timestamps';
+import * as migration_20260725_235000_coupons_locked_documents_rel from './20260725_235000_coupons_locked_documents_rel';
+import * as migration_20260726_100000_bilingual_bank_transfer_and_disclaimer from './20260726_100000_bilingual_bank_transfer_and_disclaimer';
+import * as migration_20260727_100000_coupons_market_availability from './20260727_100000_coupons_market_availability';
+import * as migration_20260729_180000_portugal_shipping_and_tracking from './20260729_180000_portugal_shipping_and_tracking';
+import * as migration_20260729_183000_angola_delivery_prices from './20260729_183000_angola_delivery_prices';
+import * as migration_20260729_190000_portugal_heavy_parcels from './20260729_190000_portugal_heavy_parcels';
+import * as migration_20260730_130000_invoice_payment_details from './20260730_130000_invoice_payment_details';
+import * as migration_20260730_140000_fix_invoice_payment_detail_columns from './20260730_140000_fix_invoice_payment_detail_columns';
+import * as migration_20260730_150000_defer_portugal_payments from './20260730_150000_defer_portugal_payments';
+import * as migration_20260731_140000_merch_tags_multiselect from './20260731_140000_merch_tags_multiselect';
+import * as migration_20260731_150000_home_hero_cta_picker from './20260731_150000_home_hero_cta_picker';
+import * as migration_20260731_160000_coupons_free_shipping from './20260731_160000_coupons_free_shipping';
+import * as migration_20260801_100000_order_status_history from './20260801_100000_order_status_history';
+import * as migration_20260801_110000_legal_content_data_deletion from './20260801_110000_legal_content_data_deletion';
+import * as migration_20260802_150000_instagram_spotlight from './20260802_150000_instagram_spotlight';
+import * as migration_20260802_180000_instagram_spotlight_simplify from './20260802_180000_instagram_spotlight_simplify';
+import * as migration_20260804_120000_order_customer_name_split from './20260804_120000_order_customer_name_split';
+import * as migration_20260804_130000_portugal_manual_checkout_instructions from './20260804_130000_portugal_manual_checkout_instructions';
+import * as migration_20260804_140000_order_manual_whatsapp_payment_method from './20260804_140000_order_manual_whatsapp_payment_method';
+import * as migration_20260804_150000_regional_vat_rates from './20260804_150000_regional_vat_rates';
+import * as migration_20260804_160000_invoice_vat_region from './20260804_160000_invoice_vat_region';
+import * as migration_20260804_170000_home_content_curation from './20260804_170000_home_content_curation';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -294,4 +294,9 @@ export const migrations = [
     down: migration_20260804_160000_invoice_vat_region.down,
     name: '20260804_160000_invoice_vat_region',
   },
-]
+  {
+    up: migration_20260804_170000_home_content_curation.up,
+    down: migration_20260804_170000_home_content_curation.down,
+    name: '20260804_170000_home_content_curation',
+  },
+];

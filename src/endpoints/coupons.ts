@@ -25,6 +25,12 @@ type ValidateCouponBody = {
   // authoritativeOrder.ts/Checkout.tsx.
   usesEurSettlement?: boolean
   subtotal?: number
+  // Sale-price exclusion (2026-08-04) -- the subtotal of only the cart
+  // lines NOT currently at a sale price. Checkout.tsx computes this
+  // client-side (same effectiveUnitPrice logic mirrored there) so the
+  // "Apply" preview matches what authoritativeOrder.ts will actually
+  // enforce at order-creation time.
+  eligibleSubtotal?: number
   customerEmail?: string
 }
 
@@ -51,6 +57,7 @@ const validateCoupon: Endpoint = {
       market: body.market,
       pricingMarket,
       subtotal: Number(body.subtotal) || 0,
+      eligibleSubtotal: body.eligibleSubtotal != null ? Number(body.eligibleSubtotal) || 0 : undefined,
       customerEmail: body.customerEmail,
     })
     return Response.json(result)

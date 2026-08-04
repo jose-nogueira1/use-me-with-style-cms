@@ -9,6 +9,7 @@ import { up as tagsUp, down as tagsDown } from '../src/migrations/20260731_14000
 import { up as heroUp, down as heroDown } from '../src/migrations/20260731_150000_home_hero_cta_picker.ts'
 import { up as freeShippingUp } from '../src/migrations/20260731_160000_coupons_free_shipping.ts'
 import { up as legalDataDeletionUp } from '../src/migrations/20260801_110000_legal_content_data_deletion.ts'
+import { up as homeContentCurationUp, down as homeContentCurationDown } from '../src/migrations/20260804_170000_home_content_curation.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -345,6 +346,83 @@ test('legal content data-deletion migration adds the missing columns without tou
     assert.equal(row.privacy_policy_text_p_t, 'Texto de privacidade real.')
     assert.equal(row.terms_text_e_n, 'Real terms text.')
     assert.equal(row.data_deletion_text_p_t, null)
+  })
+})
+
+// Homepage curation (2026-08-04): two new array fields on home-content --
+// homepageCategorySlugs and collections (tag-driven shelves) -- each gets
+// its own child rows table (+ a versioned counterpart, since versions.max:
+// 20 is enabled on this global), same pattern as products_variants/
+// orders_items. Shape confirmed by generating the real schema `payload
+// migrate:create` produces for an empty database and taking these 4 tables'
+// definitions verbatim -- notably the _home_content_v_version_* tables use
+// a serial id plus an extra _uuid column, not something to guess by hand.
+async function createHomeContentCurationPrerequisites(pool: pg.Pool) {
+  await pool.query(`
+    CREATE TABLE "home_content" (id serial PRIMARY KEY);
+    CREATE TABLE "_home_content_v" (id serial PRIMARY KEY);
+    INSERT INTO home_content DEFAULT VALUES;
+  `)
+}
+
+async function runHomeContentCurationUp(pool: pg.Pool) {
+  const db = drizzle(pool)
+  await homeContentCurationUp({ db } as never)
+}
+
+async function runHomeContentCurationDown(pool: pg.Pool) {
+  const db = drizzle(pool)
+  await homeContentCurationDown({ db } as never)
+}
+
+test('home content curation migration creates category/collection shelf tables that accept real rows', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createHomeContentCurationPrerequisites(pool)
+    await runHomeContentCurationUp(pool)
+
+    // Live tables use a text (nanoid) primary key, same as every other
+    // non-versioned Payload array table in this codebase.
+    await pool.query(
+      `INSERT INTO home_content_homepage_category_slugs (_order, _parent_id, id, slug) VALUES (1, 1, 'row-1', 'vestidos')`,
+    )
+    await pool.query(
+      `INSERT INTO home_content_collections (_order, _parent_id, id, tag_slug, title_p_t, title_e_n, item_limit)
+       VALUES (1, 1, 'row-2', 'ss26', 'Verão SS26', 'Summer SS26', 12)`,
+    )
+    const cat = (await pool.query(`SELECT slug FROM home_content_homepage_category_slugs WHERE _parent_id = 1`)).rows[0]
+    assert.equal(cat.slug, 'vestidos')
+    const coll = (await pool.query(`SELECT tag_slug, title_p_t, item_limit FROM home_content_collections WHERE _parent_id = 1`)).rows[0]
+    assert.equal(coll.tag_slug, 'ss26')
+    assert.equal(coll.title_p_t, 'Verão SS26')
+    assert.equal(coll.item_limit, '12')
+
+    // itemLimit's schema default (8) applies when a row omits it.
+    await pool.query(
+      `INSERT INTO home_content_collections (_order, _parent_id, id, tag_slug, title_p_t, title_e_n)
+       VALUES (2, 1, 'row-3', 'bestseller', 'Mais vendidos', 'Bestsellers')`,
+    )
+    const defaulted = (await pool.query(`SELECT item_limit FROM home_content_collections WHERE id = 'row-3'`)).rows[0]
+    assert.equal(defaulted.item_limit, '8')
+
+    // Deleting the parent home_content row cascades to its child rows (ON
+    // DELETE cascade), same as every other array-field table in this repo.
+    await pool.query(`DELETE FROM home_content WHERE id = 1`)
+    const remaining = await pool.query(`SELECT count(*)::int AS n FROM home_content_collections`)
+    assert.equal(remaining.rows[0].n, 0)
+  })
+})
+
+test('home content curation migration is idempotent and down() cleanly removes the new tables', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createHomeContentCurationPrerequisites(pool)
+    await runHomeContentCurationUp(pool)
+    await runHomeContentCurationUp(pool) // must not error the second time
+
+    await runHomeContentCurationDown(pool)
+    const tables = (
+      await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'home_content_%' OR table_name LIKE '_home_content_v_version_%'`)
+    ).rows.map((row) => row.table_name)
+    assert.equal(tables.length, 0)
   })
 })
 

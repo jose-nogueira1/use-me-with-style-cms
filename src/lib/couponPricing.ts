@@ -69,6 +69,18 @@ export async function resolveCoupon(
     // Checkout.tsx/authoritativeOrder.ts's usesEurSettlement.
     pricingMarket: Market
     subtotal: number
+    // Sale-price exclusion (2026-08-04, user request: "if a product already
+    // has a promotion going on... the coupon with discount percentage
+    // should not work on those products"). The subtotal of only the cart
+    // lines NOT currently at a sale price -- a percent-off coupon can only
+    // discount this portion, never a line that's already discounted by a
+    // running sale. Optional and defaults to `subtotal` (no lines
+    // excluded) so any caller that hasn't been updated yet (or a cart with
+    // no sale items) behaves exactly as before. Fixed-amount and
+    // free-delivery coupons deliberately ignore this -- per an explicit
+    // decision, a fixed coupon "should just discount from the total amount
+    // regardless of what products she has in the cart".
+    eligibleSubtotal?: number
     customerEmail?: string
     now?: Date
   },
@@ -130,11 +142,21 @@ export async function resolveCoupon(
     return { valid: true, code, discountAmount: 0, freeShipping: true, label: `${code} (free shipping)` }
   }
 
+  // Percent-off is capped to the ELIGIBLE (non-sale) subtotal -- a coupon
+  // percentage never discounts a line that's already at a sale price.
+  // Fixed-off stays capped to the full subtotal, per an explicit product
+  // decision that a flat-amount coupon applies "regardless of what
+  // products she has in the cart".
+  const eligibleSubtotal = Math.min(params.eligibleSubtotal ?? params.subtotal, params.subtotal)
   const rawDiscount =
     coupon.type === 'percent'
-      ? (params.subtotal * (coupon.percentOff ?? 0)) / 100
+      ? (eligibleSubtotal * (coupon.percentOff ?? 0)) / 100
       : (params.pricingMarket === 'AO' ? coupon.fixedOffAOKz : coupon.fixedOffPTEur) ?? 0
-  const discountAmount = roundMoney(Math.max(0, Math.min(rawDiscount, params.subtotal)))
+  const discountCap = coupon.type === 'percent' ? eligibleSubtotal : params.subtotal
+  const discountAmount = roundMoney(Math.max(0, Math.min(rawDiscount, discountCap)))
+  if (coupon.type === 'percent' && discountAmount <= 0 && eligibleSubtotal <= 0 && params.subtotal > 0) {
+    return { valid: false, reason: 'This code cannot be applied -- every item in the cart is already on sale.' }
+  }
   if (discountAmount <= 0) return { valid: false, reason: 'This code is not available for this order.' }
 
   const label = coupon.type === 'percent' ? `${code} (${coupon.percentOff}% off)` : `${code} (discount)`

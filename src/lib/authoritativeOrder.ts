@@ -1,5 +1,5 @@
 import { APIError, type CollectionBeforeValidateHook } from 'payload'
-import { effectiveUnitPrice } from './salePricing'
+import { effectiveUnitPrice, isProductOnSale } from './salePricing'
 import { claimCouponRedemption } from './couponPricing'
 import { normalizePortugalShipping, portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
 import { angolaShippingCost, canonicalLuandaMunicipality, type AngolaShippingSettings } from './angolaShipping'
@@ -264,11 +264,18 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       colorId: chosenColorId || undefined,
       qty,
       unitPrice,
+      // Sale-price exclusion (2026-08-04) -- not persisted on the order
+      // (Orders.ts's items field doesn't carry it), only used below to
+      // build eligibleSubtotal for the coupon check. A line already priced
+      // via the running sale is never itself discounted further by a
+      // percent-off coupon.
+      onSale: isProductOnSale(product),
     })
   }
 
   const currency = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal' ? 'EUR' : 'Kz'
   const subtotal = authoritativeItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0)
+  const eligibleSubtotal = authoritativeItems.reduce((sum, item) => sum + (item.onSale ? 0 : item.unitPrice * item.qty), 0)
   const customerEmail = String(data.customerEmail ?? '').trim().toLowerCase()
 
   // Coupon codes (2026-07-25, discounts phase 2). The client may suggest a
@@ -294,6 +301,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       market,
       pricingMarket: currency === 'EUR' ? 'PT' : 'AO',
       subtotal,
+      eligibleSubtotal,
       customerEmail,
     })
     if (!result.valid) badRequest(result.reason)
@@ -319,7 +327,10 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   return {
     ...data,
     customerEmail,
-    items: authoritativeItems,
+    // `onSale` was only ever needed above (eligibleSubtotal) -- Orders.ts's
+    // items field has no such field, so it's dropped here rather than left
+    // for Payload to silently ignore.
+    items: authoritativeItems.map(({ onSale: _onSale, ...item }) => item),
     currency,
     subtotal,
     shippingCost,

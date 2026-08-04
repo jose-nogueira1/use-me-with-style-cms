@@ -128,5 +128,71 @@ export const HomeContent: GlobalConfig = {
       label: 'Hero image',
       admin: { description: 'Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.' },
     },
+    // Homepage curation (2026-08-04, user request: "how does the admin
+    // choose which categories are present in the homepage and which
+    // merchandising tag is also on the homepage. Admin should have total
+    // control here"). Previously the category row showed EVERY category in
+    // the system automatically, "New Arrivals" was hardcoded to whichever
+    // tag happened to be literally named "New" (isNewArrival in the
+    // platform's productAdapters.ts), and "Featured" wasn't tag-driven at
+    // all -- just the first 8 products in list order. Both fields are
+    // optional and empty by default: Home.tsx (platform) falls back to
+    // exactly today's behaviour (show every category; New/Featured as
+    // before) until an admin actually fills these in, so nothing changes on
+    // deploy.
+    {
+      name: 'homepageCategorySlugs',
+      type: 'array',
+      label: 'Homepage categories',
+      admin: {
+        description:
+          'Which categories appear in the homepage category row, and in what order. Leave empty to show every category (today\'s behaviour).',
+      },
+      fields: [
+        {
+          name: 'slug',
+          type: 'text',
+          required: true,
+          label: 'Category',
+          admin: { description: 'Picked from the real category list in Settings -- see Settings.tsx.' },
+        },
+      ],
+    },
+    {
+      // Generalises "New Arrivals" + "Featured" into any number of
+      // admin-defined, tag-driven shelves (2026-08-04 follow-up: "think
+      // about me having a new collection, lets say summer ss26, I should be
+      // able to feature it with the tag SS26, like we have featured and new
+      // arrivals now"). Each row is one shelf: pick a real merch tag, give
+      // it a bilingual title, cap how many products show. Order in this
+      // array is the order shelves render on the homepage.
+      name: 'collections',
+      type: 'array',
+      label: 'Homepage collections (tag-driven shelves)',
+      admin: {
+        description:
+          'Each row is one product shelf on the homepage, driven by a merchandising tag (e.g. "New", "Bestseller", "SS26"). Leave empty to keep the previous fixed New Arrivals / Featured sections.',
+      },
+      fields: [
+        {
+          name: 'tagSlug',
+          type: 'text',
+          required: true,
+          label: 'Merchandising tag',
+          admin: { description: 'Picked from the real merch tag list in Settings.' },
+        },
+        { name: 'titlePT', type: 'text', required: true, label: 'Title -- Portuguese' },
+        { name: 'titleEN', type: 'text', required: true, label: 'Title -- English' },
+        {
+          name: 'itemLimit',
+          type: 'number',
+          min: 1,
+          max: 24,
+          defaultValue: 8,
+          label: 'Item limit',
+          admin: { description: 'Maximum products shown in this shelf.' },
+        },
+      ],
+    },
   ],
 }
