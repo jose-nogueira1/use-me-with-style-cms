@@ -9,7 +9,7 @@ const WINDOW_MS = 10 * 60_000
 const MAX_ATTEMPTS = 5
 const attempts = new Map<string, { count: number; resetAt: number }>()
 
-type ContactBody = { name?: string; email?: string; message?: string }
+type ContactBody = { name?: string; email?: string; phone?: string; orderNumber?: string; message?: string }
 
 function clientKey(req: PayloadRequest): string {
   return (req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown').trim()
@@ -52,6 +52,8 @@ export const contactEndpoint: Endpoint = {
 
     const name = body?.name?.trim().slice(0, 200)
     const email = body?.email?.trim().slice(0, 254)
+    const phone = body?.phone?.trim().slice(0, 40)
+    const orderNumber = body?.orderNumber?.trim().slice(0, 40)
     const message = body?.message?.trim().slice(0, 5000)
 
     if (!name || !email || !message || !EMAIL_RE.test(email)) {
@@ -59,13 +61,13 @@ export const contactEndpoint: Endpoint = {
     }
 
     try {
-      await sendContactFormEmail(req.payload, { name, email, message })
+      await sendContactFormEmail(req.payload, { name, email, phone, orderNumber, message })
     } catch (err) {
       req.payload.logger.error(
         { err: err instanceof Error ? err.message : String(err) },
         '[contact:send-failed]',
       )
-      return Response.json({ error: 'Could not send your message. Please try WhatsApp instead.' }, { status: 502 })
+      return Response.json({ error: 'Could not send your message. Please email support@usemewithstyle.shop directly.' }, { status: 502 })
     }
 
     return Response.json({ ok: true })

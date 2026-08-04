@@ -34,7 +34,7 @@ export const PAYMENT_METHODS = [
   { label: 'Stripe', value: 'stripe' },
   { label: 'MB WAY (PT)', value: 'mbway' },
   { label: 'Multicaixa Express -- via AppyPay (AO)', value: 'multicaixa_express' },
-  { label: 'Manual WhatsApp coordination (PT, while payments are deferred)', value: 'manual_whatsapp' },
+  { label: 'Manual email coordination (PT, while payments are deferred)', value: 'manual_whatsapp' },
   { label: 'Bank transfer -- manual review (AO, legacy)', value: 'bank_transfer_ao' },
   { label: 'SWEG / AppyPay (AO, legacy) -- not implemented', value: 'sweg_appypay' },
 ] as const
@@ -154,7 +154,7 @@ export const Orders: CollectionConfig = {
     // order rows and any older cached storefront bundle both stay valid.
     { name: 'customerFirstName', type: 'text', label: 'First name' },
     { name: 'customerLastName', type: 'text', label: 'Last name' },
-    { name: 'customerPhone', type: 'text', required: true, label: 'Phone / WhatsApp' },
+    { name: 'customerPhone', type: 'text', required: true, label: 'Telephone' },
     { name: 'customerEmail', type: 'email', required: true },
     {
       name: 'analyticsConsent',

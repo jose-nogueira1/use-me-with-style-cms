@@ -45,7 +45,7 @@ export const MarketSettings: GlobalConfig = {
       type: 'textarea',
       label: 'Angola: manual Multicaixa Express instructions shown at checkout — Portuguese',
       admin: {
-        description: 'Shown at checkout while angolaPaymentLive is off (e.g. "As instruções de pagamento são enviadas por WhatsApp assim que a encomenda for confirmada").',
+        description: 'Shown at checkout while angolaPaymentLive is off. Direct customers to the support email for any additional instructions.',
       },
     },
     {
@@ -53,7 +53,7 @@ export const MarketSettings: GlobalConfig = {
       type: 'textarea',
       label: 'Angola: manual Multicaixa Express instructions shown at checkout — English',
       admin: {
-        description: 'English translation of the field above (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").',
+        description: 'English translation of the field above. Direct customers to the support email for any additional instructions.',
       },
     },
     {
@@ -110,17 +110,17 @@ export const MarketSettings: GlobalConfig = {
     {
       name: 'portugalManualCheckoutInstructionsPT',
       type: 'textarea',
-      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — Portuguese',
+      label: 'Portugal: manual email coordination instructions shown at checkout — Portuguese',
       admin: {
-        description: 'Shown at checkout while portugalPaymentsEnabled is off (e.g. "Vamos entrar em contacto por WhatsApp para combinar o pagamento.").',
+        description: 'Shown at checkout while portugalPaymentsEnabled is off. Email is the official support channel.',
       },
     },
     {
       name: 'portugalManualCheckoutInstructionsEN',
       type: 'textarea',
-      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — English',
+      label: 'Portugal: manual email coordination instructions shown at checkout — English',
       admin: {
-        description: 'English translation of the field above (e.g. "We\'ll reach out on WhatsApp to arrange payment.").',
+        description: 'English translation of the field above. Email is the official support channel.',
       },
     },
     {

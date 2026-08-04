@@ -265,6 +265,8 @@ export async function sendOrderStatusEmail(payload: Payload, input: OrderStatusE
 type ContactMessageInput = {
   name: string
   email: string
+  phone?: string
+  orderNumber?: string
   message: string
 }
 
@@ -286,6 +288,14 @@ export async function sendContactFormEmail(payload: Payload, input: ContactMessa
           <td style="padding: 6px 0; color: #666;">Email</td>
           <td style="padding: 6px 0; text-align: right; font-weight: bold;">${escapeHtml(input.email)}</td>
         </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #666;">Telefone</td>
+          <td style="padding: 6px 0; text-align: right; font-weight: bold;">${escapeHtml(input.phone || 'Não indicado')}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #666;">Encomenda</td>
+          <td style="padding: 6px 0; text-align: right; font-weight: bold;">${escapeHtml(input.orderNumber || 'Não indicada')}</td>
+        </tr>
       </table>
       <p style="white-space: pre-wrap;">${escapeHtml(input.message)}</p>
     </div>
@@ -297,10 +307,8 @@ export async function sendContactFormEmail(payload: Payload, input: ContactMessa
     return
   }
 
-  // Let send failures propagate here (unlike the order-confirmation email,
-  // which never blocks an order write) -- the contact endpoint needs to know
-  // if the message didn't actually go anywhere so it can tell the customer
-  // to use WhatsApp instead rather than silently losing their message.
+  // Let send failures propagate so the contact endpoint can tell the
+  // customer to email the support mailbox directly.
   await payload.sendEmail({
     to,
     replyTo: input.email,

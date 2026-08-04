@@ -49,6 +49,7 @@ import * as migration_20260804_150000_regional_vat_rates from './20260804_150000
 import * as migration_20260804_160000_invoice_vat_region from './20260804_160000_invoice_vat_region';
 import * as migration_20260804_170000_home_content_curation from './20260804_170000_home_content_curation';
 import * as migration_20260804_180000_home_content_split from './20260804_180000_home_content_split';
+import * as migration_20260804_220000_email_first_support from './20260804_220000_email_first_support';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -304,5 +305,10 @@ export const migrations = [
     up: migration_20260804_180000_home_content_split.up,
     down: migration_20260804_180000_home_content_split.down,
     name: '20260804_180000_home_content_split',
+  },
+  {
+    up: migration_20260804_220000_email_first_support.up,
+    down: migration_20260804_220000_email_first_support.down,
+    name: '20260804_220000_email_first_support',
   },
 ];
