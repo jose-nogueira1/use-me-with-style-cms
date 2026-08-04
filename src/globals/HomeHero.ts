@@ -1,4 +1,5 @@
 import type { GlobalConfig } from 'payload'
+import { deleteGlobalVersionEndpoint } from '../endpoints/globalVersions'
 
 // Storefront home hero (2026-07-25 admin request): the "Coleção SS26 / Moda
 // que se move consigo." banner was hardcoded via i18n.ts translation keys
@@ -37,6 +38,9 @@ export const HomeHero: GlobalConfig = {
   versions: {
     max: 20,
   },
+  // Admin-only: delete a single version snapshot (2026-08-04 follow-up --
+  // see endpoints/globalVersions.ts for why this needs a custom endpoint).
+  endpoints: [deleteGlobalVersionEndpoint('home-hero')],
   fields: [
     {
       name: 'heroEyebrowPT',

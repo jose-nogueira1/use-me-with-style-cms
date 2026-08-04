@@ -1,4 +1,5 @@
 import type { GlobalConfig } from 'payload'
+import { deleteGlobalVersionEndpoint } from '../endpoints/globalVersions'
 
 // Generalises "New Arrivals" + "Featured" into any number of admin-defined,
 // tag-driven shelves (2026-08-04 follow-up: "think about me having a new
@@ -30,6 +31,9 @@ export const HomeCollections: GlobalConfig = {
   versions: {
     max: 20,
   },
+  // Admin-only: delete a single version snapshot (2026-08-04 follow-up --
+  // see endpoints/globalVersions.ts for why this needs a custom endpoint).
+  endpoints: [deleteGlobalVersionEndpoint('home-collections')],
   fields: [
     {
       name: 'collections',

@@ -1,4 +1,5 @@
 import type { GlobalConfig } from 'payload'
+import { deleteGlobalVersionEndpoint } from '../endpoints/globalVersions'
 
 // Which categories appear in the homepage category row, and in what order
 // (2026-08-04, admin request: "how does the admin choose which categories
@@ -28,6 +29,9 @@ export const HomeCategories: GlobalConfig = {
   versions: {
     max: 20,
   },
+  // Admin-only: delete a single version snapshot (2026-08-04 follow-up --
+  // see endpoints/globalVersions.ts for why this needs a custom endpoint).
+  endpoints: [deleteGlobalVersionEndpoint('home-categories')],
   fields: [
     {
       name: 'homepageCategorySlugs',
