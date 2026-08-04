@@ -304,6 +304,53 @@ if (homeColumns.size > 0 && !homeContentCollectionsExists) {
 const homeContentVersionsExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_home_content_v'`)).rows
     .length > 0
+
+// _home_content_v (the version-snapshot table) never got the same
+// hero_cta_href -> hero_cta_type/category/tag conversion that home_content
+// itself got above -- the 20260731_150000_home_hero_cta_picker.ts migration
+// covers both tables on Postgres, but this file's mirror of it (the
+// `hero_cta_href` block above) only ever touched `home_content`. Sat latent
+// since 2026-07-31 because nothing had exercised a Home Page save (which
+// always also writes a version row) until 2026-08-04, when it surfaced as
+// "table _home_content_v has no column named version_hero_cta_type" on
+// every save AND "no such column: version_hero_cta_type" on every load of
+// Previous Versions -- both looked like an auth/login problem in the admin
+// UI (generic error message) but were this schema gap. Same best-effort
+// href-parsing backfill as the home_content block, mirrored onto the
+// version_-prefixed columns.
+if (homeContentVersionsExists) {
+  const versionColumns = await columns('_home_content_v')
+  if (versionColumns.has('version_hero_cta_href')) {
+    await client.execute("ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_type TEXT DEFAULT 'all'")
+    await client.execute('ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_category_slug TEXT')
+    await client.execute('ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_tag_slug TEXT')
+    const versionRows = (await client.execute('SELECT id, version_hero_cta_href FROM _home_content_v')).rows
+    for (const row of versionRows) {
+      const href = row.version_hero_cta_href ? String(row.version_hero_cta_href) : ''
+      const tagMatch = href.match(/[?&]tag=([^&]+)/)
+      const catMatch = href.match(/[?&]cat=([^&]+)/)
+      const type = tagMatch ? 'tag' : catMatch ? 'category' : 'all'
+      await client.execute({
+        sql: 'UPDATE _home_content_v SET version_hero_cta_type = ?, version_hero_cta_tag_slug = ?, version_hero_cta_category_slug = ? WHERE id = ?',
+        args: [type, tagMatch ? tagMatch[1] : null, catMatch ? catMatch[1] : null, row.id],
+      })
+    }
+    await client.execute('ALTER TABLE _home_content_v DROP COLUMN version_hero_cta_href')
+    console.log(
+      'Converted local SQLite _home_content_v.version_hero_cta_href into version_hero_cta_type/version_hero_cta_category_slug/version_hero_cta_tag_slug.',
+    )
+  } else if (!versionColumns.has('version_hero_cta_type')) {
+    // Table exists (a save happened) but has neither the old nor new
+    // columns -- e.g. the very first version row, created before
+    // heroCtaType existed. No href to backfill from, so just add the
+    // columns bare.
+    await client.execute("ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_type TEXT DEFAULT 'all'")
+    await client.execute('ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_category_slug TEXT')
+    await client.execute('ALTER TABLE _home_content_v ADD COLUMN version_hero_cta_tag_slug TEXT')
+    console.log('Added version_hero_cta_type/version_hero_cta_category_slug/version_hero_cta_tag_slug to local SQLite _home_content_v.')
+  }
+}
+
 const homeContentVersionCollectionsExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_home_content_v_version_collections'`))
     .rows.length > 0
