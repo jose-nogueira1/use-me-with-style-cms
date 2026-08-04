@@ -114,38 +114,30 @@ export async function sendWhatsAppMessage(toPhone: string, message: string): Pro
   }
 }
 
-// Instagram DMs via the Meta Graph API (Page-scoped `/messages` endpoint).
-// Foundation-level / best-effort: not exercised against a real Instagram
-// Business account + Page connection yet -- see README for the
-// credential/owner checklist (JOS-58 acceptance criteria).
+// Instagram DMs via the Instagram API with Instagram Login. The access token
+// is account-scoped, so the sender is always `me`; the recipient is the
+// Instagram-scoped ID received in the messaging webhook.
 export async function sendInstagramMessage(toIgId: string, message: string): Promise<void> {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN
-  const pageId = process.env.INSTAGRAM_PAGE_ID
 
-  if (!token || !pageId) {
-    // eslint-disable-next-line no-console
-    console.log(`[instagram:not-configured] would send to ${toIgId}: ${message}`)
-    return
+  if (!token) {
+    throw new Error('Instagram messaging is not configured: INSTAGRAM_ACCESS_TOKEN is missing')
   }
 
-  try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient: { id: toIgId },
-        message: { text: message },
-      }),
-    })
-    if (!res.ok) {
-      // eslint-disable-next-line no-console
-      console.error('[instagram:send-failed]', res.status, await res.text())
-    }
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[instagram:send-error]', err)
+  const res = await fetch('https://graph.instagram.com/v26.0/me/messages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      recipient: { id: toIgId },
+      message: { text: message },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.text()
+    throw new Error(`Instagram message send failed (${res.status}): ${detail}`)
   }
 }
