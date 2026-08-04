@@ -74,6 +74,38 @@ if (legalContentColumns.size > 0 && !legalContentColumns.has('data_deletion_text
 if (legalContentColumns.size > 0 && !legalContentColumns.has('data_deletion_text_e_n'))
   statements.push('ALTER TABLE legal_content ADD COLUMN data_deletion_text_e_n TEXT')
 
+// Missing since 20260804_120000_order_customer_name_split.ts (Postgres-only,
+// never mirrored here -- found 2026-08-04 when a fresh `npm run dev` crashed
+// every order read/list with "no such column: customer_first_name").
+if (!orderColumns.has('customer_first_name')) statements.push('ALTER TABLE orders ADD COLUMN customer_first_name TEXT')
+if (!orderColumns.has('customer_last_name')) statements.push('ALTER TABLE orders ADD COLUMN customer_last_name TEXT')
+// Missing since 20260804_130000_portugal_manual_checkout_instructions.ts.
+if (!marketColumns.has('portugal_manual_checkout_instructions_p_t'))
+  statements.push('ALTER TABLE market_settings ADD COLUMN portugal_manual_checkout_instructions_p_t TEXT')
+if (!marketColumns.has('portugal_manual_checkout_instructions_e_n'))
+  statements.push('ALTER TABLE market_settings ADD COLUMN portugal_manual_checkout_instructions_e_n TEXT')
+// 20260804_140000_order_manual_whatsapp_payment_method.ts needs no SQLite
+// equivalent -- payment_method is unconstrained TEXT here (SQLite has no
+// real enum type), same reasoning as the free_shipping coupon type note
+// elsewhere in this repo's migrations.
+// Missing since 20260804_150000_regional_vat_rates.ts -- same backfill
+// (vat_rate_a_o was still sitting at its original 0 default) plus the
+// three new PT regional columns. vat_rate_p_t is NOT dropped here (SQLite
+// column drops are avoided in this file when not strictly necessary -- see
+// the tag_id comment above); it just sits there orphaned and harmless,
+// same as tag_id.
+if (invoiceSettingsColumns.size > 0) {
+  await client.execute('UPDATE invoice_settings SET vat_rate_a_o = 14 WHERE vat_rate_a_o IS NULL OR vat_rate_a_o = 0')
+}
+if (!invoiceSettingsColumns.has('vat_rate_portugal_mainland'))
+  statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_mainland REAL DEFAULT 23')
+if (!invoiceSettingsColumns.has('vat_rate_portugal_madeira'))
+  statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_madeira REAL DEFAULT 22')
+if (!invoiceSettingsColumns.has('vat_rate_portugal_azores'))
+  statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_azores REAL DEFAULT 16')
+// Missing since 20260804_160000_invoice_vat_region.ts.
+if (!invoicesColumns.has('vat_region')) statements.push('ALTER TABLE invoices ADD COLUMN vat_region TEXT')
+
 if (statements.length > 0) await client.batch(statements, 'write')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
 
@@ -229,6 +261,77 @@ const instagramSpotlightEntriesExists =
 if (instagramSpotlightEntriesExists) {
   await client.execute('DROP TABLE instagram_spotlight_entries')
   console.log('Dropped local SQLite instagram_spotlight_entries (replaced by a single highlighted_permalink column).')
+}
+
+// Homepage curation (2026-08-04) -- HomeContent's two new array fields
+// (homepageCategorySlugs, collections) -- see
+// src/migrations/20260804_170000_home_content_curation.ts for the Postgres
+// version. Entirely new child tables, same situation as
+// orders_status_history/instagram_spotlight above -- SQLite's push:false
+// doesn't create these on its own. home_content itself always exists by
+// this point (it's seeded on first boot); _home_content_v only exists once
+// at least one save has happened (versions.max: 20, from
+// 20260725_200000_home_content_versions.ts), so its two versioned
+// counterparts are guarded separately and simply skipped until then --
+// they'll be created the next time this script runs after that first save.
+const homeContentCollectionsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_content_collections'`))
+    .rows.length > 0
+if (homeColumns.size > 0 && !homeContentCollectionsExists) {
+  await client.execute(`
+    CREATE TABLE home_content_homepage_category_slugs (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      slug text NOT NULL,
+      FOREIGN KEY ("_parent_id") REFERENCES home_content(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE home_content_collections (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      tag_slug text NOT NULL,
+      title_p_t text NOT NULL,
+      title_e_n text NOT NULL,
+      item_limit numeric DEFAULT 8,
+      FOREIGN KEY ("_parent_id") REFERENCES home_content(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  console.log('Created local SQLite home_content_homepage_category_slugs/home_content_collections tables.')
+}
+const homeContentVersionsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_home_content_v'`)).rows
+    .length > 0
+const homeContentVersionCollectionsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_home_content_v_version_collections'`))
+    .rows.length > 0
+if (homeContentVersionsExists && !homeContentVersionCollectionsExists) {
+  await client.execute(`
+    CREATE TABLE "_home_content_v_version_homepage_category_slugs" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      slug text NOT NULL,
+      _uuid text,
+      FOREIGN KEY ("_parent_id") REFERENCES "_home_content_v"(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_content_v_version_collections" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      tag_slug text NOT NULL,
+      title_p_t text NOT NULL,
+      title_e_n text NOT NULL,
+      item_limit numeric DEFAULT 8,
+      _uuid text,
+      FOREIGN KEY ("_parent_id") REFERENCES "_home_content_v"(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  console.log('Created local SQLite _home_content_v_version_homepage_category_slugs/_home_content_v_version_collections tables.')
 }
 
 client.close()
