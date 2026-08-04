@@ -187,9 +187,9 @@ async function seed() {
     data: {
       angolaPaymentLive: false,
       angolaBankTransferInstructionsPT:
-        'Instruções de pagamento Multicaixa Express enviadas por WhatsApp após a confirmação da encomenda.',
+        'A nossa equipa enviará por email quaisquer instruções adicionais necessárias após a confirmação da encomenda.',
       angolaBankTransferInstructionsEN:
-        'Multicaixa Express payment instructions sent via WhatsApp after order confirmation.',
+        'Our team will email any additional instructions required after the order is confirmed.',
       angolaPaymentMethods: ['multicaixa_express', 'stripe', 'paypal'],
       angolaDeliveryMethods: ['courier_ao'],
       portugalPaymentMethods: ['paypal', 'stripe', 'mbway'],
@@ -267,10 +267,10 @@ async function seed() {
         'A USE ME WITH STYLE respeita a privacidade dos seus clientes e visitantes e compromete-se a proteger os dados pessoais que lhe são confiados, em conformidade com o Regulamento Geral sobre a Proteção de Dados (RGPD) para clientes em Portugal e na União Europeia, e com a Lei de Proteção de Dados Pessoais aplicável em Angola.',
         'Esta política explica que dados pessoais recolhemos, para que finalidade os utilizamos, com quem os partilhamos e quais os direitos que assistem a cada titular dos dados.',
         'Dados que recolhemos: recolhemos os dados fornecidos diretamente por si ao efetuar uma compra ou ao contactar-nos, nomeadamente nome, endereço de email, número de telefone, morada de entrega e faturação, e histórico de encomendas. Não recolhemos dados de pagamento diretamente — estes são processados pelos nossos parceiros de pagamento (Stripe, PayPal, MB WAY ou AppyPay/Multicaixa Express, consoante o método escolhido), que têm as suas próprias políticas de privacidade.',
-        'Finalidade do tratamento: utilizamos os seus dados para processar e entregar encomendas, comunicar sobre o estado da sua encomenda (por email e WhatsApp), responder a pedidos de apoio ao cliente e, quando aplicável, cumprir obrigações legais e fiscais.',
+        'Finalidade do tratamento: utilizamos os seus dados para processar e entregar encomendas, comunicar sobre o estado da sua encomenda por email, responder a pedidos de apoio ao cliente e, quando aplicável, cumprir obrigações legais e fiscais. Se necessário para esclarecer um pedido, a nossa equipa poderá contactá-lo pelo telefone fornecido.',
         'Partilha de dados com terceiros: os seus dados poderão ser partilhados com prestadores de serviços que nos ajudam a operar a loja, nomeadamente empresas de entrega (CTT em Portugal, empresas de motoboy em Angola), processadores de pagamento, e serviços de alojamento e envio de email. Estes prestadores só têm acesso aos dados estritamente necessários para prestar o respetivo serviço.',
         'Prazo de conservação: conservamos os seus dados pelo tempo necessário para cumprir as finalidades descritas nesta política e as obrigações legais aplicáveis, nomeadamente as obrigações fiscais e contabilísticas.',
-        'Os seus direitos: tem o direito de aceder, retificar, apagar ou pedir a portabilidade dos seus dados pessoais, bem como o direito de se opor ou limitar o respetivo tratamento. Para exercer qualquer um destes direitos, contacte legal@usemewithstyle.shop, utilize o formulário disponível na página de Ajuda ou fale connosco por WhatsApp através do número +244 933 617 878. Para apoio geral ao cliente, contacte support@usemewithstyle.shop. Se residir em Portugal ou na União Europeia, tem também o direito de apresentar reclamação junto da Comissão Nacional de Proteção de Dados (CNPD).',
+        'Os seus direitos: tem o direito de aceder, retificar, apagar ou pedir a portabilidade dos seus dados pessoais, bem como o direito de se opor ou limitar o respetivo tratamento. Para exercer qualquer um destes direitos, contacte legal@usemewithstyle.shop ou utilize o formulário disponível na página de Ajuda. Para apoio geral ao cliente, contacte support@usemewithstyle.shop. Se residir em Portugal ou na União Europeia, tem também o direito de apresentar reclamação junto da Comissão Nacional de Proteção de Dados (CNPD).',
         'Cookies: este site utiliza cookies para melhorar a experiência de navegação e, quando autorizado por si, para fins de análise. Pode gerir as suas preferências de cookies a qualquer momento através da opção "Preferências de cookies" no rodapé do site.',
         'Alterações a esta política: esta política poderá ser atualizada periodicamente. A versão em vigor será sempre a publicada nesta página.',
       ].join('\n\n'),
@@ -278,10 +278,10 @@ async function seed() {
         'USE ME WITH STYLE respects the privacy of its customers and visitors and is committed to protecting the personal data entrusted to us, in accordance with the General Data Protection Regulation (GDPR) for customers in Portugal and the European Union, and with the personal data protection law applicable in Angola.',
         'This policy explains what personal data we collect, why we use it, who we share it with, and what rights each data subject has.',
         "Data we collect: we collect the data you provide directly when placing an order or contacting us, namely name, email address, phone number, delivery and billing address, and order history. We do not collect payment data directly — this is processed by our payment partners (Stripe, PayPal, MB WAY, or AppyPay/Multicaixa Express, depending on the method chosen), who have their own privacy policies.",
-        'Purpose of processing: we use your data to process and deliver orders, communicate about your order status (by email and WhatsApp), respond to customer support requests, and, where applicable, comply with legal and tax obligations.',
+        'Purpose of processing: we use your data to process and deliver orders, communicate about your order status by email, respond to customer support requests, and, where applicable, comply with legal and tax obligations. If clarification is required, our team may contact you using the telephone number provided.',
         'Sharing data with third parties: your data may be shared with service providers who help us operate the store, namely delivery companies (CTT in Portugal, motorbike courier companies in Angola), payment processors, and hosting and email delivery services. These providers only have access to the data strictly necessary to provide their respective service.',
         'Retention period: we retain your data for as long as necessary to fulfil the purposes described in this policy and applicable legal obligations, including tax and accounting obligations.',
-        "Your rights: you have the right to access, rectify, erase, or request portability of your personal data, as well as the right to object to or restrict its processing. To exercise any of these rights, email legal@usemewithstyle.shop, use the form on the Help page, or contact us by WhatsApp at +244 933 617 878. For general customer support, email support@usemewithstyle.shop. If you reside in Portugal or the European Union, you also have the right to lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).",
+        "Your rights: you have the right to access, rectify, erase, or request portability of your personal data, as well as the right to object to or restrict its processing. To exercise any of these rights, email legal@usemewithstyle.shop or use the form on the Help page. For general customer support, email support@usemewithstyle.shop. If you reside in Portugal or the European Union, you also have the right to lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).",
         'Cookies: this site uses cookies to improve the browsing experience and, when authorized by you, for analytics purposes. You can manage your cookie preferences at any time via the "Cookie preferences" option in the site footer.',
         'Changes to this policy: this policy may be updated periodically. The version in effect will always be the one published on this page.',
       ].join('\n\n'),
@@ -295,7 +295,7 @@ async function seed() {
         'Resolução de litígios: em caso de litígio de consumo, o cliente residente em Portugal ou na União Europeia pode recorrer à Plataforma Europeia de Resolução de Litígios em Linha, disponível em ec.europa.eu/consumers/odr, ou apresentar reclamação através do Livro de Reclamações Eletrónico.',
         'Propriedade intelectual: todo o conteúdo deste site, incluindo textos, imagens e logótipos, é propriedade da USE ME WITH STYLE ou dos seus licenciadores, não podendo ser reproduzido sem autorização prévia.',
         'Alterações a estes termos: estes termos poderão ser atualizados periodicamente. A versão em vigor será sempre a publicada nesta página.',
-        'Contactos: para apoio ao cliente, contacte support@usemewithstyle.shop ou +244 933 617 878 por WhatsApp. Para assuntos legais e de privacidade, contacte legal@usemewithstyle.shop.',
+        'Contactos: para apoio ao cliente, contacte support@usemewithstyle.shop. Para assuntos legais e de privacidade, contacte legal@usemewithstyle.shop.',
       ].join('\n\n'),
       termsTextEN: [
         'These Terms & Conditions govern the use of this site and the purchase of products from USE ME WITH STYLE, an apparel and lifestyle brand operating in Angola and Portugal. By placing an order or using this site, you accept the terms described here.',
@@ -307,7 +307,7 @@ async function seed() {
         'Dispute resolution: in the event of a consumer dispute, customers residing in Portugal or the European Union may use the European Online Dispute Resolution Platform, available at ec.europa.eu/consumers/odr, or file a complaint through the electronic complaints book (Livro de Reclamações Eletrónico).',
         'Intellectual property: all content on this site, including text, images, and logos, is the property of USE ME WITH STYLE or its licensors and may not be reproduced without prior authorization.',
         'Changes to these terms: these terms may be updated periodically. The version in effect will always be the one published on this page.',
-        'Contacts: for customer support, email support@usemewithstyle.shop or contact +244 933 617 878 by WhatsApp. For legal and privacy matters, email legal@usemewithstyle.shop.',
+        'Contacts: for customer support, email support@usemewithstyle.shop. For legal and privacy matters, email legal@usemewithstyle.shop.',
       ].join('\n\n'),
       // Added 2026-08-01 for the Meta App Dashboard's "Data Deletion
       // Instructions URL" requirement, needed to publish the WhatsApp/
@@ -316,14 +316,14 @@ async function seed() {
       // caveat as the rest of this global: needs legal review before final.
       dataDeletionTextPT: [
         'Tem o direito de solicitar a eliminação dos seus dados pessoais guardados pela USE ME WITH STYLE a qualquer momento, incluindo os dados recolhidos através das nossas conversas de apoio ao cliente no WhatsApp e no Instagram (por exemplo, o seu número de telefone ou nome de utilizador, e o conteúdo das mensagens trocadas).',
-        'Como pedir a eliminação: envie um email para legal@usemewithstyle.shop com o assunto "Eliminação de dados", indicando o seu nome, número de telefone ou nome de utilizador de Instagram associado à conversa, e o endereço de email ou número de encomenda, se aplicável. Também pode fazer o pedido por WhatsApp através do número +244 933 617 878, ou através do formulário disponível na página de Ajuda.',
+        'Como pedir a eliminação: envie um email para legal@usemewithstyle.shop com o assunto "Eliminação de dados", indicando o seu nome, número de telefone ou nome de utilizador de Instagram associado à conversa, e o endereço de email ou número de encomenda, se aplicável. Também pode utilizar o formulário disponível na página de Ajuda.',
         'O que acontece a seguir: confirmamos a receção do seu pedido no prazo de 5 dias úteis e eliminamos os dados identificados no prazo de 30 dias, exceto quando a lei nos obrigue a conservar determinados registos por mais tempo (por exemplo, documentos fiscais e contabilísticos relativos a encomendas já processadas).',
         'Se tiver desligado a nossa app do WhatsApp ou do Instagram na sua conta Meta, isso não elimina automaticamente o histórico de mensagens já guardado do nosso lado — utilize um dos meios acima para pedir essa eliminação de forma explícita.',
         'Para mais informação sobre como tratamos os seus dados pessoais em geral, consulte a nossa Política de Privacidade.',
       ].join('\n\n'),
       dataDeletionTextEN: [
         'You have the right to request the deletion of your personal data held by USE ME WITH STYLE at any time, including data collected through our customer support conversations on WhatsApp and Instagram (for example, your phone number or Instagram username, and the content of messages exchanged).',
-        'How to request deletion: email legal@usemewithstyle.shop with the subject "Data deletion request", including your name, the phone number or Instagram username associated with the conversation, and your email address or order number, if applicable. You can also make the request by WhatsApp at +244 933 617 878, or via the form available on the Help page.',
+        'How to request deletion: email legal@usemewithstyle.shop with the subject "Data deletion request", including your name, the phone number or Instagram username associated with the conversation, and your email address or order number, if applicable. You can also use the form available on the Help page.',
         'What happens next: we confirm receipt of your request within 5 business days and delete the identified data within 30 days, except where the law requires us to retain certain records for longer (for example, tax and accounting documents relating to orders already processed).',
         'Disconnecting our app from WhatsApp or Instagram in your Meta account settings does not automatically delete the message history already stored on our side -- use one of the methods above to explicitly request that deletion.',
         'For more information on how we handle your personal data in general, see our Privacy Policy.',
