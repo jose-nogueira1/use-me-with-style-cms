@@ -77,8 +77,26 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
   if (body.object === 'instagram') {
     const entries = (body.entry as any[]) ?? []
     for (const entry of entries) {
+      // Instagram API with Facebook Login sends the established Messenger-
+      // style shape (`entry[].messaging[]`). Keep supporting it because the
+      // production token currently uses the Page-based flow.
       for (const event of entry.messaging ?? []) {
-        if (!event.message?.text) continue
+        if (!event.sender?.id || !event.message?.text) continue
+        messages.push({
+          channel: 'instagram',
+          contactHandle: event.sender?.id,
+          body: event.message.text,
+          externalId: event.message.mid,
+        })
+      }
+
+      // Meta's current v26 webhook tester (and Instagram Login webhooks) send
+      // the same message inside `entry[].changes[].value`. Supporting both
+      // shapes lets us migrate login modes later without losing inbound DMs.
+      for (const change of entry.changes ?? []) {
+        if (change.field !== 'messages') continue
+        const event = change.value ?? {}
+        if (!event.sender?.id || !event.message?.text) continue
         messages.push({
           channel: 'instagram',
           contactHandle: event.sender?.id,

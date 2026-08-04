@@ -47,6 +47,25 @@ test('Instagram text messages are extracted', () => {
   }])
 })
 
+test('Instagram v26 changes payloads from Meta webhook testing are extracted', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{
+      changes: [{
+        field: 'messages',
+        value: {
+          sender: { id: '12334' },
+          recipient: { id: '23245' },
+          message: { mid: 'random_mid', text: 'random_text' },
+        },
+      }],
+    }],
+  })
+  assert.deepEqual(messages, [{
+    channel: 'instagram', contactHandle: '12334', body: 'random_text', externalId: 'random_mid',
+  }])
+})
+
 test('Meta webhook signatures require an exact HMAC match', () => {
   const body = JSON.stringify({ object: 'instagram' })
   const secret = 'test-app-secret'
