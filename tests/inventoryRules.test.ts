@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  APPYPAY_PAYMENT_TTL_MS,
   MANUAL_PAYMENT_TTL_MS,
   ONLINE_PAYMENT_TTL_MS,
   reservationTerminalState,
@@ -8,9 +9,10 @@ import {
 } from '../src/lib/inventoryRules.ts'
 
 test('online checkout methods receive short-lived reservations', () => {
-  for (const method of ['stripe', 'paypal', 'multicaixa_express']) {
+  for (const method of ['stripe', 'paypal']) {
     assert.equal(reservationTtlMs(method), ONLINE_PAYMENT_TTL_MS)
   }
+  assert.equal(reservationTtlMs('multicaixa_express'), APPYPAY_PAYMENT_TTL_MS)
   assert.equal(reservationTtlMs('mbway'), MANUAL_PAYMENT_TTL_MS)
 })
 
