@@ -381,6 +381,215 @@ if (homeContentVersionsExists && !homeContentVersionCollectionsExists) {
   console.log('Created local SQLite _home_content_v_version_homepage_category_slugs/_home_content_v_version_collections tables.')
 }
 
+// Splits home-content into home-hero / home-categories / home-collections
+// (2026-08-04, admin feedback after living with the combined version panel
+// for a few hours: "I don't like the previous versions is a global preview
+// of the whole home page... it should have previous versions of just each
+// individually") -- see src/migrations/20260804_180000_home_content_split.ts
+// for the Postgres version and its full reasoning/column-shape provenance.
+// Same guarded-create-plus-backfill approach as every other new-table
+// addition in this file; the OLD home_content/_home_content_v tables and
+// their child tables are deliberately left in place, unreferenced, exactly
+// as the Postgres migration does.
+const homeHeroExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_hero'`)).rows.length > 0
+if (homeColumns.size > 0 && !homeHeroExists) {
+  await client.execute(`
+    CREATE TABLE "home_hero" (
+      id integer PRIMARY KEY NOT NULL,
+      hero_eyebrow_p_t text DEFAULT 'Coleção SS26',
+      hero_eyebrow_e_n text DEFAULT 'SS26 Collection',
+      hero_headline_p_t text DEFAULT 'Moda que se move consigo.',
+      hero_headline_e_n text DEFAULT 'Fashion that moves with you.',
+      hero_subtitle_p_t text,
+      hero_subtitle_e_n text,
+      hero_cta_label_p_t text DEFAULT 'Ver tudo',
+      hero_cta_label_e_n text DEFAULT 'Shop all',
+      hero_cta_type text DEFAULT 'all',
+      hero_cta_category_slug text,
+      hero_cta_tag_slug text,
+      hero_image_id integer,
+      updated_at text,
+      created_at text,
+      FOREIGN KEY (hero_image_id) REFERENCES media(id) ON UPDATE no action ON DELETE set null
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_hero_v" (
+      id integer PRIMARY KEY NOT NULL,
+      version_hero_eyebrow_p_t text,
+      version_hero_eyebrow_e_n text,
+      version_hero_headline_p_t text,
+      version_hero_headline_e_n text,
+      version_hero_subtitle_p_t text,
+      version_hero_subtitle_e_n text,
+      version_hero_cta_label_p_t text,
+      version_hero_cta_label_e_n text,
+      version_hero_cta_type text DEFAULT 'all',
+      version_hero_cta_category_slug text,
+      version_hero_cta_tag_slug text,
+      version_hero_image_id integer,
+      version_updated_at text,
+      version_created_at text,
+      created_at text,
+      updated_at text,
+      FOREIGN KEY (version_hero_image_id) REFERENCES media(id) ON UPDATE no action ON DELETE set null
+    )
+  `)
+  await client.execute(`
+    INSERT INTO home_hero (
+      hero_eyebrow_p_t, hero_eyebrow_e_n, hero_headline_p_t, hero_headline_e_n,
+      hero_subtitle_p_t, hero_subtitle_e_n, hero_cta_label_p_t, hero_cta_label_e_n,
+      hero_cta_type, hero_cta_category_slug, hero_cta_tag_slug, hero_image_id, updated_at, created_at
+    )
+    SELECT
+      hero_eyebrow_p_t, hero_eyebrow_e_n, hero_headline_p_t, hero_headline_e_n,
+      hero_subtitle_p_t, hero_subtitle_e_n, hero_cta_label_p_t, hero_cta_label_e_n,
+      hero_cta_type, hero_cta_category_slug, hero_cta_tag_slug, hero_image_id, updated_at, created_at
+    FROM home_content
+  `)
+  await client.execute(`
+    INSERT INTO _home_hero_v (
+      version_hero_eyebrow_p_t, version_hero_eyebrow_e_n, version_hero_headline_p_t, version_hero_headline_e_n,
+      version_hero_subtitle_p_t, version_hero_subtitle_e_n, version_hero_cta_label_p_t, version_hero_cta_label_e_n,
+      version_hero_cta_type, version_hero_cta_category_slug, version_hero_cta_tag_slug, version_hero_image_id,
+      version_updated_at, version_created_at, created_at, updated_at
+    )
+    SELECT
+      version_hero_eyebrow_p_t, version_hero_eyebrow_e_n, version_hero_headline_p_t, version_hero_headline_e_n,
+      version_hero_subtitle_p_t, version_hero_subtitle_e_n, version_hero_cta_label_p_t, version_hero_cta_label_e_n,
+      version_hero_cta_type, version_hero_cta_category_slug, version_hero_cta_tag_slug, version_hero_image_id,
+      version_updated_at, version_created_at, created_at, updated_at
+    FROM _home_content_v
+  `)
+  console.log('Created local SQLite home_hero/_home_hero_v tables and backfilled from home_content/_home_content_v.')
+}
+
+const homeCategoriesExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_categories'`)).rows.length > 0
+if (homeColumns.size > 0 && !homeCategoriesExists) {
+  await client.execute(`CREATE TABLE "home_categories" (id integer PRIMARY KEY NOT NULL, updated_at text, created_at text)`)
+  await client.execute(`
+    CREATE TABLE "home_categories_homepage_category_slugs" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      slug text NOT NULL,
+      FOREIGN KEY ("_parent_id") REFERENCES home_categories(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_categories_v" (
+      id integer PRIMARY KEY NOT NULL,
+      version_updated_at text,
+      version_created_at text,
+      created_at text,
+      updated_at text
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_categories_v_version_homepage_category_slugs" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      slug text NOT NULL,
+      _uuid text,
+      FOREIGN KEY ("_parent_id") REFERENCES "_home_categories_v"(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+
+  await client.execute(`INSERT INTO home_categories (updated_at, created_at) SELECT updated_at, created_at FROM home_content`)
+  const newCategoriesParent = (await client.execute('SELECT id FROM home_categories LIMIT 1')).rows[0]
+  if (newCategoriesParent) {
+    await client.execute({
+      sql: 'INSERT INTO home_categories_homepage_category_slugs ("_order", "_parent_id", id, slug) SELECT "_order", ?, id, slug FROM home_content_homepage_category_slugs',
+      args: [newCategoriesParent.id],
+    })
+  }
+
+  // Versions need a temporary passenger column to correlate old
+  // _home_content_v.id -> new _home_categories_v.id across the copy, since
+  // the new table's id must be freshly assigned (reusing the old numeric id
+  // would collide with this table's own autoincrement the first time a real
+  // save creates a new version row).
+  await client.execute('ALTER TABLE _home_categories_v ADD COLUMN _migration_old_id integer')
+  await client.execute(`
+    INSERT INTO _home_categories_v (version_updated_at, version_created_at, created_at, updated_at, _migration_old_id)
+    SELECT version_updated_at, version_created_at, created_at, updated_at, id FROM _home_content_v
+  `)
+  await client.execute(`
+    INSERT INTO _home_categories_v_version_homepage_category_slugs ("_order", "_parent_id", slug, _uuid)
+    SELECT c."_order", n.id, c.slug, c._uuid
+    FROM _home_content_v_version_homepage_category_slugs c
+    JOIN _home_categories_v n ON n._migration_old_id = c."_parent_id"
+  `)
+  await client.execute('ALTER TABLE _home_categories_v DROP COLUMN _migration_old_id')
+  console.log('Created local SQLite home_categories/_home_categories_v tables and backfilled from home_content/_home_content_v.')
+}
+
+const homeCollectionsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_collections'`)).rows.length > 0
+if (homeColumns.size > 0 && !homeCollectionsExists) {
+  await client.execute(`CREATE TABLE "home_collections" (id integer PRIMARY KEY NOT NULL, updated_at text, created_at text)`)
+  await client.execute(`
+    CREATE TABLE "home_collections_collections" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      tag_slug text NOT NULL,
+      title_p_t text NOT NULL,
+      title_e_n text NOT NULL,
+      item_limit numeric DEFAULT 8,
+      FOREIGN KEY ("_parent_id") REFERENCES home_collections(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_collections_v" (
+      id integer PRIMARY KEY NOT NULL,
+      version_updated_at text,
+      version_created_at text,
+      created_at text,
+      updated_at text
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE "_home_collections_v_version_collections" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      tag_slug text NOT NULL,
+      title_p_t text NOT NULL,
+      title_e_n text NOT NULL,
+      item_limit numeric DEFAULT 8,
+      _uuid text,
+      FOREIGN KEY ("_parent_id") REFERENCES "_home_collections_v"(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+
+  await client.execute(`INSERT INTO home_collections (updated_at, created_at) SELECT updated_at, created_at FROM home_content`)
+  const newCollectionsParent = (await client.execute('SELECT id FROM home_collections LIMIT 1')).rows[0]
+  if (newCollectionsParent) {
+    await client.execute({
+      sql: 'INSERT INTO home_collections_collections ("_order", "_parent_id", id, tag_slug, title_p_t, title_e_n, item_limit) SELECT "_order", ?, id, tag_slug, title_p_t, title_e_n, item_limit FROM home_content_collections',
+      args: [newCollectionsParent.id],
+    })
+  }
+
+  await client.execute('ALTER TABLE _home_collections_v ADD COLUMN _migration_old_id integer')
+  await client.execute(`
+    INSERT INTO _home_collections_v (version_updated_at, version_created_at, created_at, updated_at, _migration_old_id)
+    SELECT version_updated_at, version_created_at, created_at, updated_at, id FROM _home_content_v
+  `)
+  await client.execute(`
+    INSERT INTO _home_collections_v_version_collections ("_order", "_parent_id", tag_slug, title_p_t, title_e_n, item_limit, _uuid)
+    SELECT c."_order", n.id, c.tag_slug, c.title_p_t, c.title_e_n, c.item_limit, c._uuid
+    FROM _home_content_v_version_collections c
+    JOIN _home_collections_v n ON n._migration_old_id = c."_parent_id"
+  `)
+  await client.execute('ALTER TABLE _home_collections_v DROP COLUMN _migration_old_id')
+  console.log('Created local SQLite home_collections/_home_collections_v tables and backfilled from home_content/_home_content_v.')
+}
+
 client.close()
 
 if (tagMigrated) {

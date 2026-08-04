@@ -111,14 +111,18 @@ export interface Config {
     'market-settings': MarketSetting;
     'invoice-settings': InvoiceSetting;
     'legal-content': LegalContent;
-    'home-content': HomeContent;
+    'home-hero': HomeHero;
+    'home-categories': HomeCategory;
+    'home-collections': HomeCollection;
     'instagram-spotlight': InstagramSpotlight;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
     'invoice-settings': InvoiceSettingsSelect<false> | InvoiceSettingsSelect<true>;
     'legal-content': LegalContentSelect<false> | LegalContentSelect<true>;
-    'home-content': HomeContentSelect<false> | HomeContentSelect<true>;
+    'home-hero': HomeHeroSelect<false> | HomeHeroSelect<true>;
+    'home-categories': HomeCategoriesSelect<false> | HomeCategoriesSelect<true>;
+    'home-collections': HomeCollectionsSelect<false> | HomeCollectionsSelect<true>;
     'instagram-spotlight': InstagramSpotlightSelect<false> | InstagramSpotlightSelect<true>;
   };
   locale: null;
@@ -1419,9 +1423,9 @@ export interface LegalContent {
  * Editable content for the storefront home page's hero banner.
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "home-content".
+ * via the `definition` "home-hero".
  */
-export interface HomeContent {
+export interface HomeHero {
   id: number;
   /**
    * Small label above the headline, e.g. "Coleção SS26".
@@ -1450,6 +1454,17 @@ export interface HomeContent {
    * Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.
    */
   heroImage?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Which categories appear on the storefront home page, and in what order.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-categories".
+ */
+export interface HomeCategory {
+  id: number;
   /**
    * Which categories appear in the homepage category row, and in what order. Leave empty to show every category (today's behaviour).
    */
@@ -1462,6 +1477,17 @@ export interface HomeContent {
         id?: string | null;
       }[]
     | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Tag-driven product shelves shown on the storefront home page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-collections".
+ */
+export interface HomeCollection {
+  id: number;
   /**
    * Each row is one product shelf on the homepage, driven by a merchandising tag (e.g. "New", "Bestseller", "SS26"). Leave empty to keep the previous fixed New Arrivals / Featured sections.
    */
@@ -1593,9 +1619,9 @@ export interface LegalContentSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "home-content_select".
+ * via the `definition` "home-hero_select".
  */
-export interface HomeContentSelect<T extends boolean = true> {
+export interface HomeHeroSelect<T extends boolean = true> {
   heroEyebrowPT?: T;
   heroEyebrowEN?: T;
   heroHeadlinePT?: T;
@@ -1608,12 +1634,30 @@ export interface HomeContentSelect<T extends boolean = true> {
   heroCtaCategorySlug?: T;
   heroCtaTagSlug?: T;
   heroImage?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-categories_select".
+ */
+export interface HomeCategoriesSelect<T extends boolean = true> {
   homepageCategorySlugs?:
     | T
     | {
         slug?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-collections_select".
+ */
+export interface HomeCollectionsSelect<T extends boolean = true> {
   collections?:
     | T
     | {

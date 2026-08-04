@@ -24,7 +24,9 @@ import { Coupons } from './collections/Coupons'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
 import { LegalContent } from './globals/LegalContent'
-import { HomeContent } from './globals/HomeContent'
+import { HomeHero } from './globals/HomeHero'
+import { HomeCategories } from './globals/HomeCategories'
+import { HomeCollections } from './globals/HomeCollections'
 import { InstagramSpotlight } from './globals/InstagramSpotlight'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
@@ -148,7 +150,17 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Orders, Customers, Messages, Invoices, Coupons],
-  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeContent, InstagramSpotlight],
+  // home-content (2026-07-25..2026-08-04) was split into three independent
+  // globals on 2026-08-04 -- HomeHero, HomeCategories, HomeCollections --
+  // each with its own save + version history (admin feedback: a single
+  // combined "Previous versions" list mixed all three sections together
+  // with no way to tell what actually changed). The old home_content /
+  // _home_content_v tables and their child tables are left in place,
+  // unreferenced, same as every other superseded-but-not-dropped table in
+  // this project (see products.tag_id's precedent) -- see
+  // src/migrations/20260804_180000_home_content_split.ts for the data
+  // migration that seeded the three new globals from them.
+  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight],
   endpoints: [
     orderLookupEndpoint,
     contactEndpoint,
