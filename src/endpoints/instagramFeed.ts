@@ -1,8 +1,7 @@
 import type { Endpoint } from 'payload'
 import {
-  INSTAGRAM_GRAPH_FIELDS,
-  INSTAGRAM_GRAPH_VERSION,
   applyHighlight,
+  buildInstagramMediaRequest,
   cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
@@ -27,8 +26,8 @@ let cache: { posts: InstagramPost[]; fetchedAt: number } | null = null
 async function fetchFromGraphApi(limit: number): Promise<InstagramPost[]> {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN
   const igId = process.env.INSTAGRAM_PAGE_ID
-  const url = `https://graph.facebook.com/${INSTAGRAM_GRAPH_VERSION}/${igId}/media?fields=${INSTAGRAM_GRAPH_FIELDS}&limit=${limit}&access_token=${encodeURIComponent(token ?? '')}`
-  const res = await fetch(url)
+  const request = buildInstagramMediaRequest(igId ?? '', token ?? '', limit)
+  const res = await fetch(request.url, request.init)
   if (!res.ok) {
     throw new Error(`Instagram Graph API responded ${res.status}: ${await res.text()}`)
   }
