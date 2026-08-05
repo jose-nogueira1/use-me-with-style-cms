@@ -6,6 +6,7 @@ import { buildExtractionRequest, parseMessageExtraction } from '../src/lib/ai/ex
 import { getConversationMarket, resolveMarket } from '../src/lib/ai/marketState'
 import { buildDeterministicReply } from '../src/lib/ai/replies'
 import { estimateRequestCost, mergeUsage } from '../src/lib/ai/operations'
+import { recordAiTelemetry } from '../src/lib/ai/telemetry'
 
 test('extraction receives recent conversation so a market-only follow-up retains the product question', () => {
   const request = buildExtractionRequest('Angola', 'gpt-5.4-nano', [
@@ -62,4 +63,14 @@ test('worker is fail-closed, retries transient failures and human replies cancel
   assert.match(worker, /monthly_budget_reached/)
   assert.match(worker, /SAFE_AUTOMATIC_INTENTS/)
   assert.match(hook, /cancelPendingAiJobs/)
+})
+
+test('telemetry preserves the logger receiver required by Pino', () => {
+  const calls: string[] = []
+  const logger = {
+    prefix: 'bound',
+    info(this: { prefix: string }, _details: unknown, message?: string) { calls.push(`${this.prefix}:${message}`) },
+  }
+  recordAiTelemetry(logger, { event: 'request_succeeded', provider: 'openai' })
+  assert.deepEqual(calls, ['bound:[ai:request_succeeded]'])
 })

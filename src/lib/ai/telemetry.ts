@@ -23,8 +23,13 @@ export type AiTelemetryLogger = {
  */
 export function recordAiTelemetry(logger: AiTelemetryLogger | undefined, event: AiTelemetryEvent): void {
   if (!logger) return
-  const method = event.event === 'request_failed' ? logger.error : event.event === 'request_skipped' ? logger.warn : logger.info
-  method?.({ ai: event }, `[ai:${event.event}]`)
+  const details = { ai: event }
+  const message = `[ai:${event.event}]`
+  // Pino methods depend on their logger receiver. Calling a detached method
+  // loses that receiver and throws while attempting to read its symbols.
+  if (event.event === 'request_failed') logger.error?.(details, message)
+  else if (event.event === 'request_skipped') logger.warn?.(details, message)
+  else logger.info?.(details, message)
 }
 
 export function estimateAiCostUsd(usage: AiUsage | undefined, prices: { inputPerMillion: number; outputPerMillion: number }): number | null {
