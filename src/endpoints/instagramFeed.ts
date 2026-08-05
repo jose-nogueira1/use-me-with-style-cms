@@ -1,7 +1,8 @@
 import type { Endpoint } from 'payload'
 import {
+  INSTAGRAM_GRAPH_FIELDS,
+  INSTAGRAM_GRAPH_VERSION,
   applyHighlight,
-  buildInstagramMediaRequest,
   cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
@@ -26,8 +27,13 @@ let cache: { posts: InstagramPost[]; fetchedAt: number } | null = null
 async function fetchFromGraphApi(limit: number): Promise<InstagramPost[]> {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN
   const igId = process.env.INSTAGRAM_PAGE_ID
-  const request = buildInstagramMediaRequest(igId ?? '', token ?? '', limit)
-  const res = await fetch(request.url, request.init)
+  // Instagram Login tokens (IGAA...) use the Instagram Graph host and /me;
+  // Page/Facebook tokens use graph.facebook.com with the configured account ID.
+  const instagramLoginToken = token?.startsWith('IGAA')
+  const graphHost = instagramLoginToken ? 'graph.instagram.com' : 'graph.facebook.com'
+  const resource = instagramLoginToken ? 'me' : igId
+  const url = `https://${graphHost}/${INSTAGRAM_GRAPH_VERSION}/${resource}/media?fields=${INSTAGRAM_GRAPH_FIELDS}&limit=${limit}&access_token=${encodeURIComponent(token ?? '')}`
+  const res = await fetch(url)
   if (!res.ok) {
     throw new Error(`Instagram Graph API responded ${res.status}: ${await res.text()}`)
   }
@@ -51,11 +57,30 @@ async function fetchHighlightedPermalink(reqPayload: any): Promise<string | null
   }
 }
 
+async function fetchProductTags(reqPayload: any): Promise<Record<string, Array<{ slug: string; name: string }>>> {
+  try {
+    const global = await reqPayload.findGlobal({ slug: 'instagram-spotlight', depth: 1 })
+    const tags: Record<string, Array<{ slug: string; name: string }>> = {}
+    for (const entry of global?.productTags ?? []) {
+      const key = typeof entry?.permalink === 'string' ? entry.permalink : ''
+      if (!key) continue
+      tags[key] = (entry.products ?? []).map((product: any) => ({
+        slug: typeof product === 'object' ? String(product.slug ?? '') : '',
+        name: typeof product === 'object' ? String(product.namePT ?? product.nameEN ?? '') : '',
+      })).filter((product: { slug: string }) => product.slug)
+    }
+    return tags
+  } catch (err) {
+    reqPayload.logger.error({ err: err instanceof Error ? err.message : String(err) }, '[instagram:product-tags-fetch-failed]')
+    return {}
+  }
+}
+
 // Shapes a pool post into the wire format the storefront consumes.
 // `captionDisplay` is always server-computed (hashtags/newlines stripped,
 // truncated) from the real Instagram caption -- "give each tile a reason to
 // exist beyond a photo" applies to every post, not just a highlighted one.
-function toApiPost(post: HighlightedInstagramPost) {
+function toApiPost(post: HighlightedInstagramPost, productTags: Record<string, Array<{ slug: string; name: string }>>) {
   return {
     id: post.id,
     imageUrl: post.imageUrl,
@@ -63,6 +88,7 @@ function toApiPost(post: HighlightedInstagramPost) {
     caption: post.caption,
     captionDisplay: cleanCaptionForDisplay(post.caption),
     size: post.size,
+    products: productTags[post.permalink] ?? [],
   }
 }
 
@@ -103,9 +129,10 @@ export const instagramFeedEndpoints: Endpoint[] = [
       }
 
       const highlightedPermalink = await fetchHighlightedPermalink(req.payload)
+      const productTags = await fetchProductTags(req.payload)
       const posts = applyHighlight(pool, highlightedPermalink)
         .slice(0, limit)
-        .map(toApiPost)
+        .map((post) => toApiPost(post, productTags))
       return Response.json({ configured: true, posts })
     },
   },
