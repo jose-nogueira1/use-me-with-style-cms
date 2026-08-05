@@ -124,7 +124,7 @@ export async function sendInstagramMessage(toIgId: string, message: string): Pro
     throw new Error('Instagram messaging is not configured: INSTAGRAM_ACCESS_TOKEN is missing')
   }
 
-  const res = await fetch('https://graph.instagram.com/v26.0/me/messages', {
+  const res = await fetch('https://graph.instagram.com/v23.0/me/messages', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -155,7 +155,7 @@ export async function markInstagramConversationSeen(toIgId: string): Promise<boo
   if (!token) return false
 
   try {
-    const res = await fetch('https://graph.instagram.com/v26.0/me/messages', {
+    const res = await fetch('https://graph.instagram.com/v23.0/me/messages', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -189,8 +189,8 @@ export async function getInstagramUserProfile(igScopedId: string): Promise<Insta
   if (!token) return null
 
   try {
-    const params = new URLSearchParams({ fields: 'id,name,username,profile_pic,is_verified_user' })
-    const response = await fetch(`https://graph.instagram.com/v26.0/${encodeURIComponent(igScopedId)}?${params}`, {
+    const params = new URLSearchParams({ fields: 'id,name,username' })
+    const response = await fetch(`https://graph.instagram.com/v23.0/${encodeURIComponent(igScopedId)}?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!response.ok) {
