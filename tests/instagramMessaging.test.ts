@@ -19,7 +19,9 @@ test('sends Instagram Login messages through graph.instagram.com as me', async (
   try {
     const messageId = await sendInstagramMessage('recipient-1', 'Hello')
     assert.equal(messageId, 'message-1')
-    assert.equal(request?.url, 'https://graph.instagram.com/v26.0/me/messages')
+    // v23 is the newest production version currently accepted by the
+    // Instagram Login messaging endpoint for this app/token.
+    assert.equal(request?.url, 'https://graph.instagram.com/v23.0/me/messages')
     assert.equal(request?.init?.method, 'POST')
     assert.equal((request?.init?.headers as Record<string, string>).Authorization, 'Bearer test-token')
     assert.deepEqual(JSON.parse(String(request?.init?.body)), {

@@ -2,7 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { sendOutboundMessage } from '../hooks/sendOutboundMessage'
 
-// WhatsApp/Instagram messaging automation FOUNDATION (Phase 1, JOS-58 --
+// Instagram messaging foundation (Phase 1, JOS-58 --
 // narrowly scoped, not a full AI agent). Every inbound message received via
 // the webhook and every outbound message (automated or admin-composed) is
 // logged here so there's one place ("Mensagens" in admin) to see
@@ -30,9 +30,13 @@ export const Messages: CollectionConfig = {
       type: 'select',
       required: true,
       options: [
-        { label: 'WhatsApp', value: 'whatsapp' },
         { label: 'Instagram', value: 'instagram' },
+        // WhatsApp is intentionally dormant. Keep the option here so the
+        // channel can be restored later without reconstructing the schema.
+        // { label: 'WhatsApp', value: 'whatsapp' },
       ],
+      defaultValue: 'instagram',
+      admin: { readOnly: true },
     },
     {
       name: 'direction',
@@ -43,12 +47,29 @@ export const Messages: CollectionConfig = {
         { label: 'Outbound', value: 'outbound' },
       ],
     },
-    // The customer's WhatsApp phone number or Instagram-scoped user id --
-    // this is the conversation key (grouped by channel + this field in the
-    // admin Mensagens page).
-    { name: 'contactHandle', type: 'text', required: true, label: 'Phone / Instagram ID' },
+    // Instagram-scoped user id -- the conversation key used by the inbox.
+    { name: 'contactHandle', type: 'text', required: true, label: 'Instagram user ID' },
     { name: 'customerName', type: 'text' },
     { name: 'body', type: 'textarea', required: true },
+    { name: 'instagramContextType', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextUrl', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextPermalink', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextMediaType', type: 'text', admin: { readOnly: true } },
+    { name: 'replyToExternalId', type: 'text', admin: { readOnly: true } },
+    { name: 'replyToText', type: 'textarea', admin: { readOnly: true } },
+    { name: 'adminReadAt', type: 'date', admin: { readOnly: true } },
+    { name: 'instagramSeenAt', type: 'date', admin: { readOnly: true } },
+    {
+      name: 'conversationStatus',
+      type: 'select',
+      defaultValue: 'needs_reply',
+      options: [
+        { label: 'Needs reply', value: 'needs_reply' },
+        { label: 'Waiting on customer', value: 'waiting' },
+        { label: 'Priority', value: 'priority' },
+        { label: 'Done', value: 'done' },
+      ],
+    },
     {
       name: 'status',
       type: 'select',
@@ -72,6 +93,7 @@ export const Messages: CollectionConfig = {
     // which is exactly when the hook SHOULD send it.
     { name: 'sentByAutomation', type: 'checkbox', defaultValue: false, admin: { readOnly: true } },
     { name: 'externalId', type: 'text', admin: { readOnly: true } },
+    { name: 'internalNote', type: 'textarea' },
     {
       name: 'aiProcessingStatus',
       type: 'select',
