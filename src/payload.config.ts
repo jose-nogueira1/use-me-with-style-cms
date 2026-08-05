@@ -36,7 +36,6 @@ import { orderLookupEndpoint } from './endpoints/orderLookup'
 import { contactEndpoint } from './endpoints/contact'
 import { inventoryReservationEndpoints } from './endpoints/inventoryReservations'
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
-import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { couponsEndpoints } from './endpoints/coupons'
 import { taxRatesEndpoint } from './endpoints/taxRates'
 import { aiAssistantEndpoint } from './endpoints/aiAssistant'
@@ -173,7 +172,6 @@ export default buildConfig({
     ...internalInvoiceEndpoints,
     ...metaConversionEndpoints,
     ...instagramFeedEndpoints,
-    instagramProfileEndpoint,
     ...couponsEndpoints,
     taxRatesEndpoint,
     aiAssistantEndpoint,
