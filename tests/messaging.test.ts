@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { test } from 'node:test'
 
-import { extractInboundMessages, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
+import { extractInboundMessages, summarizeInstagramEvent, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
 import { buildAutoReply, classifyIncomingMessage } from '../src/lib/messaging'
 
 test('legacy rule helpers remain deterministic for a future assisted-reply plan', () => {
@@ -132,6 +132,63 @@ test('Instagram shared posts and inline replies retain useful sales context', ()
   assert.equal(messages[0]?.body, 'Shared an Instagram post')
   assert.equal(messages[1]?.instagramContextType, 'inline_reply')
   assert.equal(messages[1]?.replyToExternalId, 'original-mid')
+})
+
+test('Instagram image and video attachments retain their temporary preview URLs', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [
+      {
+        sender: { id: 'customer' },
+        message: { mid: 'image-mid', attachments: [{ type: 'image', payload: { media_url: 'https://cdn.example/image.jpg' } }] },
+      },
+      {
+        sender: { id: 'customer' },
+        message: { mid: 'video-mid', attachments: [{ type: 'video', payload: { video_url: 'https://cdn.example/video.mp4' } }] },
+      },
+    ] }],
+  })
+  assert.equal(messages[0]?.instagramContextType, 'media')
+  assert.equal(messages[0]?.instagramContextUrl, 'https://cdn.example/image.jpg')
+  assert.equal(messages[0]?.instagramContextMediaType, 'image')
+  assert.equal(messages[1]?.instagramContextType, 'media')
+  assert.equal(messages[1]?.instagramContextUrl, 'https://cdn.example/video.mp4')
+})
+
+test('Instagram shared content separates a canonical post link from its preview', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      message: {
+        mid: 'post-mid',
+        attachments: [{
+          type: 'share',
+          payload: {
+            image_url: 'https://scontent.cdninstagram.com/post.jpg',
+            permalink: 'https://www.instagram.com/p/ABC123/',
+          },
+        }],
+      },
+    }] }],
+  })
+  assert.equal(messages[0]?.instagramContextUrl, 'https://scontent.cdninstagram.com/post.jpg')
+  assert.equal(messages[0]?.instagramContextPermalink, 'https://www.instagram.com/p/ABC123/')
+})
+
+test('Instagram webhook diagnostics expose structure without private values', () => {
+  const summary = summarizeInstagramEvent({
+    sender: { id: 'private-user-id' },
+    message: {
+      mid: 'private-message-id',
+      text: 'private customer text',
+      attachments: [{ type: 'image', payload: { url: 'https://private.example/image.jpg', token: 'secret' } }],
+    },
+  })
+  const serialized = JSON.stringify(summary)
+  assert.match(serialized, /"type":"image"/)
+  assert.match(serialized, /"hasUsableUrl":true/)
+  assert.doesNotMatch(serialized, /private-user-id|private-message-id|private customer text|private\.example|secret/)
 })
 
 test('unsupported Instagram media is retained as an actionable fallback', () => {

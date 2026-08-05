@@ -52,6 +52,7 @@ import * as migration_20260804_180000_home_content_split from './20260804_180000
 import * as migration_20260804_220000_email_first_support from './20260804_220000_email_first_support';
 import * as migration_20260804_223000_email_first_legal_copy_fix from './20260804_223000_email_first_legal_copy_fix';
 import * as migration_20260805_020000_instagram_rich_inbox from './20260805_020000_instagram_rich_inbox';
+import * as migration_20260805_030000_instagram_context_permalink from './20260805_030000_instagram_context_permalink';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -322,5 +323,10 @@ export const migrations = [
     up: migration_20260805_020000_instagram_rich_inbox.up,
     down: migration_20260805_020000_instagram_rich_inbox.down,
     name: '20260805_020000_instagram_rich_inbox',
+  },
+  {
+    up: migration_20260805_030000_instagram_context_permalink.up,
+    down: migration_20260805_030000_instagram_context_permalink.down,
+    name: '20260805_030000_instagram_context_permalink',
   },
 ];

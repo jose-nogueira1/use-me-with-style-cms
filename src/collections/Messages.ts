@@ -58,6 +58,7 @@ export const Messages: CollectionConfig = {
     // and a safe fallback for media the admin does not render.
     { name: 'instagramContextType', type: 'text', admin: { readOnly: true } },
     { name: 'instagramContextUrl', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextPermalink', type: 'text', admin: { readOnly: true } },
     { name: 'instagramContextMediaType', type: 'text', admin: { readOnly: true } },
     { name: 'replyToExternalId', type: 'text', admin: { readOnly: true } },
     { name: 'replyToText', type: 'textarea', admin: { readOnly: true } },
