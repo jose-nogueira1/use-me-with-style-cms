@@ -534,17 +534,23 @@ export interface Customer {
  */
 export interface Message {
   id: number;
-  channel: 'whatsapp' | 'instagram';
+  channel: 'instagram';
   direction: 'inbound' | 'outbound';
   contactHandle: string;
   customerName?: string | null;
   body: string;
+  instagramContextType?: string | null;
+  instagramContextUrl?: string | null;
+  instagramContextMediaType?: string | null;
+  replyToExternalId?: string | null;
+  replyToText?: string | null;
   status?: ('open' | 'auto_handled' | 'escalated' | 'resolved') | null;
   automationNote?: string | null;
   relatedOrder?: (number | null) | Order;
   relatedCustomer?: (number | null) | Customer;
   sentByAutomation?: boolean | null;
   externalId?: string | null;
+  internalNote?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1071,12 +1077,18 @@ export interface MessagesSelect<T extends boolean = true> {
   contactHandle?: T;
   customerName?: T;
   body?: T;
+  instagramContextType?: T;
+  instagramContextUrl?: T;
+  instagramContextMediaType?: T;
+  replyToExternalId?: T;
+  replyToText?: T;
   status?: T;
   automationNote?: T;
   relatedOrder?: T;
   relatedCustomer?: T;
   sentByAutomation?: T;
   externalId?: T;
+  internalNote?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1220,11 +1232,11 @@ export interface MarketSetting {
    */
   angolaPaymentLive?: boolean | null;
   /**
-   * Shown at checkout while angolaPaymentLive is off (e.g. "As instruções de pagamento são enviadas por WhatsApp assim que a encomenda for confirmada").
+   * Shown at checkout while angolaPaymentLive is off. Direct customers to the support email for any additional instructions.
    */
   angolaBankTransferInstructionsPT?: string | null;
   /**
-   * English translation of the field above (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").
+   * English translation of the field above. Direct customers to the support email for any additional instructions.
    */
   angolaBankTransferInstructionsEN?: string | null;
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
@@ -1250,11 +1262,11 @@ export interface MarketSetting {
    */
   portugalPaymentsEnabled?: boolean | null;
   /**
-   * Shown at checkout while portugalPaymentsEnabled is off (e.g. "Vamos entrar em contacto por WhatsApp para combinar o pagamento.").
+   * Shown at checkout while portugalPaymentsEnabled is off. Email is the official support channel.
    */
   portugalManualCheckoutInstructionsPT?: string | null;
   /**
-   * English translation of the field above (e.g. "We'll reach out on WhatsApp to arrange payment.").
+   * English translation of the field above. Email is the official support channel.
    */
   portugalManualCheckoutInstructionsEN?: string | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;

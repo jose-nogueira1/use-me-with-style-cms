@@ -17,7 +17,8 @@ test('sends Instagram Login messages through graph.instagram.com as me', async (
   }
 
   try {
-    await sendInstagramMessage('recipient-1', 'Hello')
+    const messageId = await sendInstagramMessage('recipient-1', 'Hello')
+    assert.equal(messageId, 'message-1')
     assert.equal(request?.url, 'https://graph.instagram.com/v26.0/me/messages')
     assert.equal(request?.init?.method, 'POST')
     assert.equal((request?.init?.headers as Record<string, string>).Authorization, 'Bearer test-token')

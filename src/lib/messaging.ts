@@ -117,7 +117,7 @@ export async function sendWhatsAppMessage(toPhone: string, message: string): Pro
 // Instagram DMs via the Instagram API with Instagram Login. The access token
 // is account-scoped, so the sender is always `me`; the recipient is the
 // Instagram-scoped ID received in the messaging webhook.
-export async function sendInstagramMessage(toIgId: string, message: string): Promise<void> {
+export async function sendInstagramMessage(toIgId: string, message: string): Promise<string | undefined> {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN
 
   if (!token) {
@@ -139,5 +139,37 @@ export async function sendInstagramMessage(toIgId: string, message: string): Pro
   if (!res.ok) {
     const detail = await res.text()
     throw new Error(`Instagram message send failed (${res.status}): ${detail}`)
+  }
+  const result = await res.json().catch(() => ({})) as { message_id?: string }
+  return result.message_id
+}
+
+export type InstagramUserProfile = {
+  id: string
+  name?: string
+  username?: string
+  profile_pic?: string
+  is_verified_user?: boolean
+}
+
+export async function getInstagramUserProfile(igScopedId: string): Promise<InstagramUserProfile | null> {
+  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+  if (!token) return null
+
+  try {
+    const params = new URLSearchParams({ fields: 'id,name,username,profile_pic,is_verified_user' })
+    const response = await fetch(`https://graph.instagram.com/v26.0/${encodeURIComponent(igScopedId)}?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      // eslint-disable-next-line no-console
+      console.error('[instagram:profile-failed]', response.status, await response.text())
+      return null
+    }
+    return (await response.json()) as InstagramUserProfile
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[instagram:profile-error]', error)
+    return null
   }
 }
