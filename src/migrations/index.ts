@@ -59,6 +59,7 @@ import * as migration_20260805_100000_ai_draft_fields from './20260805_100000_ai
 import * as migration_20260805_110000_instagram_product_tags from './20260805_110000_instagram_product_tags';
 import * as migration_20260805_120000_fix_instagram_spotlight_rels from './20260805_120000_fix_instagram_spotlight_rels';
 import * as migration_20260805_130000_fix_instagram_spotlight_product_rel from './20260805_130000_fix_instagram_spotlight_product_rel';
+import * as migration_20260805_140000_ai_assistant_audit from './20260805_140000_ai_assistant_audit';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -364,5 +365,10 @@ export const migrations = [
     up: migration_20260805_130000_fix_instagram_spotlight_product_rel.up,
     down: migration_20260805_130000_fix_instagram_spotlight_product_rel.down,
     name: '20260805_130000_fix_instagram_spotlight_product_rel',
+  },
+  {
+    up: migration_20260805_140000_ai_assistant_audit.up,
+    down: migration_20260805_140000_ai_assistant_audit.down,
+    name: '20260805_140000_ai_assistant_audit',
   },
 ];

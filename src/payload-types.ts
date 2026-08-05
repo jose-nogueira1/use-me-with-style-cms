@@ -575,6 +575,26 @@ export interface Message {
     | boolean
     | null;
   aiDraftReason?: string | null;
+  aiMarket?: ('angola' | 'portugal') | null;
+  aiIntent?: string | null;
+  aiLanguage?: string | null;
+  aiFacts?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  aiModel?: string | null;
+  aiRequestId?: string | null;
+  aiInputTokens?: number | null;
+  aiOutputTokens?: number | null;
+  aiTotalTokens?: number | null;
+  aiEstimatedCostUsd?: number | null;
+  aiRequiresHuman?: boolean | null;
+  aiOutcome?: string | null;
   aiBotPaused?: boolean | null;
   updatedAt: string;
   createdAt: string;
@@ -1130,6 +1150,18 @@ export interface MessagesSelect<T extends boolean = true> {
   aiDraftConfidence?: T;
   aiDraftSourceRecordIds?: T;
   aiDraftReason?: T;
+  aiMarket?: T;
+  aiIntent?: T;
+  aiLanguage?: T;
+  aiFacts?: T;
+  aiModel?: T;
+  aiRequestId?: T;
+  aiInputTokens?: T;
+  aiOutputTokens?: T;
+  aiTotalTokens?: T;
+  aiEstimatedCostUsd?: T;
+  aiRequiresHuman?: T;
+  aiOutcome?: T;
   aiBotPaused?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1575,16 +1607,6 @@ export interface InstagramSpotlight {
    * e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.
    */
   highlightedPermalink?: string | null;
-  /**
-   * Attach products to a recent Instagram post. The storefront will show verified product links on that post.
-   */
-  productTags?:
-    | {
-        permalink: string;
-        products?: (number | Product)[] | null;
-        id?: string | null;
-      }[]
-    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1741,13 +1763,6 @@ export interface HomeCollectionsSelect<T extends boolean = true> {
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
   highlightedPermalink?: T;
-  productTags?:
-    | T
-    | {
-        permalink?: T;
-        products?: T;
-        id?: T;
-      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

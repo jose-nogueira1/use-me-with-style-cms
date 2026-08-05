@@ -130,7 +130,9 @@ export function toProductContext(product: CatalogueProduct, extraction: MessageE
     slug: text(product.slug) || null, market, availableInMarket, price: priced, currency: market === 'AO' ? 'AOA' : 'EUR', onSale,
     fitNote: market === 'AO' ? (text(product.fitNotePT) || text(product.fitNoteEN) || null) : (text(product.fitNotePT) || text(product.fitNoteEN) || null),
     sizeGuide: product.sizeGuide ?? null, variants, matchedVariants,
-    productUrl: text(product.slug) ? `/products/${encodeURIComponent(text(product.slug))}` : null,
+    productUrl: text(product.slug)
+      ? `https://${market === 'AO' ? 'ao' : 'pt'}.usemewithstyle.shop/produto/${encodeURIComponent(text(product.slug))}`
+      : null,
   }
 }
 
