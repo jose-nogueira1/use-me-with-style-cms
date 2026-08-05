@@ -3,12 +3,9 @@
 // so it can be unit tested without hitting the network -- same split as
 // lib/inventoryRules.ts / endpoints/inventoryReservations.ts.
 //
-// Reuses INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_PAGE_ID, the same credentials
-// already documented in .env.example for Instagram DM messaging (JOS-58).
-// Both features call the Meta Graph API against the same Instagram Business
-// Account node -- messaging POSTs to `/{ig-id}/messages`, this reads public
-// posts from `/{ig-id}/media` -- so no new credentials are needed once
-// Instagram messaging is configured.
+// Reuses INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_PAGE_ID, the Instagram Login
+// credentials already documented in .env.example for DM messaging (JOS-58).
+// Both features call graph.instagram.com with bearer authorization.
 
 export type GraphMediaItem = {
   id: string
@@ -66,7 +63,18 @@ export function mapGraphMediaToPosts(items: GraphMediaItem[]): InstagramPost[] {
 }
 
 export const INSTAGRAM_GRAPH_FIELDS = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp'
-export const INSTAGRAM_GRAPH_VERSION = 'v21.0'
+export const INSTAGRAM_GRAPH_VERSION = 'v26.0'
+
+export function buildInstagramMediaRequest(igId: string, token: string, limit: number) {
+  const params = new URLSearchParams({
+    fields: INSTAGRAM_GRAPH_FIELDS,
+    limit: String(limit),
+  })
+  return {
+    url: `https://graph.instagram.com/${INSTAGRAM_GRAPH_VERSION}/${encodeURIComponent(igId)}/media?${params}`,
+    init: { headers: { Authorization: `Bearer ${token}` } },
+  }
+}
 
 /**
  * Reduces an Instagram permalink to just its path, ignoring scheme, host,

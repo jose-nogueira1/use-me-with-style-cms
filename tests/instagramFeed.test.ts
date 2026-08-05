@@ -2,11 +2,23 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   applyHighlight,
+  buildInstagramMediaRequest,
   cleanCaptionForDisplay,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   normalizePermalink,
 } from '../src/lib/instagramFeed.ts'
+
+test('Instagram Login feed requests use graph.instagram.com and bearer authorization', () => {
+  const request = buildInstagramMediaRequest('ig/account', 'secret token', 12)
+  const url = new URL(request.url)
+  assert.equal(url.origin, 'https://graph.instagram.com')
+  assert.equal(url.pathname, '/v26.0/ig%2Faccount/media')
+  assert.equal(url.searchParams.get('limit'), '12')
+  assert.match(url.searchParams.get('fields') ?? '', /media_url/)
+  assert.equal(url.searchParams.has('access_token'), false)
+  assert.deepEqual(request.init.headers, { Authorization: 'Bearer secret token' })
+})
 
 test('feed is unconfigured until both Graph API credentials are set', () => {
   assert.equal(isInstagramFeedConfigured({}), false)
