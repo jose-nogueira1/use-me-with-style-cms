@@ -11,7 +11,7 @@ import { sendInstagramMessage } from '../lib/messaging'
 // makes an admin composing a reply in the Mensagens UI actually deliver it:
 // they create a `direction: outbound` doc with `sentByAutomation` left
 // false, and this hook does the rest.
-export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
+export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, operation }) => {
   if (operation !== 'create') return doc
   if (doc.direction !== 'outbound') return doc
   if (doc.sentByAutomation) return doc
@@ -20,15 +20,11 @@ export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, oper
   // newly-created WhatsApp rows, but keep this guard as a second boundary so
   // an old/imported WhatsApp document can never trigger an outbound send.
   if (doc.channel !== 'instagram') return doc
-  const externalId = await sendInstagramMessage(doc.contactHandle, doc.body)
-  if (externalId) {
-    await req.payload.update({
-      collection: 'messages',
-      id: doc.id,
-      data: { externalId },
-      overrideAccess: true,
-    })
-  }
+  // Deliver during creation, but do not perform a nested update of the same
+  // document from inside afterChange. Payload can return 404 before the new
+  // row is visible to that second operation, turning a successful Meta send
+  // into a failed admin request.
+  await sendInstagramMessage(doc.contactHandle, doc.body)
 
   // Dormant WhatsApp delivery path (future reactivation):
   // if (doc.channel === 'whatsapp') {
