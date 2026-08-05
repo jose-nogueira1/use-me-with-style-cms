@@ -115,6 +115,7 @@ export interface Config {
     'home-categories': HomeCategory;
     'home-collections': HomeCollection;
     'instagram-spotlight': InstagramSpotlight;
+    'ai-messaging-settings': AiMessagingSetting;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
@@ -124,6 +125,7 @@ export interface Config {
     'home-categories': HomeCategoriesSelect<false> | HomeCategoriesSelect<true>;
     'home-collections': HomeCollectionsSelect<false> | HomeCollectionsSelect<true>;
     'instagram-spotlight': InstagramSpotlightSelect<false> | InstagramSpotlightSelect<true>;
+    'ai-messaging-settings': AiMessagingSettingsSelect<false> | AiMessagingSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -595,6 +597,7 @@ export interface Message {
   aiEstimatedCostUsd?: number | null;
   aiRequiresHuman?: boolean | null;
   aiOutcome?: string | null;
+  aiAutomationDecision?: string | null;
   aiBotPaused?: boolean | null;
   updatedAt: string;
   createdAt: string;
@@ -1162,6 +1165,7 @@ export interface MessagesSelect<T extends boolean = true> {
   aiEstimatedCostUsd?: T;
   aiRequiresHuman?: T;
   aiOutcome?: T;
+  aiAutomationDecision?: T;
   aiBotPaused?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1611,6 +1615,51 @@ export interface InstagramSpotlight {
   createdAt?: string | null;
 }
 /**
+ * Controls Instagram AI drafts and the guarded hybrid auto-reply mode.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-messaging-settings".
+ */
+export interface AiMessagingSetting {
+  id: number;
+  assistantEnabled?: boolean | null;
+  /**
+   * Immediately stops new AI processing and automatic replies. Existing messages remain available to staff.
+   */
+  emergencyStop?: boolean | null;
+  operatingMode: 'approval' | 'hybrid';
+  autoReplyIntents?:
+    | (
+        | 'greeting'
+        | 'product_availability'
+        | 'product_price'
+        | 'product_sizing'
+        | 'delivery'
+        | 'payment'
+        | 'coupon'
+        | 'return_policy'
+      )[]
+    | null;
+  autoReplyMarketClarification?: boolean | null;
+  autoReplyProductClarification?: boolean | null;
+  /**
+   * 0.92 means 92%. Lower values automate more replies but increase risk.
+   */
+  confidenceThreshold: number;
+  /**
+   * Lets consecutive customer messages arrive before the assistant responds.
+   */
+  replyDelaySeconds: number;
+  maxAutoRepliesPerConversation: number;
+  maxAutoRepliesPerHour: number;
+  /**
+   * New AI processing pauses when the estimated application spend reaches this amount.
+   */
+  monthlyBudgetUsd: number;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings_select".
  */
@@ -1763,6 +1812,26 @@ export interface HomeCollectionsSelect<T extends boolean = true> {
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
   highlightedPermalink?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-messaging-settings_select".
+ */
+export interface AiMessagingSettingsSelect<T extends boolean = true> {
+  assistantEnabled?: T;
+  emergencyStop?: T;
+  operatingMode?: T;
+  autoReplyIntents?: T;
+  autoReplyMarketClarification?: T;
+  autoReplyProductClarification?: T;
+  confidenceThreshold?: T;
+  replyDelaySeconds?: T;
+  maxAutoRepliesPerConversation?: T;
+  maxAutoRepliesPerHour?: T;
+  monthlyBudgetUsd?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

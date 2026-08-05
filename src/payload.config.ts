@@ -28,6 +28,7 @@ import { HomeHero } from './globals/HomeHero'
 import { HomeCategories } from './globals/HomeCategories'
 import { HomeCollections } from './globals/HomeCollections'
 import { InstagramSpotlight } from './globals/InstagramSpotlight'
+import { AiMessagingSettings } from './globals/AiMessagingSettings'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
@@ -162,7 +163,7 @@ export default buildConfig({
   // this project (see products.tag_id's precedent) -- see
   // src/migrations/20260804_180000_home_content_split.ts for the data
   // migration that seeded the three new globals from them.
-  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight],
+  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight, AiMessagingSettings],
   endpoints: [
     orderLookupEndpoint,
     contactEndpoint,

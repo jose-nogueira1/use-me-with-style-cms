@@ -1,4 +1,4 @@
-import type { Endpoint } from 'payload'
+import type { Endpoint, Payload } from 'payload'
 import { getAiAssistantConfig, canAutoSendAiReply } from '../lib/ai/config'
 import { createAiProvider, AiProviderError, type AiUsage } from '../lib/ai/provider'
 import { extractInstagramMessage, type MessageExtraction } from '../lib/ai/extraction'
@@ -7,7 +7,7 @@ import { draftInstagramReply } from '../lib/ai/drafting'
 import { evaluateExtractionSafety } from '../lib/ai/safety'
 import { buildDeterministicReply } from '../lib/ai/replies'
 import { claimAiMessageJob } from '../lib/ai/jobs'
-import { getConversationMarket, marketQuestion, resolveMarket } from '../lib/ai/marketState'
+import { getConversationMarket, marketQuestion, productQuestion, resolveMarket } from '../lib/ai/marketState'
 import {
   buildAuditFacts,
   currentMonthSpend,
@@ -19,12 +19,10 @@ import {
 } from '../lib/ai/operations'
 import { recordAiTelemetry } from '../lib/ai/telemetry'
 import { sendInstagramMessage } from '../lib/messaging'
+import { evaluateHybridAutoSend, loadAutomationCounts, type HybridReplyKind } from '../lib/ai/automation'
+import { loadAiMessagingSettings } from '../lib/ai/settings'
 
 const MAX_ATTEMPTS = 3
-const SAFE_AUTOMATIC_INTENTS = new Set<MessageExtraction['intent']>([
-  'product_availability', 'product_price', 'product_sizing', 'delivery', 'payment', 'return_policy',
-])
-
 function language(extraction: MessageExtraction): 'pt' | 'en' {
   return extraction.language === 'en' ? 'en' : 'pt'
 }
@@ -46,6 +44,93 @@ function usageFields(usage: AiUsage, cost: number) {
   }
 }
 
+async function tryAutomaticReply(input: {
+  payload: Payload
+  message: any
+  extraction: MessageExtraction
+  reply: string
+  kind: HybridReplyKind
+  deterministicReply: boolean
+  safetyAllowed: boolean
+  requiresHuman: boolean
+  config: ReturnType<typeof getAiAssistantConfig>
+  model: string
+}): Promise<{ sent: boolean; failed: boolean; decision: string }> {
+  const counts = input.config.mode === 'hybrid'
+    ? await loadAutomationCounts(input.payload, {
+        id: input.message.id,
+        contactHandle: String(input.message.contactHandle),
+        createdAt: input.message.createdAt,
+      })
+    : { conversationAutoReplies24h: 0, globalAutoReplies1h: 0, newerConversationActivity: false }
+  const decision = evaluateHybridAutoSend({
+    mode: input.config.mode,
+    settings: input.config.settings,
+    kind: input.kind,
+    extraction: input.extraction,
+    deterministicReply: input.deterministicReply,
+    safetyAllowed: input.safetyAllowed,
+    requiresHuman: input.requiresHuman,
+    conversationPaused: Boolean(input.message.aiBotPaused),
+    ...counts,
+  })
+  await input.payload.update({
+    collection: 'messages', id: input.message.id, overrideAccess: true,
+    data: { aiAutomationDecision: decision.reason },
+  })
+  if (!decision.autoSend) return { sent: false, failed: false, decision: decision.reason }
+
+  // Never automatically retry an ambiguous Meta send failure: a timeout may
+  // mean Instagram accepted the message even though the response was lost.
+  // Escalating avoids duplicate customer replies.
+  let externalId: string | undefined
+  try {
+    await input.payload.update({
+      collection: 'messages', id: input.message.id, overrideAccess: true,
+      data: { aiOutcome: 'automatic_sending', aiAutomationDecision: decision.reason },
+    })
+    externalId = await sendInstagramMessage(String(input.message.contactHandle), input.reply)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500)
+    await input.payload.update({
+      collection: 'messages', id: input.message.id, overrideAccess: true,
+      data: {
+        aiProcessingStatus: 'failed', aiDraftStatus: 'draft_ready', aiOutcome: 'automatic_send_failed',
+        aiAutomationDecision: 'send_failed_human_review', aiLastError: detail,
+        aiRequiresHuman: true, conversationStatus: 'priority', status: 'escalated',
+      },
+    })
+    return { sent: false, failed: true, decision: 'send_failed_human_review' }
+  }
+
+  await input.payload.update({
+    collection: 'messages', id: input.message.id, overrideAccess: true,
+    data: {
+      aiDraftStatus: 'approved', aiOutcome: 'automatic_sent', aiAutomationDecision: decision.reason,
+      conversationStatus: 'waiting', status: 'resolved', aiLastError: null,
+    },
+  })
+  try {
+    await input.payload.create({
+      collection: 'messages', overrideAccess: true,
+      data: {
+        channel: 'instagram', direction: 'outbound', contactHandle: input.message.contactHandle,
+        customerName: input.message.customerName, body: input.reply, externalId,
+        status: 'auto_handled', conversationStatus: 'waiting', sentByAutomation: true,
+        automationNote: 'ai-auto-reply', aiModel: input.model, aiOutcome: 'automatic_sent',
+        aiAutomationDecision: decision.reason,
+      },
+    })
+  } catch (error) {
+    // The signed webhook normally supplies an outbound echo. Logging a local
+    // persistence failure must not retry a message already delivered to IG.
+    recordAiTelemetry(input.payload.logger, {
+      event: 'request_failed', provider: 'openai', reason: `automatic_reply_log_failed: ${error instanceof Error ? error.message : String(error)}`,
+    })
+  }
+  return { sent: true, failed: false, decision: decision.reason }
+}
+
 /** Background worker invoked by the Railway cron service. It is fail-closed,
  * retry-safe and intentionally defaults to approval rather than auto-send. */
 export const aiAssistantEndpoint: Endpoint = {
@@ -56,7 +141,8 @@ export const aiAssistantEndpoint: Endpoint = {
     if (!secret) return Response.json({ processed: 0, error: 'cron_not_configured' }, { status: 503 })
     if (req.headers.get('authorization') !== `Bearer ${secret}`) return new Response('Unauthorized', { status: 401 })
 
-    const config = getAiAssistantConfig()
+    const settings = await loadAiMessagingSettings(req.payload)
+    const config = getAiAssistantConfig(process.env, settings)
     if (config.mode === 'off' || !config.apiKeyConfigured) return Response.json({ processed: 0, skipped: 'disabled' })
     if (config.monthlyBudgetUsd !== null && await currentMonthSpend(req.payload) >= config.monthlyBudgetUsd) {
       recordAiTelemetry(req.payload.logger, { event: 'request_skipped', provider: 'openai', reason: 'monthly_budget_reached' })
@@ -100,20 +186,28 @@ export const aiAssistantEndpoint: Endpoint = {
         const replyLanguage = language(extraction)
         const safety = evaluateExtractionSafety(extraction)
 
-        if (safety.askForMarket) {
+        if (safety.askForMarket || safety.askForProduct) {
+          const clarification = safety.askForMarket ? marketQuestion(extraction.language) : productQuestion(extraction.language)
+          const clarificationKind: HybridReplyKind = safety.askForMarket ? 'market_clarification' : 'product_clarification'
           const cost = estimateRequestCost(extractionResult.model, extractionResult.usage) || 0
           await req.payload.update({
             collection: 'messages', id: message.id, overrideAccess: true,
             data: {
               aiProcessingStatus: 'draft_ready', aiDraftStatus: 'draft_ready',
-              aiDraft: marketQuestion(extraction.language), aiDraftConfidence: extraction.confidence,
+              aiDraft: clarification, aiDraftConfidence: extraction.confidence,
               aiDraftReason: safety.reason, aiIntent: extraction.intent, aiLanguage: extraction.language,
               aiModel: extractionResult.model, aiRequestId: extractionResult.requestId,
-              aiRequiresHuman: false, aiOutcome: 'market_clarification', aiCompletedAt: new Date().toISOString(),
+              aiRequiresHuman: false, aiOutcome: clarificationKind, aiCompletedAt: new Date().toISOString(),
               conversationStatus: 'needs_reply',
               ...usageFields(mergeUsage(extractionResult.usage), cost),
             },
           })
+          const automatic = await tryAutomaticReply({
+            payload: req.payload, message: claimed, extraction,
+            reply: clarification, kind: clarificationKind, deterministicReply: true,
+            safetyAllowed: true, requiresHuman: false, config, model: extractionResult.model,
+          })
+          if (automatic.failed) failed++
           recordAiTelemetry(req.payload.logger, { event: 'request_succeeded', provider: 'openai', model: extractionResult.model, requestId: extractionResult.requestId, durationMs: Date.now() - startedAt, usage: extractionResult.usage })
           processed++
           continue
@@ -180,22 +274,13 @@ export const aiAssistantEndpoint: Endpoint = {
           },
         })
 
-        const safeAutomatic = Boolean(deterministic)
-          && SAFE_AUTOMATIC_INTENTS.has(extraction.intent)
-          && !requiresHuman && safety.allowed && !(claimed as any).aiBotPaused
-        if (canAutoSendAiReply(config) && safeAutomatic) {
-          await sendInstagramMessage(String((claimed as any).contactHandle), reply)
-          await req.payload.create({
-            collection: 'messages', overrideAccess: true,
-            data: {
-              channel: 'instagram', direction: 'outbound', contactHandle: (claimed as any).contactHandle,
-              customerName: (claimed as any).customerName, body: reply, status: 'auto_handled',
-              conversationStatus: 'waiting', sentByAutomation: true, automationNote: 'ai-auto-reply',
-              aiModel: draftingModel || extractionResult.model, aiOutcome: 'automatic_sent',
-            },
-          })
-          await req.payload.update({ collection: 'messages', id: message.id, data: { aiDraftStatus: 'approved', aiOutcome: 'automatic_sent' }, overrideAccess: true })
-        }
+        const automatic = await tryAutomaticReply({
+          payload: req.payload, message: claimed, extraction, reply,
+          kind: 'deterministic_reply', deterministicReply: Boolean(deterministic),
+          safetyAllowed: safety.allowed, requiresHuman, config,
+          model: draftingModel || extractionResult.model,
+        })
+        if (automatic.failed) failed++
         recordAiTelemetry(req.payload.logger, { event: 'request_succeeded', provider: 'openai', model: draftingModel || extractionResult.model, requestId: draftingRequestId || extractionResult.requestId, durationMs: Date.now() - startedAt, usage })
         processed++
       } catch (error) {
@@ -226,7 +311,8 @@ export const aiAssistantStatusEndpoint: Endpoint = {
   method: 'get',
   handler: async (req) => {
     if (!req.user) return new Response('Unauthorized', { status: 401 })
-    const config = getAiAssistantConfig()
+    const settings = await loadAiMessagingSettings(req.payload)
+    const config = getAiAssistantConfig(process.env, settings)
     const monthSpendUsd = await currentMonthSpend(req.payload)
     return Response.json({
       mode: config.mode,
@@ -235,7 +321,8 @@ export const aiAssistantStatusEndpoint: Endpoint = {
       draftingModel: config.draftingModel,
       monthlyBudgetUsd: config.monthlyBudgetUsd,
       monthSpendUsd,
-      automaticSending: config.mode === 'automatic',
+      automaticSending: canAutoSendAiReply(config),
+      settings,
     })
   },
 }

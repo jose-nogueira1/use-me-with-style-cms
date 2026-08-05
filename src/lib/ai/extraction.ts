@@ -1,6 +1,7 @@
 import type { AiProvider, AiRequest } from './provider'
 
 export const EXTRACTION_INTENTS = [
+  'greeting',
   'product_availability',
   'product_price',
   'product_sizing',
@@ -68,6 +69,7 @@ export function buildExtractionRequest(body: string, model = 'gpt-5.4-nano', his
           'Extract clues only; never invent a product, stock, price, policy or order status.',
           'The user payload contains the current message and recent conversation. Resolve short follow-ups such as a market, size, colour or coupon code using the unresolved earlier customer question.',
           'Use requiresHuman=true for complaints, refunds, cancellations, payment disputes, order-specific requests, ambiguity or low confidence.',
+          'Use intent=greeting only for a simple greeting, thanks or acknowledgement that does not contain another sales or support request.',
           'Use market=null unless the customer explicitly says Angola or Portugal.',
           'Use null for unknown size or colour and an empty array when no product is mentioned.',
         ].join(' '),
