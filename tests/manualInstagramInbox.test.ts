@@ -10,4 +10,6 @@ test('Instagram webhook ingestion is manual-only and deduplicates Meta retries',
   assert.doesNotMatch(webhookSource, /^\s*await sendInstagramMessage\(/m)
   assert.match(webhookSource, /enqueueAiMessageJob/)
   assert.match(webhookSource, /if \(msg\.direction === 'inbound'\)/)
+  assert.match(webhookSource, /const aiBotPaused = Boolean\(previousConversation\.docs\[0\]\?\.aiBotPaused\)/)
+  assert.match(webhookSource, /aiBotPaused,/)
 })

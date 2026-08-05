@@ -384,6 +384,24 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     replyToText = repliedTo.docs[0]?.body
   }
 
+  // The pause switch is conversation-level from the operator's point of
+  // view. Persist its latest value onto every new row so a newly received DM
+  // cannot silently reactivate auto-send mode.
+  const previousConversation = await payloadClient.find({
+    collection: 'messages',
+    where: {
+      and: [
+        { channel: { equals: 'instagram' } },
+        { contactHandle: { equals: msg.contactHandle } },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const aiBotPaused = Boolean(previousConversation.docs[0]?.aiBotPaused)
+
   let status: 'open' | 'escalated' | 'resolved' = msg.direction === 'outbound' ? 'resolved' : 'open'
   let conversationStatus: 'needs_reply' | 'waiting' | 'priority' = msg.direction === 'outbound' ? 'waiting' : 'needs_reply'
   let automationNote = msg.direction === 'outbound'
@@ -415,6 +433,7 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       instagramContextMediaType: msg.instagramContextMediaType,
       replyToExternalId: msg.replyToExternalId,
       replyToText,
+      aiBotPaused,
     },
   })
 
