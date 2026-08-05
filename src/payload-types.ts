@@ -534,27 +534,38 @@ export interface Customer {
  */
 export interface Message {
   id: number;
-  channel: 'instagram';
+  channel: 'whatsapp' | 'instagram';
   direction: 'inbound' | 'outbound';
   contactHandle: string;
   customerName?: string | null;
   body: string;
-  instagramContextType?: string | null;
-  instagramContextUrl?: string | null;
-  instagramContextPermalink?: string | null;
-  instagramContextMediaType?: string | null;
-  replyToExternalId?: string | null;
-  replyToText?: string | null;
-  adminReadAt?: string | null;
-  instagramSeenAt?: string | null;
-  conversationStatus?: ('needs_reply' | 'waiting' | 'priority' | 'done') | null;
   status?: ('open' | 'auto_handled' | 'escalated' | 'resolved') | null;
   automationNote?: string | null;
   relatedOrder?: (number | null) | Order;
   relatedCustomer?: (number | null) | Customer;
   sentByAutomation?: boolean | null;
   externalId?: string | null;
-  internalNote?: string | null;
+  aiProcessingStatus?: ('queued' | 'processing' | 'draft_ready' | 'failed' | 'cancelled') | null;
+  aiAttempts?: number | null;
+  aiAvailableAt?: string | null;
+  aiStartedAt?: string | null;
+  aiCompletedAt?: string | null;
+  aiCancelledAt?: string | null;
+  aiLastError?: string | null;
+  aiDraftStatus?: ('queued' | 'draft_ready' | 'approved' | 'dismissed' | 'failed') | null;
+  aiDraft?: string | null;
+  aiDraftConfidence?: number | null;
+  aiDraftSourceRecordIds?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  aiDraftReason?: string | null;
+  aiBotPaused?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1081,22 +1092,25 @@ export interface MessagesSelect<T extends boolean = true> {
   contactHandle?: T;
   customerName?: T;
   body?: T;
-  instagramContextType?: T;
-  instagramContextUrl?: T;
-  instagramContextPermalink?: T;
-  instagramContextMediaType?: T;
-  replyToExternalId?: T;
-  replyToText?: T;
-  adminReadAt?: T;
-  instagramSeenAt?: T;
-  conversationStatus?: T;
   status?: T;
   automationNote?: T;
   relatedOrder?: T;
   relatedCustomer?: T;
   sentByAutomation?: T;
   externalId?: T;
-  internalNote?: T;
+  aiProcessingStatus?: T;
+  aiAttempts?: T;
+  aiAvailableAt?: T;
+  aiStartedAt?: T;
+  aiCompletedAt?: T;
+  aiCancelledAt?: T;
+  aiLastError?: T;
+  aiDraftStatus?: T;
+  aiDraft?: T;
+  aiDraftConfidence?: T;
+  aiDraftSourceRecordIds?: T;
+  aiDraftReason?: T;
+  aiBotPaused?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1541,6 +1555,16 @@ export interface InstagramSpotlight {
    * e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.
    */
   highlightedPermalink?: string | null;
+  /**
+   * Attach products to a recent Instagram post. The storefront will show verified product links on that post.
+   */
+  productTags?:
+    | {
+        permalink: string;
+        products?: (number | Product)[] | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1697,6 +1721,13 @@ export interface HomeCollectionsSelect<T extends boolean = true> {
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
   highlightedPermalink?: T;
+  productTags?:
+    | T
+    | {
+        permalink?: T;
+        products?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

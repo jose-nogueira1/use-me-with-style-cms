@@ -2,7 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { sendOutboundMessage } from '../hooks/sendOutboundMessage'
 
-// Instagram messaging foundation (Phase 1, JOS-58 --
+// WhatsApp/Instagram messaging automation FOUNDATION (Phase 1, JOS-58 --
 // narrowly scoped, not a full AI agent). Every inbound message received via
 // the webhook and every outbound message (automated or admin-composed) is
 // logged here so there's one place ("Mensagens" in admin) to see
@@ -30,14 +30,9 @@ export const Messages: CollectionConfig = {
       type: 'select',
       required: true,
       options: [
+        { label: 'WhatsApp', value: 'whatsapp' },
         { label: 'Instagram', value: 'instagram' },
-        // WhatsApp is intentionally dormant for now. Keep the option close
-        // to the active channel so it can be restored without reconstructing
-        // the old schema when WhatsApp support returns.
-        // { label: 'WhatsApp', value: 'whatsapp' },
       ],
-      defaultValue: 'instagram',
-      admin: { readOnly: true },
     },
     {
       name: 'direction',
@@ -48,38 +43,12 @@ export const Messages: CollectionConfig = {
         { label: 'Outbound', value: 'outbound' },
       ],
     },
-    // Instagram-scoped user id -- the conversation key used by the admin
-    // inbox. (Previously also held WhatsApp phone numbers.)
-    { name: 'contactHandle', type: 'text', required: true, label: 'Instagram user ID' },
+    // The customer's WhatsApp phone number or Instagram-scoped user id --
+    // this is the conversation key (grouped by channel + this field in the
+    // admin Mensagens page).
+    { name: 'contactHandle', type: 'text', required: true, label: 'Phone / Instagram ID' },
     { name: 'customerName', type: 'text' },
     { name: 'body', type: 'textarea', required: true },
-    // Structured Instagram context used by the storefront inbox. These stay
-    // deliberately narrow: story replies, shared posts/Reels, inline replies,
-    // and a safe fallback for media the admin does not render.
-    { name: 'instagramContextType', type: 'text', admin: { readOnly: true } },
-    { name: 'instagramContextUrl', type: 'text', admin: { readOnly: true } },
-    { name: 'instagramContextPermalink', type: 'text', admin: { readOnly: true } },
-    { name: 'instagramContextMediaType', type: 'text', admin: { readOnly: true } },
-    { name: 'replyToExternalId', type: 'text', admin: { readOnly: true } },
-    { name: 'replyToText', type: 'textarea', admin: { readOnly: true } },
-    // Read state belongs to the admin workspace, not to the operational
-    // status below. Each inbound message is marked independently so a new
-    // webhook event reliably makes an existing conversation unread again.
-    { name: 'adminReadAt', type: 'date', admin: { readOnly: true } },
-    // Set when Meta's messaging_seen webhook confirms that the customer read
-    // an outbound message from Use Me.
-    { name: 'instagramSeenAt', type: 'date', admin: { readOnly: true } },
-    {
-      name: 'conversationStatus',
-      type: 'select',
-      defaultValue: 'needs_reply',
-      options: [
-        { label: 'Needs reply', value: 'needs_reply' },
-        { label: 'Waiting on customer', value: 'waiting' },
-        { label: 'Priority', value: 'priority' },
-        { label: 'Done', value: 'done' },
-      ],
-    },
     {
       name: 'status',
       type: 'select',
@@ -103,8 +72,37 @@ export const Messages: CollectionConfig = {
     // which is exactly when the hook SHOULD send it.
     { name: 'sentByAutomation', type: 'checkbox', defaultValue: false, admin: { readOnly: true } },
     { name: 'externalId', type: 'text', admin: { readOnly: true } },
-    // One private note is stored on the first message in a conversation. The
-    // storefront admin manages it; it is never transmitted to Instagram.
-    { name: 'internalNote', type: 'textarea' },
+    {
+      name: 'aiProcessingStatus',
+      type: 'select',
+      admin: { readOnly: true },
+      options: [
+        { label: 'Queued', value: 'queued' },
+        { label: 'Processing', value: 'processing' },
+        { label: 'Draft ready', value: 'draft_ready' },
+        { label: 'Failed', value: 'failed' },
+        { label: 'Cancelled', value: 'cancelled' },
+      ],
+    },
+    { name: 'aiAttempts', type: 'number', admin: { readOnly: true } },
+    { name: 'aiAvailableAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiStartedAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiCompletedAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiCancelledAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiLastError', type: 'text', admin: { readOnly: true } },
+    {
+      name: 'aiDraftStatus',
+      type: 'select',
+      admin: { readOnly: true },
+      options: [
+        { label: 'Queued', value: 'queued' }, { label: 'Draft ready', value: 'draft_ready' },
+        { label: 'Approved', value: 'approved' }, { label: 'Dismissed', value: 'dismissed' }, { label: 'Failed', value: 'failed' },
+      ],
+    },
+    { name: 'aiDraft', type: 'textarea', admin: { readOnly: true } },
+    { name: 'aiDraftConfidence', type: 'number', admin: { readOnly: true, step: 0.01 } },
+    { name: 'aiDraftSourceRecordIds', type: 'json', admin: { readOnly: true } },
+    { name: 'aiDraftReason', type: 'text', admin: { readOnly: true } },
+    { name: 'aiBotPaused', type: 'checkbox' },
   ],
 }

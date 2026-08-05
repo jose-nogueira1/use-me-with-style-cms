@@ -1,13 +1,8 @@
 import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { classifyIncomingMessage, markInstagramConversationSeen } from '../lib/messaging'
-// The AI/product-aware reply assistant is a later feature. Keep the existing
-// reply helpers dormant until that plan is implemented and approved.
-// import { buildAutoReply, sendInstagramMessage } from '../lib/messaging'
-// WhatsApp is dormant, not deleted. Restore this import with the commented
-// parser and reply branch below when the channel is brought back.
-// import { sendWhatsAppMessage } from '../lib/messaging'
+import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage, sendWhatsAppMessage } from '../lib/messaging'
+import { enqueueAiMessageJob } from '../lib/ai/jobs'
 
 // Unified Meta webhook for both WhatsApp Business and Instagram messaging
 // (JOS-58, Phase 1 messaging automation foundation). Meta's webhook
@@ -44,160 +39,11 @@ const verifyEndpoint: Endpoint = {
 }
 
 type InboundMessage = {
-  channel: 'instagram'
-  direction: 'inbound' | 'outbound'
+  channel: 'whatsapp' | 'instagram'
   contactHandle: string
   customerName?: string
   body: string
   externalId?: string
-  instagramContextType?: 'story_reply' | 'shared_post' | 'media' | 'inline_reply' | 'unsupported_media'
-  instagramContextUrl?: string
-  instagramContextPermalink?: string
-  instagramContextMediaType?: string
-  replyToExternalId?: string
-}
-
-type InstagramAttachment = {
-  type?: unknown
-  url?: unknown
-  permalink?: unknown
-  payload?: Record<string, unknown>
-}
-
-function validHttpUrl(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  try {
-    const url = new URL(value)
-    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : undefined
-  } catch {
-    return undefined
-  }
-}
-
-function instagramPermalink(...values: unknown[]): string | undefined {
-  return values
-    .map(validHttpUrl)
-    .find((value) => {
-      if (!value) return false
-      const hostname = new URL(value).hostname.toLowerCase()
-      return hostname === 'instagram.com' || hostname === 'www.instagram.com'
-    })
-}
-
-function attachmentUrl(attachment?: InstagramAttachment): string | undefined {
-  return validHttpUrl(
-    attachment?.payload?.url
-      ?? attachment?.payload?.media_url
-      ?? attachment?.payload?.image_url
-      ?? attachment?.payload?.video_url
-      ?? attachment?.url,
-  )
-}
-
-/**
- * Logs only the webhook's structural shape. This deliberately excludes
- * sender IDs, message IDs, text, URLs, tokens, and attachment values while
- * still telling us which Meta variant needs parser support.
- */
-export function summarizeInstagramEvent(event: any) {
-  const message = event?.message ?? {}
-  const attachments = Array.isArray(message.attachments) ? message.attachments : []
-  return {
-    messageKeys: Object.keys(message).sort(),
-    replyToKeys: Object.keys(message.reply_to ?? {}).sort(),
-    storyKeys: Object.keys(message.reply_to?.story ?? {}).sort(),
-    attachments: attachments.map((attachment: InstagramAttachment) => ({
-      type: typeof attachment?.type === 'string' ? attachment.type : 'unknown',
-      attachmentKeys: Object.keys(attachment ?? {}).sort(),
-      payloadKeys: Object.keys(attachment?.payload ?? {}).sort(),
-      hasUsableUrl: Boolean(attachmentUrl(attachment)),
-      hasInstagramPermalink: Boolean(instagramPermalink(
-        attachment?.permalink,
-        attachment?.payload?.permalink,
-        attachment?.payload?.post_url,
-      )),
-    })),
-  }
-}
-
-function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | null {
-  const senderId = event?.sender?.id
-  const recipientId = event?.recipient?.id
-  const message = event?.message
-  if (!senderId || !message) return null
-  const isOutbound = Boolean(message.is_echo) || String(senderId) === String(entryId)
-  const contactHandle = isOutbound ? recipientId : senderId
-  if (!contactHandle || String(contactHandle) === String(entryId)) return null
-
-  const attachments: InstagramAttachment[] = Array.isArray(message.attachments) ? message.attachments : []
-  const story = message.reply_to?.story
-  const replyToExternalId = message.reply_to?.mid
-  const normalizedType = (attachment?: InstagramAttachment) => String(attachment?.type ?? '').toLowerCase()
-  const shared = attachments.find((attachment) =>
-    ['share', 'ig_post', 'ig_reel', 'reel', 'media', 'post'].includes(normalizedType(attachment)),
-  )
-  const visualMedia = attachments.find((attachment) =>
-    ['image', 'photo', 'video'].includes(normalizedType(attachment)),
-  )
-  const unsupported = Boolean(message.is_unsupported) || attachments.length > 0
-
-  let instagramContextType: InboundMessage['instagramContextType']
-  let instagramContextUrl: string | undefined
-  let instagramContextPermalink: string | undefined
-  let instagramContextMediaType: string | undefined
-  if (story) {
-    instagramContextType = 'story_reply'
-    instagramContextUrl = validHttpUrl(story.url ?? story.media_url ?? story.image_url ?? story.video_url)
-    instagramContextPermalink = instagramPermalink(story.permalink, story.post_url)
-    instagramContextMediaType = story.video_url ? 'story_video' : 'story'
-  } else if (replyToExternalId) {
-    instagramContextType = 'inline_reply'
-  } else if (shared) {
-    instagramContextType = 'shared_post'
-    instagramContextUrl = attachmentUrl(shared)
-    instagramContextPermalink = instagramPermalink(
-      shared.permalink,
-      shared.payload?.permalink,
-      shared.payload?.post_url,
-      shared.payload?.url,
-    )
-    if (instagramContextUrl === instagramContextPermalink) instagramContextUrl = undefined
-    instagramContextMediaType = normalizedType(shared)
-  } else if (visualMedia) {
-    instagramContextType = 'media'
-    instagramContextUrl = attachmentUrl(visualMedia)
-    instagramContextMediaType = normalizedType(visualMedia)
-  } else if (unsupported) {
-    instagramContextType = 'unsupported_media'
-    instagramContextMediaType = normalizedType(attachments[0]) || undefined
-  }
-
-  const fallback = instagramContextType === 'story_reply'
-    ? 'Replied to your story'
-    : instagramContextType === 'shared_post'
-      ? 'Shared an Instagram post'
-      : instagramContextType === 'media'
-        ? 'Sent media'
-      : instagramContextType === 'unsupported_media'
-        ? 'Sent media — open this conversation on Instagram'
-        : instagramContextType === 'inline_reply'
-          ? 'Replied to a message'
-          : ''
-  const text = typeof message.text === 'string' ? message.text.trim() : ''
-  if (!text && !fallback) return null
-
-  return {
-    channel: 'instagram',
-    direction: isOutbound ? 'outbound' : 'inbound',
-    contactHandle: String(contactHandle),
-    body: text || fallback,
-    externalId: message.mid,
-    ...(instagramContextType ? { instagramContextType } : {}),
-    ...(instagramContextUrl ? { instagramContextUrl } : {}),
-    ...(instagramContextPermalink ? { instagramContextPermalink } : {}),
-    ...(instagramContextMediaType ? { instagramContextMediaType } : {}),
-    ...(replyToExternalId ? { replyToExternalId } : {}),
-  }
 }
 
 export function extractInboundMessages(payload: unknown): InboundMessage[] {
@@ -205,73 +51,42 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
   if (!payload || typeof payload !== 'object') return messages
   const body = payload as Record<string, unknown>
 
-  // Dormant WhatsApp parser (future reactivation):
-  // if (body.object === 'whatsapp_business_account') {
-  //   const entries = (body.entry as any[]) ?? []
-  //   for (const entry of entries) {
-  //     for (const change of entry.changes ?? []) {
-  //       const value = change.value ?? {}
-  //       const contacts = value.contacts ?? []
-  //       for (const msg of value.messages ?? []) {
-  //         if (msg.type !== 'text') continue
-  //         messages.push({
-  //           channel: 'whatsapp',
-  //           contactHandle: msg.from,
-  //           customerName: contacts.find((c: any) => c.wa_id === msg.from)?.profile?.name,
-  //           body: msg.text?.body ?? '',
-  //           externalId: msg.id,
-  //         })
-  //       }
-  //     }
-  //   }
-  // }
+  if (body.object === 'whatsapp_business_account') {
+    const entries = (body.entry as any[]) ?? []
+    for (const entry of entries) {
+      for (const change of entry.changes ?? []) {
+        const value = change.value ?? {}
+        const contacts = value.contacts ?? []
+        for (const msg of value.messages ?? []) {
+          if (msg.type !== 'text') continue
+          messages.push({
+            channel: 'whatsapp',
+            contactHandle: msg.from,
+            customerName: contacts.find((c: any) => c.wa_id === msg.from)?.profile?.name,
+            body: msg.text?.body ?? '',
+            externalId: msg.id,
+          })
+        }
+      }
+    }
+  }
 
   if (body.object === 'instagram') {
     const entries = (body.entry as any[]) ?? []
     for (const entry of entries) {
-      // Instagram API with Facebook Login sends the established Messenger-
-      // style shape (`entry[].messaging[]`). Keep supporting it because the
-      // production token currently uses the Page-based flow.
       for (const event of entry.messaging ?? []) {
-        // eslint-disable-next-line no-console
-        console.info('[instagram:webhook-shape]', summarizeInstagramEvent(event))
-        const parsed = extractInstagramEvent(entry.id, event)
-        if (parsed) messages.push(parsed)
-      }
-
-      // Meta's current v26 webhook tester (and Instagram Login webhooks) send
-      // the same message inside `entry[].changes[].value`. Supporting both
-      // shapes lets us migrate login modes later without losing inbound DMs.
-      for (const change of entry.changes ?? []) {
-        if (change.field !== 'messages') continue
-        const event = change.value ?? {}
-        // eslint-disable-next-line no-console
-        console.info('[instagram:webhook-shape]', summarizeInstagramEvent(event))
-        const parsed = extractInstagramEvent(entry.id, event)
-        if (parsed) messages.push(parsed)
+        if (!event.message?.text) continue
+        messages.push({
+          channel: 'instagram',
+          contactHandle: event.sender?.id,
+          body: event.message.text,
+          externalId: event.message.mid,
+        })
       }
     }
   }
 
   return messages
-}
-
-export function extractInstagramSeenReceipts(payload: unknown): Array<{ contactHandle: string; externalId: string; seenAt: string }> {
-  if (!payload || typeof payload !== 'object') return []
-  const body = payload as Record<string, any>
-  if (body.object !== 'instagram') return []
-  const receipts: Array<{ contactHandle: string; externalId: string; seenAt: string }> = []
-  for (const entry of body.entry ?? []) {
-    for (const event of entry.messaging ?? []) {
-      if (!event?.sender?.id || !event?.read?.mid) continue
-      receipts.push({
-        contactHandle: String(event.sender.id),
-        externalId: String(event.read.mid),
-        seenAt: new Date(typeof event.timestamp === 'number' ? event.timestamp : Date.now()).toISOString(),
-      })
-    }
-  }
-  return receipts
 }
 
 const eventsEndpoint: Endpoint = {
@@ -283,16 +98,10 @@ const eventsEndpoint: Endpoint = {
       const rawBody = await req.text?.()
       if (typeof rawBody !== 'string') return new Response('Bad Request', { status: 400 })
 
-      const appSecrets = [process.env.META_APP_SECRET, process.env.INSTAGRAM_APP_SECRET].filter(
-        (secret): secret is string => Boolean(secret),
-      )
-      if (appSecrets.length > 0) {
+      const appSecret = process.env.META_APP_SECRET
+      if (appSecret) {
         const signature = req.headers.get('x-hub-signature-256')
-        // Meta's Page/Facebook Login and Instagram Login products use
-        // different app secrets even when they share one callback URL.
-        // Accept a valid signature from either configured product while
-        // keeping unsigned or incorrectly signed requests rejected.
-        if (!appSecrets.some((secret) => verifyMetaWebhookSignature(rawBody, signature, secret))) {
+        if (!verifyMetaWebhookSignature(rawBody, signature, appSecret)) {
           return new Response('Unauthorized', { status: 401 })
         }
       }
@@ -300,36 +109,6 @@ const eventsEndpoint: Endpoint = {
       payload = JSON.parse(rawBody)
     } catch {
       return new Response('Bad Request', { status: 400 })
-    }
-
-    const receipts = extractInstagramSeenReceipts(payload)
-    for (const receipt of receipts) {
-      try {
-        const sent = await req.payload.find({
-          collection: 'messages',
-          where: {
-            and: [
-              { externalId: { equals: receipt.externalId } },
-              { contactHandle: { equals: receipt.contactHandle } },
-              { direction: { equals: 'outbound' } },
-            ],
-          },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
-        })
-        if (sent.docs[0]) {
-          await req.payload.update({
-            collection: 'messages',
-            id: sent.docs[0].id,
-            data: { instagramSeenAt: receipt.seenAt },
-            overrideAccess: true,
-          })
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[instagram:seen-receipt-failed]', err)
-      }
     }
 
     const inbound = extractInboundMessages(payload)
@@ -362,83 +141,70 @@ export function verifyMetaWebhookSignature(
 }
 
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
-  const intent = msg.direction === 'inbound' ? classifyIncomingMessage(msg.body) : 'unknown'
+  const intent = classifyIncomingMessage(msg.body)
 
-  // Meta retries webhooks when acknowledgements are delayed. `externalId` is
-  // the stable message id, so ignore an event we have already persisted.
-  if (msg.externalId) {
-    const existing = await payloadClient.find({
-      collection: 'messages',
-      where: { externalId: { equals: msg.externalId } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    })
-    if (existing.docs.length > 0) return
-  }
-
-  // An Admin reply is persisted before the Send API returns its Meta message
-  // ID. If Meta's echo races that update, match the recent local outbound row
-  // and attach the ID instead of creating a duplicate. A message composed in
-  // Instagram has no matching local row and is therefore imported normally.
-  if (msg.direction === 'outbound') {
-    const recentAdminReply = await payloadClient.find({
-      collection: 'messages',
-      where: {
-        and: [
-          { channel: { equals: 'instagram' } },
-          { direction: { equals: 'outbound' } },
-          { contactHandle: { equals: msg.contactHandle } },
-          { body: { equals: msg.body } },
-          { sentByAutomation: { equals: false } },
-          { createdAt: { greater_than: new Date(Date.now() - 2 * 60 * 1000).toISOString() } },
-        ],
-      },
+  let matchedOrder: { id: string; orderNumber: string; status: string } | null = null
+  if (intent === 'order_status' && msg.channel === 'whatsapp') {
+    const result = await payloadClient.find({
+      collection: 'orders',
+      where: { customerPhone: { equals: msg.contactHandle } },
       sort: '-createdAt',
       limit: 1,
-      depth: 0,
       overrideAccess: true,
     })
-    const matched = recentAdminReply.docs[0]
-    if (matched) {
-      if (msg.externalId && matched.externalId !== msg.externalId) {
-        await payloadClient.update({
-          collection: 'messages',
-          id: matched.id,
-          data: { externalId: msg.externalId },
-          overrideAccess: true,
-        })
-      }
-      return
-    }
+    matchedOrder = result.docs[0] ?? null
   }
 
-  let replyToText: string | undefined
-  if (msg.replyToExternalId) {
-    const repliedTo = await payloadClient.find({
-      collection: 'messages',
-      where: { externalId: { equals: msg.replyToExternalId } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    })
-    replyToText = repliedTo.docs[0]?.body
-  }
-
-  // WhatsApp could match a sender phone number directly to an order. An
-  // Instagram-scoped ID cannot be matched safely, so Instagram order-status
-  // questions remain open for an admin unless the customer supplies details.
-  // if (msg.channel === 'whatsapp' && intent === 'order_status') { ... }
-
-  let status: 'open' | 'escalated' | 'resolved' = msg.direction === 'outbound' ? 'resolved' : 'open'
-  let conversationStatus: 'needs_reply' | 'waiting' | 'priority' = msg.direction === 'outbound' ? 'waiting' : 'needs_reply'
-  let automationNote = msg.direction === 'outbound'
-    ? 'instagram-app -- synced outbound echo'
-    : 'instagram-inbox -- manual reply required'
-  if (msg.direction === 'inbound' && intent === 'sensitive') {
+  let status: 'open' | 'auto_handled' | 'escalated' = 'open'
+  let automationNote = 'unclassified -- needs manual review'
+  if (intent === 'sensitive') {
     status = 'escalated'
-    conversationStatus = 'priority'
     automationNote = 'sensitive-topic -- escalated to Raisa'
+  } else if (intent === 'order_status' && matchedOrder) {
+    status = 'auto_handled'
+    automationNote = 'order-status-auto-reply'
+  } else if (intent === 'order_status' && !matchedOrder) {
+    automationNote = 'order-status-question -- no matching order found'
+  } else if (intent === 'payment') {
+    status = 'auto_handled'
+    automationNote = 'payment-faq-auto-reply'
+  } else if (intent === 'delivery') {
+    status = 'auto_handled'
+    automationNote = 'delivery-faq-auto-reply'
+  }
+
+  const inboundDoc = await payloadClient.create({
+    collection: 'messages',
+    overrideAccess: true,
+    data: {
+      channel: msg.channel,
+      direction: 'inbound',
+      contactHandle: msg.contactHandle,
+      customerName: msg.customerName,
+      body: msg.body,
+      status,
+      automationNote,
+      relatedOrder: matchedOrder?.id,
+      externalId: msg.externalId,
+    },
+  })
+
+  // T02 only schedules eligible Instagram messages. The assistant remains
+  // dormant until an owner supplies the Use Me API key and enables a mode.
+  await enqueueAiMessageJob(payloadClient, {
+    id: inboundDoc.id,
+    channel: msg.channel,
+    direction: 'inbound',
+    contactHandle: msg.contactHandle,
+  })
+
+  const reply = buildAutoReply(intent, matchedOrder)
+  if (!reply) return
+
+  if (msg.channel === 'instagram') {
+    await sendInstagramMessage(msg.contactHandle, reply)
+  } else {
+    await sendWhatsAppMessage(msg.contactHandle, reply)
   }
 
   await payloadClient.create({
@@ -446,72 +212,16 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     overrideAccess: true,
     data: {
       channel: msg.channel,
-      direction: msg.direction,
+      direction: 'outbound',
       contactHandle: msg.contactHandle,
       customerName: msg.customerName,
-      body: msg.body,
+      body: reply,
       status,
-      conversationStatus,
       automationNote,
-      externalId: msg.externalId,
-      sentByAutomation: msg.direction === 'outbound',
-      instagramContextType: msg.instagramContextType,
-      instagramContextUrl: msg.instagramContextUrl,
-      instagramContextPermalink: msg.instagramContextPermalink,
-      instagramContextMediaType: msg.instagramContextMediaType,
-      replyToExternalId: msg.replyToExternalId,
-      replyToText,
+      relatedOrder: matchedOrder?.id,
+      sentByAutomation: true,
     },
   })
-
-  // Future AI-assisted reply path (deliberately dormant):
-  // const reply = await buildProductAwareInstagramReply(...)
-  // await sendInstagramMessage(msg.contactHandle, reply)
-  // await payloadClient.create({ collection: 'messages', ... })
-
-  // Dormant WhatsApp reply path (future reactivation):
-  // await sendWhatsAppMessage(msg.contactHandle, reply)
 }
 
-const markConversationReadEndpoint: Endpoint = {
-  path: '/instagram-conversations/read',
-  method: 'post',
-  handler: async (req) => {
-    if (!req.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    let contactHandle = ''
-    try {
-      const body = await req.json?.() as { contactHandle?: unknown }
-      contactHandle = typeof body?.contactHandle === 'string' ? body.contactHandle.trim() : ''
-    } catch {
-      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-    if (!contactHandle) return Response.json({ error: 'contactHandle is required' }, { status: 400 })
-
-    const unread = await req.payload.find({
-      collection: 'messages',
-      where: {
-        and: [
-          { channel: { equals: 'instagram' } },
-          { contactHandle: { equals: contactHandle } },
-          { direction: { equals: 'inbound' } },
-          { adminReadAt: { exists: false } },
-        ],
-      },
-      limit: 300,
-      depth: 0,
-      overrideAccess: true,
-    })
-    const readAt = new Date().toISOString()
-    await Promise.all(unread.docs.map((message: any) => req.payload.update({
-      collection: 'messages',
-      id: message.id,
-      data: { adminReadAt: readAt },
-      overrideAccess: true,
-    })))
-
-    const instagramSynced = await markInstagramConversationSeen(contactHandle)
-    return Response.json({ readAt, updatedIds: unread.docs.map((message: any) => message.id), instagramSynced })
-  },
-}
-
-export const messagingWebhookEndpoints: Endpoint[] = [verifyEndpoint, eventsEndpoint, markConversationReadEndpoint]
+export const messagingWebhookEndpoints: Endpoint[] = [verifyEndpoint, eventsEndpoint]
