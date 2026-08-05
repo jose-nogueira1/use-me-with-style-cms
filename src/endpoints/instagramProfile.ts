@@ -9,7 +9,9 @@ export const instagramProfileEndpoint: Endpoint = {
     const loginToken = token.startsWith('IGAA')
     const host = loginToken ? 'graph.instagram.com' : 'graph.facebook.com'
     const resource = loginToken ? handle : handle
-    const fields = loginToken ? 'user_id,username,name,profile_picture_url' : 'id,username,name,profile_picture_url'
+    // Instagram Login exposes username/name for messaging participants, but
+    // profile_picture_url is not a supported field on this endpoint.
+    const fields = loginToken ? 'user_id,username,name' : 'id,username,name,profile_picture_url'
     const response = await fetch(`https://${host}/v23.0/${resource}?fields=${fields}&access_token=${encodeURIComponent(token)}`)
     if (!response.ok) return Response.json({ username: handle, name: handle }, { status: 200 })
     const data = await response.json() as Record<string, unknown>
