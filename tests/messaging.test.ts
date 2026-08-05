@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { test } from 'node:test'
 
-import { extractInboundMessages, summarizeInstagramEvent, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
+import { extractInboundMessages, extractInstagramSeenReceipts, summarizeInstagramEvent, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
 import { buildAutoReply, classifyIncomingMessage } from '../src/lib/messaging'
 
 test('legacy rule helpers remain deterministic for a future assisted-reply plan', () => {
@@ -84,6 +84,26 @@ test('Instagram outbound echoes use the recipient as the customer conversation k
     contactHandle: 'customer-account',
     body: 'Reply from admin',
     externalId: 'echo-mid',
+  }])
+})
+
+test('Instagram seen webhooks identify the customer and outbound message', () => {
+  const receipts = extractInstagramSeenReceipts({
+    object: 'instagram',
+    entry: [{
+      id: 'business-account',
+      messaging: [{
+        sender: { id: 'customer-account' },
+        recipient: { id: 'business-account' },
+        timestamp: 1785924000000,
+        read: { mid: 'outbound-mid' },
+      }],
+    }],
+  })
+  assert.deepEqual(receipts, [{
+    contactHandle: 'customer-account',
+    externalId: 'outbound-mid',
+    seenAt: new Date(1785924000000).toISOString(),
   }])
 })
 

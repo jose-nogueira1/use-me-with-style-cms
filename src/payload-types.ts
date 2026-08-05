@@ -545,6 +545,9 @@ export interface Message {
   instagramContextMediaType?: string | null;
   replyToExternalId?: string | null;
   replyToText?: string | null;
+  adminReadAt?: string | null;
+  instagramSeenAt?: string | null;
+  conversationStatus?: ('needs_reply' | 'waiting' | 'priority' | 'done') | null;
   status?: ('open' | 'auto_handled' | 'escalated' | 'resolved') | null;
   automationNote?: string | null;
   relatedOrder?: (number | null) | Order;
@@ -1084,6 +1087,9 @@ export interface MessagesSelect<T extends boolean = true> {
   instagramContextMediaType?: T;
   replyToExternalId?: T;
   replyToText?: T;
+  adminReadAt?: T;
+  instagramSeenAt?: T;
+  conversationStatus?: T;
   status?: T;
   automationNote?: T;
   relatedOrder?: T;

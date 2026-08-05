@@ -62,6 +62,24 @@ export const Messages: CollectionConfig = {
     { name: 'instagramContextMediaType', type: 'text', admin: { readOnly: true } },
     { name: 'replyToExternalId', type: 'text', admin: { readOnly: true } },
     { name: 'replyToText', type: 'textarea', admin: { readOnly: true } },
+    // Read state belongs to the admin workspace, not to the operational
+    // status below. Each inbound message is marked independently so a new
+    // webhook event reliably makes an existing conversation unread again.
+    { name: 'adminReadAt', type: 'date', admin: { readOnly: true } },
+    // Set when Meta's messaging_seen webhook confirms that the customer read
+    // an outbound message from Use Me.
+    { name: 'instagramSeenAt', type: 'date', admin: { readOnly: true } },
+    {
+      name: 'conversationStatus',
+      type: 'select',
+      defaultValue: 'needs_reply',
+      options: [
+        { label: 'Needs reply', value: 'needs_reply' },
+        { label: 'Waiting on customer', value: 'waiting' },
+        { label: 'Priority', value: 'priority' },
+        { label: 'Done', value: 'done' },
+      ],
+    },
     {
       name: 'status',
       type: 'select',

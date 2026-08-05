@@ -144,6 +144,38 @@ export async function sendInstagramMessage(toIgId: string, message: string): Pro
   return result.message_id
 }
 
+/**
+ * Best-effort Instagram read synchronization. Local unread state is updated
+ * even if Meta rejects this sender action; that keeps the support workspace
+ * dependable while allowing accounts/API versions that support mark_seen to
+ * mirror the action in Instagram.
+ */
+export async function markInstagramConversationSeen(toIgId: string): Promise<boolean> {
+  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+  if (!token) return false
+
+  try {
+    const res = await fetch('https://graph.instagram.com/v26.0/me/messages', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ recipient: { id: toIgId }, sender_action: 'mark_seen' }),
+    })
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.info('[instagram:mark-seen-unavailable]', res.status)
+      return false
+    }
+    return true
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.info('[instagram:mark-seen-error]', error)
+    return false
+  }
+}
+
 export type InstagramUserProfile = {
   id: string
   name?: string

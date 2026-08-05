@@ -1,7 +1,7 @@
 import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { classifyIncomingMessage } from '../lib/messaging'
+import { classifyIncomingMessage, markInstagramConversationSeen } from '../lib/messaging'
 // The AI/product-aware reply assistant is a later feature. Keep the existing
 // reply helpers dormant until that plan is implemented and approved.
 // import { buildAutoReply, sendInstagramMessage } from '../lib/messaging'
@@ -256,6 +256,24 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
   return messages
 }
 
+export function extractInstagramSeenReceipts(payload: unknown): Array<{ contactHandle: string; externalId: string; seenAt: string }> {
+  if (!payload || typeof payload !== 'object') return []
+  const body = payload as Record<string, any>
+  if (body.object !== 'instagram') return []
+  const receipts: Array<{ contactHandle: string; externalId: string; seenAt: string }> = []
+  for (const entry of body.entry ?? []) {
+    for (const event of entry.messaging ?? []) {
+      if (!event?.sender?.id || !event?.read?.mid) continue
+      receipts.push({
+        contactHandle: String(event.sender.id),
+        externalId: String(event.read.mid),
+        seenAt: new Date(typeof event.timestamp === 'number' ? event.timestamp : Date.now()).toISOString(),
+      })
+    }
+  }
+  return receipts
+}
+
 const eventsEndpoint: Endpoint = {
   path: '/messaging-webhook',
   method: 'post',
@@ -282,6 +300,36 @@ const eventsEndpoint: Endpoint = {
       payload = JSON.parse(rawBody)
     } catch {
       return new Response('Bad Request', { status: 400 })
+    }
+
+    const receipts = extractInstagramSeenReceipts(payload)
+    for (const receipt of receipts) {
+      try {
+        const sent = await req.payload.find({
+          collection: 'messages',
+          where: {
+            and: [
+              { externalId: { equals: receipt.externalId } },
+              { contactHandle: { equals: receipt.contactHandle } },
+              { direction: { equals: 'outbound' } },
+            ],
+          },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+        })
+        if (sent.docs[0]) {
+          await req.payload.update({
+            collection: 'messages',
+            id: sent.docs[0].id,
+            data: { instagramSeenAt: receipt.seenAt },
+            overrideAccess: true,
+          })
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[instagram:seen-receipt-failed]', err)
+      }
     }
 
     const inbound = extractInboundMessages(payload)
@@ -383,11 +431,13 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   // if (msg.channel === 'whatsapp' && intent === 'order_status') { ... }
 
   let status: 'open' | 'escalated' | 'resolved' = msg.direction === 'outbound' ? 'resolved' : 'open'
+  let conversationStatus: 'needs_reply' | 'waiting' | 'priority' = msg.direction === 'outbound' ? 'waiting' : 'needs_reply'
   let automationNote = msg.direction === 'outbound'
     ? 'instagram-app -- synced outbound echo'
     : 'instagram-inbox -- manual reply required'
   if (msg.direction === 'inbound' && intent === 'sensitive') {
     status = 'escalated'
+    conversationStatus = 'priority'
     automationNote = 'sensitive-topic -- escalated to Raisa'
   }
 
@@ -401,6 +451,7 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       customerName: msg.customerName,
       body: msg.body,
       status,
+      conversationStatus,
       automationNote,
       externalId: msg.externalId,
       sentByAutomation: msg.direction === 'outbound',
@@ -422,4 +473,45 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   // await sendWhatsAppMessage(msg.contactHandle, reply)
 }
 
-export const messagingWebhookEndpoints: Endpoint[] = [verifyEndpoint, eventsEndpoint]
+const markConversationReadEndpoint: Endpoint = {
+  path: '/instagram-conversations/read',
+  method: 'post',
+  handler: async (req) => {
+    if (!req.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    let contactHandle = ''
+    try {
+      const body = await req.json?.() as { contactHandle?: unknown }
+      contactHandle = typeof body?.contactHandle === 'string' ? body.contactHandle.trim() : ''
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    if (!contactHandle) return Response.json({ error: 'contactHandle is required' }, { status: 400 })
+
+    const unread = await req.payload.find({
+      collection: 'messages',
+      where: {
+        and: [
+          { channel: { equals: 'instagram' } },
+          { contactHandle: { equals: contactHandle } },
+          { direction: { equals: 'inbound' } },
+          { adminReadAt: { exists: false } },
+        ],
+      },
+      limit: 300,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const readAt = new Date().toISOString()
+    await Promise.all(unread.docs.map((message: any) => req.payload.update({
+      collection: 'messages',
+      id: message.id,
+      data: { adminReadAt: readAt },
+      overrideAccess: true,
+    })))
+
+    const instagramSynced = await markInstagramConversationSeen(contactHandle)
+    return Response.json({ readAt, updatedIds: unread.docs.map((message: any) => message.id), instagramSynced })
+  },
+}
+
+export const messagingWebhookEndpoints: Endpoint[] = [verifyEndpoint, eventsEndpoint, markConversationReadEndpoint]
