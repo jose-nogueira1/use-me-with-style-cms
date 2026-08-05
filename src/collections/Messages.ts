@@ -53,6 +53,14 @@ export const Messages: CollectionConfig = {
     { name: 'contactHandle', type: 'text', required: true, label: 'Instagram user ID' },
     { name: 'customerName', type: 'text' },
     { name: 'body', type: 'textarea', required: true },
+    // Structured Instagram context used by the storefront inbox. These stay
+    // deliberately narrow: story replies, shared posts/Reels, inline replies,
+    // and a safe fallback for media the admin does not render.
+    { name: 'instagramContextType', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextUrl', type: 'text', admin: { readOnly: true } },
+    { name: 'instagramContextMediaType', type: 'text', admin: { readOnly: true } },
+    { name: 'replyToExternalId', type: 'text', admin: { readOnly: true } },
+    { name: 'replyToText', type: 'textarea', admin: { readOnly: true } },
     {
       name: 'status',
       type: 'select',
@@ -76,5 +84,8 @@ export const Messages: CollectionConfig = {
     // which is exactly when the hook SHOULD send it.
     { name: 'sentByAutomation', type: 'checkbox', defaultValue: false, admin: { readOnly: true } },
     { name: 'externalId', type: 'text', admin: { readOnly: true } },
+    // One private note is stored on the first message in a conversation. The
+    // storefront admin manages it; it is never transmitted to Instagram.
+    { name: 'internalNote', type: 'textarea' },
   ],
 }

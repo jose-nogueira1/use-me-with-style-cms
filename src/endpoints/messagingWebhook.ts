@@ -49,6 +49,66 @@ type InboundMessage = {
   customerName?: string
   body: string
   externalId?: string
+  instagramContextType?: 'story_reply' | 'shared_post' | 'inline_reply' | 'unsupported_media'
+  instagramContextUrl?: string
+  instagramContextMediaType?: string
+  replyToExternalId?: string
+}
+
+function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | null {
+  const senderId = event?.sender?.id
+  const message = event?.message
+  if (!senderId || !message) return null
+  if (message.is_echo || String(senderId) === String(entryId)) return null
+
+  const attachments = Array.isArray(message.attachments) ? message.attachments : []
+  const story = message.reply_to?.story
+  const replyToExternalId = message.reply_to?.mid
+  const shared = attachments.find((attachment: any) =>
+    ['share', 'ig_reel', 'reel', 'media'].includes(String(attachment?.type ?? '').toLowerCase()),
+  )
+  const unsupported = Boolean(message.is_unsupported) || attachments.length > 0
+
+  let instagramContextType: InboundMessage['instagramContextType']
+  let instagramContextUrl: string | undefined
+  let instagramContextMediaType: string | undefined
+  if (story) {
+    instagramContextType = 'story_reply'
+    instagramContextUrl = story.url
+    instagramContextMediaType = 'story'
+  } else if (replyToExternalId) {
+    instagramContextType = 'inline_reply'
+  } else if (shared) {
+    instagramContextType = 'shared_post'
+    instagramContextUrl = shared.payload?.url
+    instagramContextMediaType = shared.type
+  } else if (unsupported) {
+    instagramContextType = 'unsupported_media'
+    instagramContextMediaType = attachments[0]?.type
+  }
+
+  const fallback = instagramContextType === 'story_reply'
+    ? 'Replied to your story'
+    : instagramContextType === 'shared_post'
+      ? 'Shared an Instagram post'
+      : instagramContextType === 'unsupported_media'
+        ? 'Sent media — open this conversation on Instagram'
+        : instagramContextType === 'inline_reply'
+          ? 'Replied to a message'
+          : ''
+  const text = typeof message.text === 'string' ? message.text.trim() : ''
+  if (!text && !fallback) return null
+
+  return {
+    channel: 'instagram',
+    contactHandle: String(senderId),
+    body: text || fallback,
+    externalId: message.mid,
+    ...(instagramContextType ? { instagramContextType } : {}),
+    ...(instagramContextUrl ? { instagramContextUrl } : {}),
+    ...(instagramContextMediaType ? { instagramContextMediaType } : {}),
+    ...(replyToExternalId ? { replyToExternalId } : {}),
+  }
 }
 
 export function extractInboundMessages(payload: unknown): InboundMessage[] {
@@ -84,18 +144,8 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
       // style shape (`entry[].messaging[]`). Keep supporting it because the
       // production token currently uses the Page-based flow.
       for (const event of entry.messaging ?? []) {
-        if (!event.sender?.id || !event.message?.text) continue
-        // Meta echoes messages sent by the business back to the webhook. The
-        // admin-created outbound row is already stored before it is sent, so
-        // persisting the echo would duplicate it and create a second thread
-        // keyed by the business account's own Instagram ID.
-        if (event.message?.is_echo || String(event.sender.id) === String(entry.id)) continue
-        messages.push({
-          channel: 'instagram',
-          contactHandle: event.sender?.id,
-          body: event.message.text,
-          externalId: event.message.mid,
-        })
+        const parsed = extractInstagramEvent(entry.id, event)
+        if (parsed) messages.push(parsed)
       }
 
       // Meta's current v26 webhook tester (and Instagram Login webhooks) send
@@ -104,14 +154,8 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
       for (const change of entry.changes ?? []) {
         if (change.field !== 'messages') continue
         const event = change.value ?? {}
-        if (!event.sender?.id || !event.message?.text) continue
-        if (event.message?.is_echo || String(event.sender.id) === String(entry.id)) continue
-        messages.push({
-          channel: 'instagram',
-          contactHandle: event.sender?.id,
-          body: event.message.text,
-          externalId: event.message.mid,
-        })
+        const parsed = extractInstagramEvent(entry.id, event)
+        if (parsed) messages.push(parsed)
       }
     }
   }
@@ -192,6 +236,18 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     if (existing.docs.length > 0) return
   }
 
+  let replyToText: string | undefined
+  if (msg.replyToExternalId) {
+    const repliedTo = await payloadClient.find({
+      collection: 'messages',
+      where: { externalId: { equals: msg.replyToExternalId } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    replyToText = repliedTo.docs[0]?.body
+  }
+
   // WhatsApp could match a sender phone number directly to an order. An
   // Instagram-scoped ID cannot be matched safely, so Instagram order-status
   // questions remain open for an admin unless the customer supplies details.
@@ -216,6 +272,11 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       status,
       automationNote,
       externalId: msg.externalId,
+      instagramContextType: msg.instagramContextType,
+      instagramContextUrl: msg.instagramContextUrl,
+      instagramContextMediaType: msg.instagramContextMediaType,
+      replyToExternalId: msg.replyToExternalId,
+      replyToText,
     },
   })
 

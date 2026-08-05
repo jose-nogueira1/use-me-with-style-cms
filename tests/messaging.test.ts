@@ -89,6 +89,63 @@ test('Instagram outbound echoes are ignored instead of creating a second convers
   assert.deepEqual(messages, [])
 })
 
+test('Instagram story replies retain the story preview and customer text', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      recipient: { id: 'business' },
+      message: {
+        mid: 'story-reply-mid',
+        text: 'Is this dress available?',
+        reply_to: { story: { id: 'story-id', url: 'https://cdn.example/story.jpg' } },
+      },
+    }] }],
+  })
+  assert.deepEqual(messages, [{
+    channel: 'instagram',
+    contactHandle: 'customer',
+    body: 'Is this dress available?',
+    externalId: 'story-reply-mid',
+    instagramContextType: 'story_reply',
+    instagramContextUrl: 'https://cdn.example/story.jpg',
+    instagramContextMediaType: 'story',
+  }])
+})
+
+test('Instagram shared posts and inline replies retain useful sales context', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [
+      {
+        sender: { id: 'customer' },
+        message: { mid: 'share-mid', attachments: [{ type: 'ig_reel', payload: { url: 'https://cdn.example/reel.mp4' } }] },
+      },
+      {
+        sender: { id: 'customer' },
+        message: { mid: 'reply-mid', text: 'Yes, that one', reply_to: { mid: 'original-mid' } },
+      },
+    ] }],
+  })
+  assert.equal(messages[0]?.instagramContextType, 'shared_post')
+  assert.equal(messages[0]?.instagramContextMediaType, 'ig_reel')
+  assert.equal(messages[0]?.body, 'Shared an Instagram post')
+  assert.equal(messages[1]?.instagramContextType, 'inline_reply')
+  assert.equal(messages[1]?.replyToExternalId, 'original-mid')
+})
+
+test('unsupported Instagram media is retained as an actionable fallback', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      message: { mid: 'voice-mid', attachments: [{ type: 'audio', payload: { url: 'https://cdn.example/audio' } }] },
+    }] }],
+  })
+  assert.equal(messages[0]?.instagramContextType, 'unsupported_media')
+  assert.match(messages[0]?.body ?? '', /open this conversation on Instagram/i)
+})
+
 test('Meta webhook signatures require an exact HMAC match', () => {
   const body = JSON.stringify({ object: 'instagram' })
   const secret = 'test-app-secret'
