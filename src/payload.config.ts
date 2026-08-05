@@ -39,6 +39,7 @@ import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { couponsEndpoints } from './endpoints/coupons'
 import { taxRatesEndpoint } from './endpoints/taxRates'
+import { aiAssistantEndpoint } from './endpoints/aiAssistant'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -174,6 +175,7 @@ export default buildConfig({
     instagramProfileEndpoint,
     ...couponsEndpoints,
     taxRatesEndpoint,
+    aiAssistantEndpoint,
   ],
   editor: lexicalEditor(),
   plugins,

@@ -34,8 +34,14 @@ const isDirectExecution = process.argv[1] && import.meta.url === new URL(`file:/
 if (isDirectExecution) {
   const startedAt = Date.now()
   releaseExpiredReservations()
-    .then(({ released }) => {
-      console.log(JSON.stringify({ event: 'inventory_cleanup_cron_completed', released, durationMs: Date.now() - startedAt }))
+    .then(async ({ released }) => {
+    console.log(JSON.stringify({ event: 'inventory_cleanup_cron_completed', released, durationMs: Date.now() - startedAt }))
+    const baseUrl = process.env.PAYLOAD_PUBLIC_SERVER_URL
+    const cronSecret = process.env.CRON_SECRET
+    const aiResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/api/ai/process`, { method: 'POST', headers: { authorization: `Bearer ${cronSecret}` } })
+    const aiBody = await aiResponse.text()
+    if (!aiResponse.ok) throw new Error(`AI worker failed (${aiResponse.status}): ${aiBody.slice(0, 500)}`)
+    console.log(JSON.stringify({ event: 'ai_message_worker_completed', result: JSON.parse(aiBody) }))
     })
     .catch((error) => {
       console.error(JSON.stringify({
