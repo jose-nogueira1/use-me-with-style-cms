@@ -189,7 +189,7 @@ export async function getInstagramUserProfile(igScopedId: string): Promise<Insta
   if (!token) return null
 
   try {
-    const params = new URLSearchParams({ fields: 'id,name,username' })
+    const params = new URLSearchParams({ fields: 'id,name,username,profile_pic,is_verified_user' })
     const response = await fetch(`https://graph.instagram.com/v23.0/${encodeURIComponent(igScopedId)}?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
