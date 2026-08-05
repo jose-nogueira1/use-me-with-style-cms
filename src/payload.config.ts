@@ -38,7 +38,7 @@ import { inventoryReservationEndpoints } from './endpoints/inventoryReservations
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { couponsEndpoints } from './endpoints/coupons'
 import { taxRatesEndpoint } from './endpoints/taxRates'
-import { aiAssistantEndpoint } from './endpoints/aiAssistant'
+import { aiAssistantEndpoint, aiAssistantStatusEndpoint } from './endpoints/aiAssistant'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { migrations } from './migrations'
 
@@ -175,6 +175,7 @@ export default buildConfig({
     ...couponsEndpoints,
     taxRatesEndpoint,
     aiAssistantEndpoint,
+    aiAssistantStatusEndpoint,
     instagramProfileEndpoint,
   ],
   editor: lexicalEditor(),

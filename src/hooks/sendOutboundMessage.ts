@@ -1,6 +1,7 @@
 import type { CollectionAfterChangeHook } from 'payload'
 
 import { sendInstagramMessage } from '../lib/messaging'
+import { cancelPendingAiJobs } from '../lib/ai/jobs'
 // WhatsApp is dormant, not deleted. Restore this import together with the
 // guarded branch below when WhatsApp returns to the admin inbox.
 // import { sendWhatsAppMessage } from '../lib/messaging'
@@ -11,7 +12,7 @@ import { sendInstagramMessage } from '../lib/messaging'
 // makes an admin composing a reply in the Mensagens UI actually deliver it:
 // they create a `direction: outbound` doc with `sentByAutomation` left
 // false, and this hook does the rest.
-export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, operation }) => {
+export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create') return doc
   if (doc.direction !== 'outbound') return doc
   if (doc.sentByAutomation) return doc
@@ -20,6 +21,10 @@ export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, oper
   // newly-created WhatsApp rows, but keep this guard as a second boundary so
   // an old/imported WhatsApp document can never trigger an outbound send.
   if (doc.channel !== 'instagram') return doc
+  // A human reply always wins. Cancel any debounced/in-flight AI job for
+  // this conversation before sending so the cron cannot create a stale
+  // suggestion after the operator has already answered.
+  await cancelPendingAiJobs(req.payload as any, String(doc.contactHandle))
   // Deliver during creation, but do not perform a nested update of the same
   // document from inside afterChange. Payload can return 404 before the new
   // row is visible to that second operation, turning a successful Meta send

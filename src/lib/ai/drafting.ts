@@ -71,13 +71,13 @@ export function validateDraft(value: unknown, facts: DraftFacts): DraftResult {
   if (typeof value.requiresHuman !== 'boolean') throw new Error('AI draft is missing requiresHuman')
   if (!Array.isArray(value.sourceRecordIds) || value.sourceRecordIds.some((id) => typeof id !== 'string')) throw new Error('AI draft has invalid source records')
   const allowedUrls = [facts.product?.productUrl, ...(facts.alternatives || []).map((product) => product.productUrl)].filter((url): url is string => Boolean(url))
-  const urls = value.reply.match(/https?:\/\/[^\s)]+|\/products\/[A-Za-z0-9%_-]+/g) || []
+  const urls = value.reply.match(/https?:\/\/[^\s)]+|\/produto\/[A-Za-z0-9%_-]+/g) || []
   if (urls.some((url) => !allowedUrls.some((allowed) => url.startsWith(allowed)))) throw new Error('AI draft contains an unapproved product link')
   return { reply: value.reply.trim(), requiresHuman: value.requiresHuman, sourceRecordIds: value.sourceRecordIds }
 }
 
-export async function draftInstagramReply(provider: AiProvider, input: DraftRequestInput): Promise<{ draft: DraftResult; usage?: AiUsage; requestId?: string }> {
+export async function draftInstagramReply(provider: AiProvider, input: DraftRequestInput): Promise<{ draft: DraftResult; usage?: AiUsage; requestId?: string; model: string }> {
   if (!input.customerMessage.trim()) throw new Error('Cannot draft a reply to an empty message')
   const response = await provider.complete<unknown>(buildDraftRequest(input))
-  return { draft: validateDraft(response.output, input.facts), usage: response.usage, requestId: response.requestId }
+  return { draft: validateDraft(response.output, input.facts), usage: response.usage, requestId: response.requestId, model: response.model }
 }
