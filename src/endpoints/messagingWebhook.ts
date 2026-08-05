@@ -85,6 +85,11 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
       // production token currently uses the Page-based flow.
       for (const event of entry.messaging ?? []) {
         if (!event.sender?.id || !event.message?.text) continue
+        // Meta echoes messages sent by the business back to the webhook. The
+        // admin-created outbound row is already stored before it is sent, so
+        // persisting the echo would duplicate it and create a second thread
+        // keyed by the business account's own Instagram ID.
+        if (event.message?.is_echo || String(event.sender.id) === String(entry.id)) continue
         messages.push({
           channel: 'instagram',
           contactHandle: event.sender?.id,
@@ -100,6 +105,7 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
         if (change.field !== 'messages') continue
         const event = change.value ?? {}
         if (!event.sender?.id || !event.message?.text) continue
+        if (event.message?.is_echo || String(event.sender.id) === String(entry.id)) continue
         messages.push({
           channel: 'instagram',
           contactHandle: event.sender?.id,

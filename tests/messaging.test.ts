@@ -66,6 +66,29 @@ test('Instagram v26 changes payloads from Meta webhook testing are extracted', (
   }])
 })
 
+test('Instagram outbound echoes are ignored instead of creating a second conversation', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{
+      id: 'business-account',
+      messaging: [{
+        sender: { id: 'business-account' },
+        recipient: { id: 'customer-account' },
+        message: { mid: 'echo-mid', text: 'Reply from admin', is_echo: true },
+      }],
+      changes: [{
+        field: 'messages',
+        value: {
+          sender: { id: 'business-account' },
+          recipient: { id: 'customer-account' },
+          message: { mid: 'echo-mid-2', text: 'Reply from admin' },
+        },
+      }],
+    }],
+  })
+  assert.deepEqual(messages, [])
+})
+
 test('Meta webhook signatures require an exact HMAC match', () => {
   const body = JSON.stringify({ object: 'instagram' })
   const secret = 'test-app-secret'
