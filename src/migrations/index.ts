@@ -50,10 +50,11 @@ import * as migration_20260804_160000_invoice_vat_region from './20260804_160000
 import * as migration_20260804_170000_home_content_curation from './20260804_170000_home_content_curation';
 import * as migration_20260804_180000_home_content_split from './20260804_180000_home_content_split';
 import * as migration_20260804_220000_email_first_support from './20260804_220000_email_first_support';
-import * as migration_20260804_223000_email_first_legal_copy_fix from './20260804_223000_email_first_legal_copy_fix';
-import * as migration_20260805_020000_instagram_rich_inbox from './20260805_020000_instagram_rich_inbox';
-import * as migration_20260805_030000_instagram_context_permalink from './20260805_030000_instagram_context_permalink';
-import * as migration_20260805_040000_instagram_inbox_workflow from './20260805_040000_instagram_inbox_workflow';
+import * as migration_20260805_090000_ai_message_jobs from './20260805_090000_ai_message_jobs';
+import * as migration_20260805_100000_ai_draft_fields from './20260805_100000_ai_draft_fields';
+import * as migration_20260805_110000_instagram_product_tags from './20260805_110000_instagram_product_tags';
+import * as migration_20260805_120000_fix_instagram_spotlight_rels from './20260805_120000_fix_instagram_spotlight_rels';
+import * as migration_20260805_130000_fix_instagram_spotlight_product_rel from './20260805_130000_fix_instagram_spotlight_product_rel';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -316,23 +317,28 @@ export const migrations = [
     name: '20260804_220000_email_first_support',
   },
   {
-    up: migration_20260804_223000_email_first_legal_copy_fix.up,
-    down: migration_20260804_223000_email_first_legal_copy_fix.down,
-    name: '20260804_223000_email_first_legal_copy_fix',
+    up: migration_20260805_090000_ai_message_jobs.up,
+    down: migration_20260805_090000_ai_message_jobs.down,
+    name: '20260805_090000_ai_message_jobs',
   },
   {
-    up: migration_20260805_020000_instagram_rich_inbox.up,
-    down: migration_20260805_020000_instagram_rich_inbox.down,
-    name: '20260805_020000_instagram_rich_inbox',
+    up: migration_20260805_100000_ai_draft_fields.up,
+    down: migration_20260805_100000_ai_draft_fields.down,
+    name: '20260805_100000_ai_draft_fields',
   },
   {
-    up: migration_20260805_030000_instagram_context_permalink.up,
-    down: migration_20260805_030000_instagram_context_permalink.down,
-    name: '20260805_030000_instagram_context_permalink',
+    up: migration_20260805_110000_instagram_product_tags.up,
+    down: migration_20260805_110000_instagram_product_tags.down,
+    name: '20260805_110000_instagram_product_tags',
   },
   {
-    up: migration_20260805_040000_instagram_inbox_workflow.up,
-    down: migration_20260805_040000_instagram_inbox_workflow.down,
-    name: '20260805_040000_instagram_inbox_workflow',
+    up: migration_20260805_120000_fix_instagram_spotlight_rels.up,
+    down: migration_20260805_120000_fix_instagram_spotlight_rels.down,
+    name: '20260805_120000_fix_instagram_spotlight_rels',
+  },
+  {
+    up: migration_20260805_130000_fix_instagram_spotlight_product_rel.up,
+    down: migration_20260805_130000_fix_instagram_spotlight_product_rel.down,
+    name: '20260805_130000_fix_instagram_spotlight_product_rel',
   },
 ];

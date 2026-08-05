@@ -1,0 +1,849 @@
+import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
+
+export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  await db.execute(sql`
+   CREATE TYPE "public"."enum_products_variants_size" AS ENUM('XS', 'S', 'M', 'L', 'XL');
+  CREATE TYPE "public"."enum_size_guides_rows_size" AS ENUM('XS', 'S', 'M', 'L', 'XL');
+  CREATE TYPE "public"."enum_orders_market" AS ENUM('AO', 'PT');
+  CREATE TYPE "public"."enum_orders_status" AS ENUM('new', 'payment_review', 'processing', 'shipped', 'delivered', 'cancelled');
+  CREATE TYPE "public"."enum_orders_lang" AS ENUM('pt', 'en');
+  CREATE TYPE "public"."enum_orders_delivery_region" AS ENUM('mainland', 'madeira', 'azores');
+  CREATE TYPE "public"."enum_orders_currency" AS ENUM('Kz', 'EUR');
+  CREATE TYPE "public"."enum_orders_payment_method" AS ENUM('paypal', 'stripe', 'mbway', 'multicaixa_express', 'manual_whatsapp', 'bank_transfer_ao', 'sweg_appypay');
+  CREATE TYPE "public"."enum_orders_payment_status" AS ENUM('pending', 'awaiting_manual_review', 'paid', 'failed');
+  CREATE TYPE "public"."enum_orders_inventory_reservation_status" AS ENUM('none', 'active', 'committed', 'released');
+  CREATE TYPE "public"."enum_orders_delivery_method" AS ENUM('ctt', 'courier_pt', 'courier_ao', 'manual_ao');
+  CREATE TYPE "public"."enum_orders_appy_pay_status" AS ENUM('Requested', 'Pending', 'Success', 'Failed');
+  CREATE TYPE "public"."enum_customers_market" AS ENUM('AO', 'PT');
+  CREATE TYPE "public"."enum_messages_channel" AS ENUM('whatsapp', 'instagram');
+  CREATE TYPE "public"."enum_messages_direction" AS ENUM('inbound', 'outbound');
+  CREATE TYPE "public"."enum_messages_status" AS ENUM('open', 'auto_handled', 'escalated', 'resolved');
+  CREATE TYPE "public"."enum_invoices_status" AS ENUM('issued', 'failed');
+  CREATE TYPE "public"."enum_invoices_market" AS ENUM('AO', 'PT');
+  CREATE TYPE "public"."enum_invoices_currency" AS ENUM('Kz', 'EUR');
+  CREATE TYPE "public"."enum_invoices_vat_region" AS ENUM('mainland', 'madeira', 'azores', 'flat');
+  CREATE TYPE "public"."enum_coupons_type" AS ENUM('percent', 'fixed', 'free_shipping');
+  CREATE TYPE "public"."enum_market_settings_angola_payment_methods" AS ENUM('multicaixa_express', 'stripe', 'paypal');
+  CREATE TYPE "public"."enum_market_settings_angola_delivery_methods" AS ENUM('courier_ao');
+  CREATE TYPE "public"."enum_market_settings_portugal_payment_methods" AS ENUM('paypal', 'stripe', 'mbway');
+  CREATE TYPE "public"."enum_market_settings_portugal_delivery_methods" AS ENUM('ctt', 'courier_pt');
+  CREATE TYPE "public"."enum_home_content_hero_cta_type" AS ENUM('all', 'category', 'tag');
+  CREATE TYPE "public"."enum__home_content_v_version_hero_cta_type" AS ENUM('all', 'category', 'tag');
+  CREATE TABLE "users_sessions" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"created_at" timestamp(3) with time zone,
+  	"expires_at" timestamp(3) with time zone NOT NULL
+  );
+  
+  CREATE TABLE "users" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"email" varchar NOT NULL,
+  	"reset_password_token" varchar,
+  	"reset_password_expiration" timestamp(3) with time zone,
+  	"salt" varchar,
+  	"hash" varchar,
+  	"login_attempts" numeric DEFAULT 0,
+  	"lock_until" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "media" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"alt" varchar NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"url" varchar,
+  	"thumbnail_u_r_l" varchar,
+  	"filename" varchar,
+  	"mime_type" varchar,
+  	"filesize" numeric,
+  	"width" numeric,
+  	"height" numeric,
+  	"focal_x" numeric,
+  	"focal_y" numeric,
+  	"sizes_thumbnail_url" varchar,
+  	"sizes_thumbnail_width" numeric,
+  	"sizes_thumbnail_height" numeric,
+  	"sizes_thumbnail_mime_type" varchar,
+  	"sizes_thumbnail_filesize" numeric,
+  	"sizes_thumbnail_filename" varchar,
+  	"sizes_card_url" varchar,
+  	"sizes_card_width" numeric,
+  	"sizes_card_height" numeric,
+  	"sizes_card_mime_type" varchar,
+  	"sizes_card_filesize" numeric,
+  	"sizes_card_filename" varchar
+  );
+  
+  CREATE TABLE "products_images" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"image_id" integer NOT NULL
+  );
+  
+  CREATE TABLE "products_variants" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"color_id" integer NOT NULL,
+  	"size" "enum_products_variants_size" NOT NULL,
+  	"stock_a_o" numeric DEFAULT 0 NOT NULL,
+  	"stock_p_t" numeric DEFAULT 0 NOT NULL
+  );
+  
+  CREATE TABLE "products" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"name_p_t" varchar,
+  	"name_e_n" varchar,
+  	"slug" varchar NOT NULL,
+  	"category_id" integer NOT NULL,
+  	"description" varchar,
+  	"description_p_t" varchar,
+  	"description_e_n" varchar,
+  	"size_guide_id" integer,
+  	"fit_note_p_t" varchar,
+  	"fit_note_e_n" varchar,
+  	"price_a_o_kz" numeric NOT NULL,
+  	"price_p_t_eur" numeric NOT NULL,
+  	"shipping_weight_grams" numeric DEFAULT 500 NOT NULL,
+  	"sale_a_o_kz" numeric,
+  	"sale_p_t_eur" numeric,
+  	"sale_start_date" timestamp(3) with time zone,
+  	"sale_end_date" timestamp(3) with time zone,
+  	"active" boolean DEFAULT true,
+  	"available_a_o" boolean DEFAULT true,
+  	"available_p_t" boolean DEFAULT true,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "products_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"merch_tags_id" integer
+  );
+  
+  CREATE TABLE "categories" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name_p_t" varchar NOT NULL,
+  	"name_e_n" varchar,
+  	"slug" varchar,
+  	"image_id" integer,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "merch_tags" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"label_p_t" varchar NOT NULL,
+  	"label_e_n" varchar,
+  	"slug" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "colors" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name_p_t" varchar NOT NULL,
+  	"name_e_n" varchar,
+  	"hex" varchar,
+  	"hex2" varchar,
+  	"swatch_id" integer,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "size_guides_rows" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"size" "enum_size_guides_rows_size" NOT NULL,
+  	"bust" numeric,
+  	"waist" numeric,
+  	"hip" numeric,
+  	"length" numeric
+  );
+  
+  CREATE TABLE "size_guides" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "orders_items" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"product_id" integer NOT NULL,
+  	"product_name" varchar NOT NULL,
+  	"size" varchar NOT NULL,
+  	"color" varchar,
+  	"color_id" varchar,
+  	"qty" numeric NOT NULL,
+  	"unit_price" numeric NOT NULL
+  );
+  
+  CREATE TABLE "orders_status_history" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"status" varchar NOT NULL,
+  	"changed_at" timestamp(3) with time zone NOT NULL,
+  	"changed_by" varchar
+  );
+  
+  CREATE TABLE "orders" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order_number" varchar,
+  	"market" "enum_orders_market" NOT NULL,
+  	"status" "enum_orders_status" DEFAULT 'new',
+  	"customer_name" varchar NOT NULL,
+  	"customer_first_name" varchar,
+  	"customer_last_name" varchar,
+  	"customer_phone" varchar NOT NULL,
+  	"customer_email" varchar NOT NULL,
+  	"analytics_consent" boolean DEFAULT false,
+  	"meta_fbp" varchar,
+  	"meta_fbc" varchar,
+  	"meta_event_source_url" varchar,
+  	"lang" "enum_orders_lang" DEFAULT 'pt',
+  	"address" varchar NOT NULL,
+  	"address_line2" varchar NOT NULL,
+  	"postal_code" varchar,
+  	"delivery_region" "enum_orders_delivery_region",
+  	"city" varchar NOT NULL,
+  	"country" varchar NOT NULL,
+  	"tax_id" varchar,
+  	"notes" varchar,
+  	"currency" "enum_orders_currency" NOT NULL,
+  	"subtotal" numeric NOT NULL,
+  	"shipping_cost" numeric DEFAULT 0 NOT NULL,
+  	"coupon_code" varchar,
+  	"discount_amount" numeric DEFAULT 0,
+  	"discount_label" varchar,
+  	"total" numeric NOT NULL,
+  	"payment_method" "enum_orders_payment_method" NOT NULL,
+  	"payment_status" "enum_orders_payment_status" DEFAULT 'pending',
+  	"inventory_reservation_status" "enum_orders_inventory_reservation_status" DEFAULT 'none',
+  	"inventory_reservation_expires_at" timestamp(3) with time zone,
+  	"inventory_reservation_released_at" timestamp(3) with time zone,
+  	"delivery_method" "enum_orders_delivery_method" NOT NULL,
+  	"ctt_tracking_code" varchar,
+  	"payment_reference" varchar,
+  	"appy_pay_merchant_transaction_id" varchar,
+  	"appy_pay_transaction_id" varchar,
+  	"appy_pay_status" "enum_orders_appy_pay_status",
+  	"appy_pay_payment_method" varchar,
+  	"appy_pay_response_code" numeric,
+  	"appy_pay_response_message" varchar,
+  	"appy_pay_reference_entity" varchar,
+  	"appy_pay_reference_number" varchar,
+  	"appy_pay_reference_due_date" timestamp(3) with time zone,
+  	"appy_pay_verified_at" timestamp(3) with time zone,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "customers" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"email" varchar NOT NULL,
+  	"phone" varchar,
+  	"market" "enum_customers_market",
+  	"order_count" numeric DEFAULT 0,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "messages" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"channel" "enum_messages_channel" NOT NULL,
+  	"direction" "enum_messages_direction" NOT NULL,
+  	"contact_handle" varchar NOT NULL,
+  	"customer_name" varchar,
+  	"body" varchar NOT NULL,
+  	"status" "enum_messages_status" DEFAULT 'open',
+  	"automation_note" varchar,
+  	"related_order_id" integer,
+  	"related_customer_id" integer,
+  	"sent_by_automation" boolean DEFAULT false,
+  	"external_id" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "invoices_lines" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"description" varchar NOT NULL,
+  	"quantity" numeric NOT NULL,
+  	"unit_price" numeric NOT NULL,
+  	"net_amount" numeric NOT NULL,
+  	"tax_amount" numeric NOT NULL,
+  	"gross_amount" numeric NOT NULL
+  );
+  
+  CREATE TABLE "invoices" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"related_order_id" integer NOT NULL,
+  	"invoice_number" varchar NOT NULL,
+  	"sequence" numeric NOT NULL,
+  	"year" numeric NOT NULL,
+  	"status" "enum_invoices_status" DEFAULT 'issued' NOT NULL,
+  	"market" "enum_invoices_market" NOT NULL,
+  	"issued_at" timestamp(3) with time zone NOT NULL,
+  	"order_number" varchar NOT NULL,
+  	"issuer_name" varchar NOT NULL,
+  	"issuer_tax_id" varchar,
+  	"issuer_address" varchar,
+  	"bank_name" varchar,
+  	"account_holder" varchar,
+  	"bank_account" varchar,
+  	"swift_bic" varchar,
+  	"payment_instructions" varchar,
+  	"customer_name" varchar NOT NULL,
+  	"customer_email" varchar NOT NULL,
+  	"customer_phone" varchar,
+  	"customer_tax_id" varchar,
+  	"customer_address" varchar,
+  	"currency" "enum_invoices_currency" NOT NULL,
+  	"vat_rate" numeric NOT NULL,
+  	"vat_region" "enum_invoices_vat_region",
+  	"tax_note" varchar,
+  	"subtotal" numeric NOT NULL,
+  	"shipping" numeric NOT NULL,
+  	"net_total" numeric NOT NULL,
+  	"tax_total" numeric NOT NULL,
+  	"total" numeric NOT NULL,
+  	"payment_method" varchar,
+  	"payment_reference" varchar,
+  	"disclaimer" varchar NOT NULL,
+  	"footer" varchar,
+  	"pdf_filename" varchar,
+  	"pdf_data" jsonb,
+  	"error_message" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"url" varchar,
+  	"thumbnail_u_r_l" varchar,
+  	"filename" varchar,
+  	"mime_type" varchar,
+  	"filesize" numeric,
+  	"width" numeric,
+  	"height" numeric,
+  	"focal_x" numeric,
+  	"focal_y" numeric
+  );
+  
+  CREATE TABLE "coupons" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"code" varchar NOT NULL,
+  	"active" boolean DEFAULT true,
+  	"description" varchar,
+  	"type" "enum_coupons_type" DEFAULT 'percent' NOT NULL,
+  	"percent_off" numeric,
+  	"fixed_off_a_o_kz" numeric,
+  	"fixed_off_p_t_eur" numeric,
+  	"min_order_value_a_o_kz" numeric,
+  	"min_order_value_p_t_eur" numeric,
+  	"start_date" timestamp(3) with time zone,
+  	"end_date" timestamp(3) with time zone,
+  	"usage_limit" numeric,
+  	"usage_count" numeric DEFAULT 0,
+  	"max_redemptions_per_email" numeric,
+  	"available_a_o" boolean DEFAULT true,
+  	"available_p_t" boolean DEFAULT true,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload_kv" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"key" varchar NOT NULL,
+  	"data" jsonb NOT NULL
+  );
+  
+  CREATE TABLE "payload_locked_documents" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"global_slug" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload_locked_documents_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"users_id" integer,
+  	"media_id" integer,
+  	"products_id" integer,
+  	"categories_id" integer,
+  	"merch_tags_id" integer,
+  	"colors_id" integer,
+  	"size_guides_id" integer,
+  	"orders_id" integer,
+  	"customers_id" integer,
+  	"messages_id" integer,
+  	"invoices_id" integer,
+  	"coupons_id" integer
+  );
+  
+  CREATE TABLE "payload_preferences" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"key" varchar,
+  	"value" jsonb,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "payload_preferences_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"users_id" integer
+  );
+  
+  CREATE TABLE "payload_migrations" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar,
+  	"batch" numeric,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "market_settings_angola_payment_methods" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "enum_market_settings_angola_payment_methods",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
+  CREATE TABLE "market_settings_angola_delivery_methods" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "enum_market_settings_angola_delivery_methods",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
+  CREATE TABLE "market_settings_portugal_payment_methods" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "enum_market_settings_portugal_payment_methods",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
+  CREATE TABLE "market_settings_portugal_delivery_methods" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "enum_market_settings_portugal_delivery_methods",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
+  CREATE TABLE "market_settings" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"angola_payment_live" boolean DEFAULT false,
+  	"angola_bank_transfer_instructions_p_t" varchar,
+  	"angola_bank_transfer_instructions_e_n" varchar,
+  	"angola_municipality_prices" jsonb DEFAULT '{"Luanda":3000,"Cacuaco":5000,"Cazenga":3500,"Viana":6000,"Belas":6500,"Talatona":4000,"Mussulo":8000,"Sambizanga":3000,"Rangel":3000,"Maianga":2500,"Samba":3500,"Camama":4500,"Mulenvos":5500,"Kilamba":5000,"Hoji Ya Henda":3500,"Ingombota":2500}'::jsonb NOT NULL,
+  	"angola_free_shipping_threshold" numeric DEFAULT 80000 NOT NULL,
+  	"portugal_payments_enabled" boolean DEFAULT false,
+  	"portugal_manual_checkout_instructions_p_t" varchar,
+  	"portugal_manual_checkout_instructions_e_n" varchar,
+  	"portugal_standard_shipping_price" numeric DEFAULT 4.9 NOT NULL,
+  	"portugal_tracked_shipping_price" numeric DEFAULT 6.9 NOT NULL,
+  	"portugal_free_shipping_threshold" numeric DEFAULT 75 NOT NULL,
+  	"portugal_standard_weight_limit_grams" numeric DEFAULT 2000 NOT NULL,
+  	"portugal_heavy_mainland_shipping_price" numeric DEFAULT 9.9 NOT NULL,
+  	"portugal_heavy_islands_shipping_price" numeric DEFAULT 14.9 NOT NULL,
+  	"angola_returns_policy_text_p_t" varchar,
+  	"angola_returns_policy_text_e_n" varchar,
+  	"portugal_returns_policy_text_p_t" varchar,
+  	"portugal_returns_policy_text_e_n" varchar,
+  	"business_hours_text_p_t" varchar,
+  	"business_hours_text_e_n" varchar,
+  	"angola_shipping_text_p_t" varchar,
+  	"angola_shipping_text_e_n" varchar,
+  	"portugal_shipping_text_p_t" varchar,
+  	"portugal_shipping_text_e_n" varchar,
+  	"international_shipping_text_p_t" varchar,
+  	"international_shipping_text_e_n" varchar,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "invoice_settings" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"phase_one_disclaimer_p_t" varchar DEFAULT 'Documento comercial interno, não certificado fiscalmente. Deve ser validado e tratado pelo contabilista da entidade emitente.' NOT NULL,
+  	"phase_one_disclaimer_e_n" varchar DEFAULT 'Internal commercial document, not fiscally certified. Must be validated and processed by the issuing entity’s accountant.' NOT NULL,
+  	"invoicing_enabled_a_o" boolean DEFAULT true,
+  	"issuer_name_a_o" varchar DEFAULT 'Use Me With Style',
+  	"issuer_tax_id_a_o" varchar,
+  	"issuer_address_a_o" varchar,
+  	"bank_name_a_o" varchar,
+  	"account_holder_a_o" varchar,
+  	"bank_account_a_o" varchar,
+  	"swift_bic_a_o" varchar,
+  	"payment_instructions_a_o" varchar,
+  	"vat_rate_a_o" numeric DEFAULT 14,
+  	"tax_note_a_o" varchar,
+  	"invoice_prefix_a_o" varchar DEFAULT 'UMWS-AO',
+  	"invoice_footer_a_o" varchar,
+  	"invoicing_enabled_p_t" boolean DEFAULT true,
+  	"issuer_name_p_t" varchar DEFAULT 'Use Me With Style',
+  	"issuer_tax_id_p_t" varchar,
+  	"issuer_address_p_t" varchar,
+  	"bank_name_p_t" varchar,
+  	"account_holder_p_t" varchar,
+  	"bank_account_p_t" varchar,
+  	"swift_bic_p_t" varchar,
+  	"payment_instructions_p_t" varchar,
+  	"vat_rate_portugal_mainland" numeric DEFAULT 23,
+  	"vat_rate_portugal_madeira" numeric DEFAULT 22,
+  	"vat_rate_portugal_azores" numeric DEFAULT 16,
+  	"tax_note_p_t" varchar,
+  	"invoice_prefix_p_t" varchar DEFAULT 'UMWS-PT',
+  	"invoice_footer_p_t" varchar,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "legal_content" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"privacy_policy_text_p_t" varchar,
+  	"privacy_policy_text_e_n" varchar,
+  	"terms_text_p_t" varchar,
+  	"terms_text_e_n" varchar,
+  	"data_deletion_text_p_t" varchar,
+  	"data_deletion_text_e_n" varchar,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "home_content_homepage_category_slugs" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"slug" varchar NOT NULL
+  );
+  
+  CREATE TABLE "home_content_collections" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"tag_slug" varchar NOT NULL,
+  	"title_p_t" varchar NOT NULL,
+  	"title_e_n" varchar NOT NULL,
+  	"item_limit" numeric DEFAULT 8
+  );
+  
+  CREATE TABLE "home_content" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"hero_eyebrow_p_t" varchar DEFAULT 'Coleção SS26',
+  	"hero_eyebrow_e_n" varchar DEFAULT 'SS26 Collection',
+  	"hero_headline_p_t" varchar DEFAULT 'Moda que se move consigo.',
+  	"hero_headline_e_n" varchar DEFAULT 'Fashion that moves with you.',
+  	"hero_subtitle_p_t" varchar DEFAULT 'Peças pensadas para si, com preços sempre claros e diretos.',
+  	"hero_subtitle_e_n" varchar DEFAULT 'Considered pieces for you, with pricing always shown up front.',
+  	"hero_cta_label_p_t" varchar DEFAULT 'Ver tudo',
+  	"hero_cta_label_e_n" varchar DEFAULT 'Shop all',
+  	"hero_cta_type" "enum_home_content_hero_cta_type" DEFAULT 'all',
+  	"hero_cta_category_slug" varchar,
+  	"hero_cta_tag_slug" varchar,
+  	"hero_image_id" integer,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  CREATE TABLE "_home_content_v_version_homepage_category_slugs" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"slug" varchar NOT NULL,
+  	"_uuid" varchar
+  );
+  
+  CREATE TABLE "_home_content_v_version_collections" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"tag_slug" varchar NOT NULL,
+  	"title_p_t" varchar NOT NULL,
+  	"title_e_n" varchar NOT NULL,
+  	"item_limit" numeric DEFAULT 8,
+  	"_uuid" varchar
+  );
+  
+  CREATE TABLE "_home_content_v" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"version_hero_eyebrow_p_t" varchar DEFAULT 'Coleção SS26',
+  	"version_hero_eyebrow_e_n" varchar DEFAULT 'SS26 Collection',
+  	"version_hero_headline_p_t" varchar DEFAULT 'Moda que se move consigo.',
+  	"version_hero_headline_e_n" varchar DEFAULT 'Fashion that moves with you.',
+  	"version_hero_subtitle_p_t" varchar DEFAULT 'Peças pensadas para si, com preços sempre claros e diretos.',
+  	"version_hero_subtitle_e_n" varchar DEFAULT 'Considered pieces for you, with pricing always shown up front.',
+  	"version_hero_cta_label_p_t" varchar DEFAULT 'Ver tudo',
+  	"version_hero_cta_label_e_n" varchar DEFAULT 'Shop all',
+  	"version_hero_cta_type" "enum__home_content_v_version_hero_cta_type" DEFAULT 'all',
+  	"version_hero_cta_category_slug" varchar,
+  	"version_hero_cta_tag_slug" varchar,
+  	"version_hero_image_id" integer,
+  	"version_updated_at" timestamp(3) with time zone,
+  	"version_created_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "instagram_spotlight" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"highlighted_permalink" varchar,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
+  ALTER TABLE "users_sessions" ADD CONSTRAINT "users_sessions_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "products_images" ADD CONSTRAINT "products_images_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "products_images" ADD CONSTRAINT "products_images_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "products_variants" ADD CONSTRAINT "products_variants_color_id_colors_id_fk" FOREIGN KEY ("color_id") REFERENCES "public"."colors"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "products_variants" ADD CONSTRAINT "products_variants_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "products" ADD CONSTRAINT "products_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "products" ADD CONSTRAINT "products_size_guide_id_size_guides_id_fk" FOREIGN KEY ("size_guide_id") REFERENCES "public"."size_guides"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "products_rels" ADD CONSTRAINT "products_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "products_rels" ADD CONSTRAINT "products_rels_merch_tags_fk" FOREIGN KEY ("merch_tags_id") REFERENCES "public"."merch_tags"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "categories" ADD CONSTRAINT "categories_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "colors" ADD CONSTRAINT "colors_swatch_id_media_id_fk" FOREIGN KEY ("swatch_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "size_guides_rows" ADD CONSTRAINT "size_guides_rows_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."size_guides"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "orders_items" ADD CONSTRAINT "orders_items_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "orders_items" ADD CONSTRAINT "orders_items_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "orders_status_history" ADD CONSTRAINT "orders_status_history_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "messages" ADD CONSTRAINT "messages_related_order_id_orders_id_fk" FOREIGN KEY ("related_order_id") REFERENCES "public"."orders"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "messages" ADD CONSTRAINT "messages_related_customer_id_customers_id_fk" FOREIGN KEY ("related_customer_id") REFERENCES "public"."customers"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "invoices_lines" ADD CONSTRAINT "invoices_lines_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."invoices"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "invoices" ADD CONSTRAINT "invoices_related_order_id_orders_id_fk" FOREIGN KEY ("related_order_id") REFERENCES "public"."orders"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_media_fk" FOREIGN KEY ("media_id") REFERENCES "public"."media"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_products_fk" FOREIGN KEY ("products_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_categories_fk" FOREIGN KEY ("categories_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_merch_tags_fk" FOREIGN KEY ("merch_tags_id") REFERENCES "public"."merch_tags"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_colors_fk" FOREIGN KEY ("colors_id") REFERENCES "public"."colors"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_size_guides_fk" FOREIGN KEY ("size_guides_id") REFERENCES "public"."size_guides"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_orders_fk" FOREIGN KEY ("orders_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_customers_fk" FOREIGN KEY ("customers_id") REFERENCES "public"."customers"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_messages_fk" FOREIGN KEY ("messages_id") REFERENCES "public"."messages"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_invoices_fk" FOREIGN KEY ("invoices_id") REFERENCES "public"."invoices"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_coupons_fk" FOREIGN KEY ("coupons_id") REFERENCES "public"."coupons"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "market_settings_angola_payment_methods" ADD CONSTRAINT "market_settings_angola_payment_methods_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."market_settings"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "market_settings_angola_delivery_methods" ADD CONSTRAINT "market_settings_angola_delivery_methods_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."market_settings"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "market_settings_portugal_payment_methods" ADD CONSTRAINT "market_settings_portugal_payment_methods_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."market_settings"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "market_settings_portugal_delivery_methods" ADD CONSTRAINT "market_settings_portugal_delivery_methods_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."market_settings"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "home_content_homepage_category_slugs" ADD CONSTRAINT "home_content_homepage_category_slugs_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."home_content"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "home_content_collections" ADD CONSTRAINT "home_content_collections_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."home_content"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "home_content" ADD CONSTRAINT "home_content_hero_image_id_media_id_fk" FOREIGN KEY ("hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "_home_content_v_version_homepage_category_slugs" ADD CONSTRAINT "_home_content_v_version_homepage_category_slugs_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."_home_content_v"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "_home_content_v_version_collections" ADD CONSTRAINT "_home_content_v_version_collections_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."_home_content_v"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "_home_content_v" ADD CONSTRAINT "_home_content_v_version_hero_image_id_media_id_fk" FOREIGN KEY ("version_hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  CREATE INDEX "users_sessions_order_idx" ON "users_sessions" USING btree ("_order");
+  CREATE INDEX "users_sessions_parent_id_idx" ON "users_sessions" USING btree ("_parent_id");
+  CREATE INDEX "users_updated_at_idx" ON "users" USING btree ("updated_at");
+  CREATE INDEX "users_created_at_idx" ON "users" USING btree ("created_at");
+  CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree ("email");
+  CREATE INDEX "media_updated_at_idx" ON "media" USING btree ("updated_at");
+  CREATE INDEX "media_created_at_idx" ON "media" USING btree ("created_at");
+  CREATE UNIQUE INDEX "media_filename_idx" ON "media" USING btree ("filename");
+  CREATE INDEX "media_sizes_thumbnail_sizes_thumbnail_filename_idx" ON "media" USING btree ("sizes_thumbnail_filename");
+  CREATE INDEX "media_sizes_card_sizes_card_filename_idx" ON "media" USING btree ("sizes_card_filename");
+  CREATE INDEX "products_images_order_idx" ON "products_images" USING btree ("_order");
+  CREATE INDEX "products_images_parent_id_idx" ON "products_images" USING btree ("_parent_id");
+  CREATE INDEX "products_images_image_idx" ON "products_images" USING btree ("image_id");
+  CREATE INDEX "products_variants_order_idx" ON "products_variants" USING btree ("_order");
+  CREATE INDEX "products_variants_parent_id_idx" ON "products_variants" USING btree ("_parent_id");
+  CREATE INDEX "products_variants_color_idx" ON "products_variants" USING btree ("color_id");
+  CREATE UNIQUE INDEX "products_slug_idx" ON "products" USING btree ("slug");
+  CREATE INDEX "products_category_idx" ON "products" USING btree ("category_id");
+  CREATE INDEX "products_size_guide_idx" ON "products" USING btree ("size_guide_id");
+  CREATE INDEX "products_updated_at_idx" ON "products" USING btree ("updated_at");
+  CREATE INDEX "products_created_at_idx" ON "products" USING btree ("created_at");
+  CREATE INDEX "products_rels_order_idx" ON "products_rels" USING btree ("order");
+  CREATE INDEX "products_rels_parent_idx" ON "products_rels" USING btree ("parent_id");
+  CREATE INDEX "products_rels_path_idx" ON "products_rels" USING btree ("path");
+  CREATE INDEX "products_rels_merch_tags_id_idx" ON "products_rels" USING btree ("merch_tags_id");
+  CREATE UNIQUE INDEX "categories_slug_idx" ON "categories" USING btree ("slug");
+  CREATE INDEX "categories_image_idx" ON "categories" USING btree ("image_id");
+  CREATE INDEX "categories_updated_at_idx" ON "categories" USING btree ("updated_at");
+  CREATE INDEX "categories_created_at_idx" ON "categories" USING btree ("created_at");
+  CREATE UNIQUE INDEX "merch_tags_slug_idx" ON "merch_tags" USING btree ("slug");
+  CREATE INDEX "merch_tags_updated_at_idx" ON "merch_tags" USING btree ("updated_at");
+  CREATE INDEX "merch_tags_created_at_idx" ON "merch_tags" USING btree ("created_at");
+  CREATE UNIQUE INDEX "colors_name_p_t_idx" ON "colors" USING btree ("name_p_t");
+  CREATE INDEX "colors_swatch_idx" ON "colors" USING btree ("swatch_id");
+  CREATE INDEX "colors_updated_at_idx" ON "colors" USING btree ("updated_at");
+  CREATE INDEX "colors_created_at_idx" ON "colors" USING btree ("created_at");
+  CREATE INDEX "size_guides_rows_order_idx" ON "size_guides_rows" USING btree ("_order");
+  CREATE INDEX "size_guides_rows_parent_id_idx" ON "size_guides_rows" USING btree ("_parent_id");
+  CREATE UNIQUE INDEX "size_guides_name_idx" ON "size_guides" USING btree ("name");
+  CREATE INDEX "size_guides_updated_at_idx" ON "size_guides" USING btree ("updated_at");
+  CREATE INDEX "size_guides_created_at_idx" ON "size_guides" USING btree ("created_at");
+  CREATE INDEX "orders_items_order_idx" ON "orders_items" USING btree ("_order");
+  CREATE INDEX "orders_items_parent_id_idx" ON "orders_items" USING btree ("_parent_id");
+  CREATE INDEX "orders_items_product_idx" ON "orders_items" USING btree ("product_id");
+  CREATE INDEX "orders_status_history_order_idx" ON "orders_status_history" USING btree ("_order");
+  CREATE INDEX "orders_status_history_parent_id_idx" ON "orders_status_history" USING btree ("_parent_id");
+  CREATE UNIQUE INDEX "orders_order_number_idx" ON "orders" USING btree ("order_number");
+  CREATE INDEX "orders_inventory_reservation_status_idx" ON "orders" USING btree ("inventory_reservation_status");
+  CREATE INDEX "orders_inventory_reservation_expires_at_idx" ON "orders" USING btree ("inventory_reservation_expires_at");
+  CREATE INDEX "orders_ctt_tracking_code_idx" ON "orders" USING btree ("ctt_tracking_code");
+  CREATE UNIQUE INDEX "orders_appy_pay_merchant_transaction_id_idx" ON "orders" USING btree ("appy_pay_merchant_transaction_id");
+  CREATE UNIQUE INDEX "orders_appy_pay_transaction_id_idx" ON "orders" USING btree ("appy_pay_transaction_id");
+  CREATE INDEX "orders_updated_at_idx" ON "orders" USING btree ("updated_at");
+  CREATE INDEX "orders_created_at_idx" ON "orders" USING btree ("created_at");
+  CREATE UNIQUE INDEX "customers_email_idx" ON "customers" USING btree ("email");
+  CREATE INDEX "customers_updated_at_idx" ON "customers" USING btree ("updated_at");
+  CREATE INDEX "customers_created_at_idx" ON "customers" USING btree ("created_at");
+  CREATE INDEX "messages_related_order_idx" ON "messages" USING btree ("related_order_id");
+  CREATE INDEX "messages_related_customer_idx" ON "messages" USING btree ("related_customer_id");
+  CREATE INDEX "messages_updated_at_idx" ON "messages" USING btree ("updated_at");
+  CREATE INDEX "messages_created_at_idx" ON "messages" USING btree ("created_at");
+  CREATE INDEX "invoices_lines_order_idx" ON "invoices_lines" USING btree ("_order");
+  CREATE INDEX "invoices_lines_parent_id_idx" ON "invoices_lines" USING btree ("_parent_id");
+  CREATE UNIQUE INDEX "invoices_related_order_idx" ON "invoices" USING btree ("related_order_id");
+  CREATE UNIQUE INDEX "invoices_invoice_number_idx" ON "invoices" USING btree ("invoice_number");
+  CREATE INDEX "invoices_updated_at_idx" ON "invoices" USING btree ("updated_at");
+  CREATE INDEX "invoices_created_at_idx" ON "invoices" USING btree ("created_at");
+  CREATE UNIQUE INDEX "invoices_filename_idx" ON "invoices" USING btree ("filename");
+  CREATE UNIQUE INDEX "coupons_code_idx" ON "coupons" USING btree ("code");
+  CREATE INDEX "coupons_updated_at_idx" ON "coupons" USING btree ("updated_at");
+  CREATE INDEX "coupons_created_at_idx" ON "coupons" USING btree ("created_at");
+  CREATE UNIQUE INDEX "payload_kv_key_idx" ON "payload_kv" USING btree ("key");
+  CREATE INDEX "payload_locked_documents_global_slug_idx" ON "payload_locked_documents" USING btree ("global_slug");
+  CREATE INDEX "payload_locked_documents_updated_at_idx" ON "payload_locked_documents" USING btree ("updated_at");
+  CREATE INDEX "payload_locked_documents_created_at_idx" ON "payload_locked_documents" USING btree ("created_at");
+  CREATE INDEX "payload_locked_documents_rels_order_idx" ON "payload_locked_documents_rels" USING btree ("order");
+  CREATE INDEX "payload_locked_documents_rels_parent_idx" ON "payload_locked_documents_rels" USING btree ("parent_id");
+  CREATE INDEX "payload_locked_documents_rels_path_idx" ON "payload_locked_documents_rels" USING btree ("path");
+  CREATE INDEX "payload_locked_documents_rels_users_id_idx" ON "payload_locked_documents_rels" USING btree ("users_id");
+  CREATE INDEX "payload_locked_documents_rels_media_id_idx" ON "payload_locked_documents_rels" USING btree ("media_id");
+  CREATE INDEX "payload_locked_documents_rels_products_id_idx" ON "payload_locked_documents_rels" USING btree ("products_id");
+  CREATE INDEX "payload_locked_documents_rels_categories_id_idx" ON "payload_locked_documents_rels" USING btree ("categories_id");
+  CREATE INDEX "payload_locked_documents_rels_merch_tags_id_idx" ON "payload_locked_documents_rels" USING btree ("merch_tags_id");
+  CREATE INDEX "payload_locked_documents_rels_colors_id_idx" ON "payload_locked_documents_rels" USING btree ("colors_id");
+  CREATE INDEX "payload_locked_documents_rels_size_guides_id_idx" ON "payload_locked_documents_rels" USING btree ("size_guides_id");
+  CREATE INDEX "payload_locked_documents_rels_orders_id_idx" ON "payload_locked_documents_rels" USING btree ("orders_id");
+  CREATE INDEX "payload_locked_documents_rels_customers_id_idx" ON "payload_locked_documents_rels" USING btree ("customers_id");
+  CREATE INDEX "payload_locked_documents_rels_messages_id_idx" ON "payload_locked_documents_rels" USING btree ("messages_id");
+  CREATE INDEX "payload_locked_documents_rels_invoices_id_idx" ON "payload_locked_documents_rels" USING btree ("invoices_id");
+  CREATE INDEX "payload_locked_documents_rels_coupons_id_idx" ON "payload_locked_documents_rels" USING btree ("coupons_id");
+  CREATE INDEX "payload_preferences_key_idx" ON "payload_preferences" USING btree ("key");
+  CREATE INDEX "payload_preferences_updated_at_idx" ON "payload_preferences" USING btree ("updated_at");
+  CREATE INDEX "payload_preferences_created_at_idx" ON "payload_preferences" USING btree ("created_at");
+  CREATE INDEX "payload_preferences_rels_order_idx" ON "payload_preferences_rels" USING btree ("order");
+  CREATE INDEX "payload_preferences_rels_parent_idx" ON "payload_preferences_rels" USING btree ("parent_id");
+  CREATE INDEX "payload_preferences_rels_path_idx" ON "payload_preferences_rels" USING btree ("path");
+  CREATE INDEX "payload_preferences_rels_users_id_idx" ON "payload_preferences_rels" USING btree ("users_id");
+  CREATE INDEX "payload_migrations_updated_at_idx" ON "payload_migrations" USING btree ("updated_at");
+  CREATE INDEX "payload_migrations_created_at_idx" ON "payload_migrations" USING btree ("created_at");
+  CREATE INDEX "market_settings_angola_payment_methods_order_idx" ON "market_settings_angola_payment_methods" USING btree ("order");
+  CREATE INDEX "market_settings_angola_payment_methods_parent_idx" ON "market_settings_angola_payment_methods" USING btree ("parent_id");
+  CREATE INDEX "market_settings_angola_delivery_methods_order_idx" ON "market_settings_angola_delivery_methods" USING btree ("order");
+  CREATE INDEX "market_settings_angola_delivery_methods_parent_idx" ON "market_settings_angola_delivery_methods" USING btree ("parent_id");
+  CREATE INDEX "market_settings_portugal_payment_methods_order_idx" ON "market_settings_portugal_payment_methods" USING btree ("order");
+  CREATE INDEX "market_settings_portugal_payment_methods_parent_idx" ON "market_settings_portugal_payment_methods" USING btree ("parent_id");
+  CREATE INDEX "market_settings_portugal_delivery_methods_order_idx" ON "market_settings_portugal_delivery_methods" USING btree ("order");
+  CREATE INDEX "market_settings_portugal_delivery_methods_parent_idx" ON "market_settings_portugal_delivery_methods" USING btree ("parent_id");
+  CREATE INDEX "home_content_homepage_category_slugs_order_idx" ON "home_content_homepage_category_slugs" USING btree ("_order");
+  CREATE INDEX "home_content_homepage_category_slugs_parent_id_idx" ON "home_content_homepage_category_slugs" USING btree ("_parent_id");
+  CREATE INDEX "home_content_collections_order_idx" ON "home_content_collections" USING btree ("_order");
+  CREATE INDEX "home_content_collections_parent_id_idx" ON "home_content_collections" USING btree ("_parent_id");
+  CREATE INDEX "home_content_hero_image_idx" ON "home_content" USING btree ("hero_image_id");
+  CREATE INDEX "_home_content_v_version_homepage_category_slugs_order_idx" ON "_home_content_v_version_homepage_category_slugs" USING btree ("_order");
+  CREATE INDEX "_home_content_v_version_homepage_category_slugs_parent_id_idx" ON "_home_content_v_version_homepage_category_slugs" USING btree ("_parent_id");
+  CREATE INDEX "_home_content_v_version_collections_order_idx" ON "_home_content_v_version_collections" USING btree ("_order");
+  CREATE INDEX "_home_content_v_version_collections_parent_id_idx" ON "_home_content_v_version_collections" USING btree ("_parent_id");
+  CREATE INDEX "_home_content_v_version_version_hero_image_idx" ON "_home_content_v" USING btree ("version_hero_image_id");
+  CREATE INDEX "_home_content_v_created_at_idx" ON "_home_content_v" USING btree ("created_at");
+  CREATE INDEX "_home_content_v_updated_at_idx" ON "_home_content_v" USING btree ("updated_at");`)
+}
+
+export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+  await db.execute(sql`
+   DROP TABLE "users_sessions" CASCADE;
+  DROP TABLE "users" CASCADE;
+  DROP TABLE "media" CASCADE;
+  DROP TABLE "products_images" CASCADE;
+  DROP TABLE "products_variants" CASCADE;
+  DROP TABLE "products" CASCADE;
+  DROP TABLE "products_rels" CASCADE;
+  DROP TABLE "categories" CASCADE;
+  DROP TABLE "merch_tags" CASCADE;
+  DROP TABLE "colors" CASCADE;
+  DROP TABLE "size_guides_rows" CASCADE;
+  DROP TABLE "size_guides" CASCADE;
+  DROP TABLE "orders_items" CASCADE;
+  DROP TABLE "orders_status_history" CASCADE;
+  DROP TABLE "orders" CASCADE;
+  DROP TABLE "customers" CASCADE;
+  DROP TABLE "messages" CASCADE;
+  DROP TABLE "invoices_lines" CASCADE;
+  DROP TABLE "invoices" CASCADE;
+  DROP TABLE "coupons" CASCADE;
+  DROP TABLE "payload_kv" CASCADE;
+  DROP TABLE "payload_locked_documents" CASCADE;
+  DROP TABLE "payload_locked_documents_rels" CASCADE;
+  DROP TABLE "payload_preferences" CASCADE;
+  DROP TABLE "payload_preferences_rels" CASCADE;
+  DROP TABLE "payload_migrations" CASCADE;
+  DROP TABLE "market_settings_angola_payment_methods" CASCADE;
+  DROP TABLE "market_settings_angola_delivery_methods" CASCADE;
+  DROP TABLE "market_settings_portugal_payment_methods" CASCADE;
+  DROP TABLE "market_settings_portugal_delivery_methods" CASCADE;
+  DROP TABLE "market_settings" CASCADE;
+  DROP TABLE "invoice_settings" CASCADE;
+  DROP TABLE "legal_content" CASCADE;
+  DROP TABLE "home_content_homepage_category_slugs" CASCADE;
+  DROP TABLE "home_content_collections" CASCADE;
+  DROP TABLE "home_content" CASCADE;
+  DROP TABLE "_home_content_v_version_homepage_category_slugs" CASCADE;
+  DROP TABLE "_home_content_v_version_collections" CASCADE;
+  DROP TABLE "_home_content_v" CASCADE;
+  DROP TABLE "instagram_spotlight" CASCADE;
+  DROP TYPE "public"."enum_products_variants_size";
+  DROP TYPE "public"."enum_size_guides_rows_size";
+  DROP TYPE "public"."enum_orders_market";
+  DROP TYPE "public"."enum_orders_status";
+  DROP TYPE "public"."enum_orders_lang";
+  DROP TYPE "public"."enum_orders_delivery_region";
+  DROP TYPE "public"."enum_orders_currency";
+  DROP TYPE "public"."enum_orders_payment_method";
+  DROP TYPE "public"."enum_orders_payment_status";
+  DROP TYPE "public"."enum_orders_inventory_reservation_status";
+  DROP TYPE "public"."enum_orders_delivery_method";
+  DROP TYPE "public"."enum_orders_appy_pay_status";
+  DROP TYPE "public"."enum_customers_market";
+  DROP TYPE "public"."enum_messages_channel";
+  DROP TYPE "public"."enum_messages_direction";
+  DROP TYPE "public"."enum_messages_status";
+  DROP TYPE "public"."enum_invoices_status";
+  DROP TYPE "public"."enum_invoices_market";
+  DROP TYPE "public"."enum_invoices_currency";
+  DROP TYPE "public"."enum_invoices_vat_region";
+  DROP TYPE "public"."enum_coupons_type";
+  DROP TYPE "public"."enum_market_settings_angola_payment_methods";
+  DROP TYPE "public"."enum_market_settings_angola_delivery_methods";
+  DROP TYPE "public"."enum_market_settings_portugal_payment_methods";
+  DROP TYPE "public"."enum_market_settings_portugal_delivery_methods";
+  DROP TYPE "public"."enum_home_content_hero_cta_type";
+  DROP TYPE "public"."enum__home_content_v_version_hero_cta_type";`)
+}
