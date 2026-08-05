@@ -1,5 +1,3 @@
-import { isAiAssistantEnabled } from './config'
-
 export type AiJobStatus = 'queued' | 'processing' | 'draft_ready' | 'failed' | 'cancelled'
 
 export type AiJobMessage = {
@@ -31,9 +29,9 @@ export function getDebouncedAvailability(now = new Date(), debounceMs = 7_500): 
 export async function enqueueAiMessageJob(
   client: AiJobClient,
   message: AiJobMessage,
-  options: { now?: Date; debounceMs?: number } = {},
+  options: { now?: Date; debounceMs?: number; enabled?: boolean } = {},
 ): Promise<AiJobMessage | null> {
-  if (!isAiAssistantEnabled()) return null
+  if (options.enabled === false) return null
   if (message.channel !== 'instagram' || message.direction !== 'inbound') return null
   if (message.aiProcessingStatus && ACTIVE_STATUSES.includes(message.aiProcessingStatus)) return message
 

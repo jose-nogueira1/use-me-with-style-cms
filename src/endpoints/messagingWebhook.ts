@@ -2,7 +2,9 @@ import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { classifyIncomingMessage, markInstagramConversationSeen } from '../lib/messaging'
-import { enqueueAiMessageJob } from '../lib/ai/jobs'
+import { cancelPendingAiJobs, enqueueAiMessageJob } from '../lib/ai/jobs'
+import { getAiAssistantConfig, isAiAssistantEnabled } from '../lib/ai/config'
+import { loadAiMessagingSettings } from '../lib/ai/settings'
 
 // Unified Meta webhook for both WhatsApp Business and Instagram messaging
 // (JOS-58, Phase 1 messaging automation foundation). Meta's webhook
@@ -440,11 +442,19 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   // Only inbound Instagram messages enter the approval-mode AI draft queue.
   // Outbound echoes are conversation history and must never trigger a draft.
   if (msg.direction === 'inbound') {
+    const aiSettings = await loadAiMessagingSettings(payloadClient as any)
+    const aiConfig = getAiAssistantConfig(process.env, aiSettings)
+    // Coalesce a rapid burst into the newest message. A worker that already
+    // started is also prevented from auto-sending by its newer-activity gate.
+    await cancelPendingAiJobs(payloadClient, msg.contactHandle)
     await enqueueAiMessageJob(payloadClient, {
       id: messageDoc.id,
       channel: msg.channel,
       direction: msg.direction,
       contactHandle: msg.contactHandle,
+    }, {
+      enabled: isAiAssistantEnabled(aiConfig),
+      debounceMs: aiSettings.replyDelaySeconds * 1_000,
     })
   }
 }
@@ -454,7 +464,7 @@ const markConversationReadEndpoint: Endpoint = {
   method: 'post',
   handler: async (req) => {
     if (!req.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    let contactHandle = ''
+    let contactHandle: string
     try {
       const body = await req.json?.() as { contactHandle?: unknown }
       contactHandle = typeof body?.contactHandle === 'string' ? body.contactHandle.trim() : ''

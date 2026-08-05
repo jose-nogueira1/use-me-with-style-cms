@@ -42,10 +42,16 @@ function marketName(market: CatalogueMarket, language: ReplyLanguage): string {
 function productAvailability(input: DeterministicReplyInput): string | null {
   const product = input.product
   if (!product || !input.market || !product.availableInMarket || product.matchedVariants.length === 0) return null
-  const variant = product.matchedVariants[0]
+  const availableVariants = product.matchedVariants.filter((item) => item.available)
+  const variant = availableVariants[0] || product.matchedVariants[0]
   const name = productName(product, input.language)
   const price = product.price == null ? null : money(product.price, input.market)
-  if (variant.available) {
+  if (availableVariants.length) {
+    const sizes = [...new Set(availableVariants.map((item) => item.size).filter(Boolean))].join(', ')
+    if (product.matchedVariants.length > 1) {
+      if (input.language === 'en') return `Yes - ${name} is available in ${marketName(input.market, 'en')}.${sizes ? ` Available sizes: ${sizes}.` : ''}${price ? ` The current price is ${price}.` : ''}${link(product)}`
+      return `Sim - ${name} está disponível em ${marketName(input.market, 'pt')}.${sizes ? ` Tamanhos disponíveis: ${sizes}.` : ''}${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
+    }
     if (input.language === 'en') return `Yes - ${name}, size ${variant.size || 'requested'}, is available in ${marketName(input.market, 'en')}.${price ? ` The current price is ${price}.` : ''}${link(product)}`
     return `Sim - ${name}, tamanho ${variant.size || 'pedido'}, está disponível em ${marketName(input.market, 'pt')}.${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
   }
@@ -81,6 +87,7 @@ function simpleFact(value: string | null | undefined): string | null {
 
 export function buildDeterministicReply(input: DeterministicReplyInput): string | null {
   switch (input.intent) {
+    case 'greeting': return input.language === 'en' ? 'Hi! How can we help you today?' : 'Olá! Como podemos ajudar hoje?'
     case 'product_availability': return productAvailability(input)
     case 'product_price': return productPrice(input)
     case 'product_sizing': return productSizing(input)

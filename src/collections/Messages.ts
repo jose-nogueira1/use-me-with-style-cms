@@ -140,6 +140,7 @@ export const Messages: CollectionConfig = {
     { name: 'aiEstimatedCostUsd', type: 'number', admin: { readOnly: true, step: 0.000001 } },
     { name: 'aiRequiresHuman', type: 'checkbox', admin: { readOnly: true } },
     { name: 'aiOutcome', type: 'text', admin: { readOnly: true } },
+    { name: 'aiAutomationDecision', type: 'text', admin: { readOnly: true } },
     { name: 'aiBotPaused', type: 'checkbox' },
   ],
 }

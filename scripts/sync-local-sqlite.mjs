@@ -19,6 +19,7 @@ const homeColumns = await columns('home_content')
 const invoiceSettingsColumns = await columns('invoice_settings')
 const invoicesColumns = await columns('invoices')
 const legalContentColumns = await columns('legal_content')
+const messageColumns = await columns('messages')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -105,6 +106,8 @@ if (!invoiceSettingsColumns.has('vat_rate_portugal_azores'))
   statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_azores REAL DEFAULT 16')
 // Missing since 20260804_160000_invoice_vat_region.ts.
 if (!invoicesColumns.has('vat_region')) statements.push('ALTER TABLE invoices ADD COLUMN vat_region TEXT')
+if (messageColumns.size > 0 && !messageColumns.has('ai_automation_decision'))
+  statements.push('ALTER TABLE messages ADD COLUMN ai_automation_decision TEXT')
 
 if (statements.length > 0) await client.batch(statements, 'write')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
@@ -261,6 +264,63 @@ const instagramSpotlightEntriesExists =
 if (instagramSpotlightEntriesExists) {
   await client.execute('DROP TABLE instagram_spotlight_entries')
   console.log('Dropped local SQLite instagram_spotlight_entries (replaced by a single highlighted_permalink column).')
+}
+
+// Authenticated AI messaging controls (20260805_150000). Approval is the
+// local default too, so running the dev server never enables auto-send.
+const aiMessagingSettingsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_messaging_settings'`)).rows.length > 0
+if (!aiMessagingSettingsExists) {
+  await client.execute(`
+    CREATE TABLE ai_messaging_settings (
+      id integer PRIMARY KEY NOT NULL,
+      assistant_enabled integer DEFAULT true,
+      emergency_stop integer DEFAULT false,
+      operating_mode text DEFAULT 'approval' NOT NULL,
+      auto_reply_market_clarification integer DEFAULT true,
+      auto_reply_product_clarification integer DEFAULT true,
+      confidence_threshold real DEFAULT 0.92 NOT NULL,
+      reply_delay_seconds real DEFAULT 15 NOT NULL,
+      max_auto_replies_per_conversation real DEFAULT 6 NOT NULL,
+      max_auto_replies_per_hour real DEFAULT 40 NOT NULL,
+      monthly_budget_usd real DEFAULT 25 NOT NULL,
+      updated_at text,
+      created_at text
+    )
+  `)
+  await client.execute(`
+    CREATE TABLE ai_messaging_settings_auto_reply_intents (
+      "order" integer NOT NULL,
+      parent_id integer NOT NULL,
+      value text,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      FOREIGN KEY (parent_id) REFERENCES ai_messaging_settings(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute('CREATE INDEX IF NOT EXISTS ai_messaging_settings_auto_reply_intents_order_idx ON ai_messaging_settings_auto_reply_intents ("order")')
+  await client.execute('CREATE INDEX IF NOT EXISTS ai_messaging_settings_auto_reply_intents_parent_idx ON ai_messaging_settings_auto_reply_intents (parent_id)')
+  console.log('Created local SQLite ai_messaging_settings tables.')
+} else {
+  const aiMessagingColumns = await columns('ai_messaging_settings')
+  if (!aiMessagingColumns.has('auto_reply_product_clarification')) {
+    await client.execute('ALTER TABLE ai_messaging_settings ADD COLUMN auto_reply_product_clarification INTEGER DEFAULT true')
+    console.log('Added auto_reply_product_clarification to local SQLite ai_messaging_settings.')
+  }
+}
+const aiMessagingIntentsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_messaging_settings_auto_reply_intents'`)).rows.length > 0
+if (!aiMessagingIntentsExists) {
+  await client.execute(`
+    CREATE TABLE ai_messaging_settings_auto_reply_intents (
+      "order" integer NOT NULL,
+      parent_id integer NOT NULL,
+      value text,
+      id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      FOREIGN KEY (parent_id) REFERENCES ai_messaging_settings(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute('CREATE INDEX IF NOT EXISTS ai_messaging_settings_auto_reply_intents_order_idx ON ai_messaging_settings_auto_reply_intents ("order")')
+  await client.execute('CREATE INDEX IF NOT EXISTS ai_messaging_settings_auto_reply_intents_parent_idx ON ai_messaging_settings_auto_reply_intents (parent_id)')
 }
 
 // Homepage curation (2026-08-04) -- HomeContent's two new array fields
