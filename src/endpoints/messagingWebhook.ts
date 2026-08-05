@@ -130,7 +130,7 @@ function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | n
   const replyToExternalId = message.reply_to?.mid
   const normalizedType = (attachment?: InstagramAttachment) => String(attachment?.type ?? '').toLowerCase()
   const shared = attachments.find((attachment) =>
-    ['share', 'ig_reel', 'reel', 'media', 'post'].includes(normalizedType(attachment)),
+    ['share', 'ig_post', 'ig_reel', 'reel', 'media', 'post'].includes(normalizedType(attachment)),
   )
   const visualMedia = attachments.find((attachment) =>
     ['image', 'photo', 'video'].includes(normalizedType(attachment)),

@@ -176,6 +176,22 @@ test('Instagram shared content separates a canonical post link from its preview'
   assert.equal(messages[0]?.instagramContextPermalink, 'https://www.instagram.com/p/ABC123/')
 })
 
+test('Instagram ig_post attachments from production are treated as shared posts', () => {
+  const messages = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      message: {
+        mid: 'ig-post-mid',
+        attachments: [{ type: 'ig_post', payload: { url: 'https://lookaside.example/post-media' } }],
+      },
+    }] }],
+  })
+  assert.equal(messages[0]?.instagramContextType, 'shared_post')
+  assert.equal(messages[0]?.instagramContextMediaType, 'ig_post')
+  assert.equal(messages[0]?.instagramContextUrl, 'https://lookaside.example/post-media')
+})
+
 test('Instagram webhook diagnostics expose structure without private values', () => {
   const summary = summarizeInstagramEvent({
     sender: { id: 'private-user-id' },
