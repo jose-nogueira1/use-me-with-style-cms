@@ -2,6 +2,7 @@ import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { buildAutoReply, classifyIncomingMessage, sendInstagramMessage, sendWhatsAppMessage } from '../lib/messaging'
+import { enqueueAiMessageJob } from '../lib/ai/jobs'
 
 // Unified Meta webhook for both WhatsApp Business and Instagram messaging
 // (JOS-58, Phase 1 messaging automation foundation). Meta's webhook
@@ -172,7 +173,7 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     automationNote = 'delivery-faq-auto-reply'
   }
 
-  await payloadClient.create({
+  const inboundDoc = await payloadClient.create({
     collection: 'messages',
     overrideAccess: true,
     data: {
@@ -186,6 +187,15 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       relatedOrder: matchedOrder?.id,
       externalId: msg.externalId,
     },
+  })
+
+  // T02 only schedules eligible Instagram messages. The assistant remains
+  // dormant until an owner supplies the Use Me API key and enables a mode.
+  await enqueueAiMessageJob(payloadClient, {
+    id: inboundDoc.id,
+    channel: msg.channel,
+    direction: 'inbound',
+    contactHandle: msg.contactHandle,
   })
 
   const reply = buildAutoReply(intent, matchedOrder)

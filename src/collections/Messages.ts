@@ -72,5 +72,37 @@ export const Messages: CollectionConfig = {
     // which is exactly when the hook SHOULD send it.
     { name: 'sentByAutomation', type: 'checkbox', defaultValue: false, admin: { readOnly: true } },
     { name: 'externalId', type: 'text', admin: { readOnly: true } },
+    {
+      name: 'aiProcessingStatus',
+      type: 'select',
+      admin: { readOnly: true },
+      options: [
+        { label: 'Queued', value: 'queued' },
+        { label: 'Processing', value: 'processing' },
+        { label: 'Draft ready', value: 'draft_ready' },
+        { label: 'Failed', value: 'failed' },
+        { label: 'Cancelled', value: 'cancelled' },
+      ],
+    },
+    { name: 'aiAttempts', type: 'number', admin: { readOnly: true } },
+    { name: 'aiAvailableAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiStartedAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiCompletedAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiCancelledAt', type: 'date', admin: { readOnly: true } },
+    { name: 'aiLastError', type: 'text', admin: { readOnly: true } },
+    {
+      name: 'aiDraftStatus',
+      type: 'select',
+      admin: { readOnly: true },
+      options: [
+        { label: 'Queued', value: 'queued' }, { label: 'Draft ready', value: 'draft_ready' },
+        { label: 'Approved', value: 'approved' }, { label: 'Dismissed', value: 'dismissed' }, { label: 'Failed', value: 'failed' },
+      ],
+    },
+    { name: 'aiDraft', type: 'textarea', admin: { readOnly: true } },
+    { name: 'aiDraftConfidence', type: 'number', admin: { readOnly: true, step: 0.01 } },
+    { name: 'aiDraftSourceRecordIds', type: 'json', admin: { readOnly: true } },
+    { name: 'aiDraftReason', type: 'text', admin: { readOnly: true } },
+    { name: 'aiBotPaused', type: 'checkbox' },
   ],
 }

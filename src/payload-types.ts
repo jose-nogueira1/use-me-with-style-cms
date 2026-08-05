@@ -545,6 +545,27 @@ export interface Message {
   relatedCustomer?: (number | null) | Customer;
   sentByAutomation?: boolean | null;
   externalId?: string | null;
+  aiProcessingStatus?: ('queued' | 'processing' | 'draft_ready' | 'failed' | 'cancelled') | null;
+  aiAttempts?: number | null;
+  aiAvailableAt?: string | null;
+  aiStartedAt?: string | null;
+  aiCompletedAt?: string | null;
+  aiCancelledAt?: string | null;
+  aiLastError?: string | null;
+  aiDraftStatus?: ('queued' | 'draft_ready' | 'approved' | 'dismissed' | 'failed') | null;
+  aiDraft?: string | null;
+  aiDraftConfidence?: number | null;
+  aiDraftSourceRecordIds?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  aiDraftReason?: string | null;
+  aiBotPaused?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1077,6 +1098,19 @@ export interface MessagesSelect<T extends boolean = true> {
   relatedCustomer?: T;
   sentByAutomation?: T;
   externalId?: T;
+  aiProcessingStatus?: T;
+  aiAttempts?: T;
+  aiAvailableAt?: T;
+  aiStartedAt?: T;
+  aiCompletedAt?: T;
+  aiCancelledAt?: T;
+  aiLastError?: T;
+  aiDraftStatus?: T;
+  aiDraft?: T;
+  aiDraftConfidence?: T;
+  aiDraftSourceRecordIds?: T;
+  aiDraftReason?: T;
+  aiBotPaused?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1220,11 +1254,11 @@ export interface MarketSetting {
    */
   angolaPaymentLive?: boolean | null;
   /**
-   * Shown at checkout while angolaPaymentLive is off (e.g. "As instruções de pagamento são enviadas por WhatsApp assim que a encomenda for confirmada").
+   * Shown at checkout while angolaPaymentLive is off. Direct customers to the support email for any additional instructions.
    */
   angolaBankTransferInstructionsPT?: string | null;
   /**
-   * English translation of the field above (e.g. "Payment instructions are sent by WhatsApp once the order is confirmed").
+   * English translation of the field above. Direct customers to the support email for any additional instructions.
    */
   angolaBankTransferInstructionsEN?: string | null;
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
@@ -1250,11 +1284,11 @@ export interface MarketSetting {
    */
   portugalPaymentsEnabled?: boolean | null;
   /**
-   * Shown at checkout while portugalPaymentsEnabled is off (e.g. "Vamos entrar em contacto por WhatsApp para combinar o pagamento.").
+   * Shown at checkout while portugalPaymentsEnabled is off. Email is the official support channel.
    */
   portugalManualCheckoutInstructionsPT?: string | null;
   /**
-   * English translation of the field above (e.g. "We'll reach out on WhatsApp to arrange payment.").
+   * English translation of the field above. Email is the official support channel.
    */
   portugalManualCheckoutInstructionsEN?: string | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
@@ -1521,6 +1555,16 @@ export interface InstagramSpotlight {
    * e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.
    */
   highlightedPermalink?: string | null;
+  /**
+   * Attach products to a recent Instagram post. The storefront will show verified product links on that post.
+   */
+  productTags?:
+    | {
+        permalink: string;
+        products?: (number | Product)[] | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1677,6 +1721,13 @@ export interface HomeCollectionsSelect<T extends boolean = true> {
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
   highlightedPermalink?: T;
+  productTags?:
+    | T
+    | {
+        permalink?: T;
+        products?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
