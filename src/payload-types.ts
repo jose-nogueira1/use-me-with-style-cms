@@ -541,6 +541,7 @@ export interface Message {
   body: string;
   instagramContextType?: string | null;
   instagramContextUrl?: string | null;
+  instagramContextPermalink?: string | null;
   instagramContextMediaType?: string | null;
   replyToExternalId?: string | null;
   replyToText?: string | null;
@@ -1079,6 +1080,7 @@ export interface MessagesSelect<T extends boolean = true> {
   body?: T;
   instagramContextType?: T;
   instagramContextUrl?: T;
+  instagramContextPermalink?: T;
   instagramContextMediaType?: T;
   replyToExternalId?: T;
   replyToText?: T;

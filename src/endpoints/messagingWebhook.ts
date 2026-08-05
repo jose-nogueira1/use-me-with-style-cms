@@ -49,10 +49,74 @@ type InboundMessage = {
   customerName?: string
   body: string
   externalId?: string
-  instagramContextType?: 'story_reply' | 'shared_post' | 'inline_reply' | 'unsupported_media'
+  instagramContextType?: 'story_reply' | 'shared_post' | 'media' | 'inline_reply' | 'unsupported_media'
   instagramContextUrl?: string
+  instagramContextPermalink?: string
   instagramContextMediaType?: string
   replyToExternalId?: string
+}
+
+type InstagramAttachment = {
+  type?: unknown
+  url?: unknown
+  permalink?: unknown
+  payload?: Record<string, unknown>
+}
+
+function validHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  try {
+    const url = new URL(value)
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function instagramPermalink(...values: unknown[]): string | undefined {
+  return values
+    .map(validHttpUrl)
+    .find((value) => {
+      if (!value) return false
+      const hostname = new URL(value).hostname.toLowerCase()
+      return hostname === 'instagram.com' || hostname === 'www.instagram.com'
+    })
+}
+
+function attachmentUrl(attachment?: InstagramAttachment): string | undefined {
+  return validHttpUrl(
+    attachment?.payload?.url
+      ?? attachment?.payload?.media_url
+      ?? attachment?.payload?.image_url
+      ?? attachment?.payload?.video_url
+      ?? attachment?.url,
+  )
+}
+
+/**
+ * Logs only the webhook's structural shape. This deliberately excludes
+ * sender IDs, message IDs, text, URLs, tokens, and attachment values while
+ * still telling us which Meta variant needs parser support.
+ */
+export function summarizeInstagramEvent(event: any) {
+  const message = event?.message ?? {}
+  const attachments = Array.isArray(message.attachments) ? message.attachments : []
+  return {
+    messageKeys: Object.keys(message).sort(),
+    replyToKeys: Object.keys(message.reply_to ?? {}).sort(),
+    storyKeys: Object.keys(message.reply_to?.story ?? {}).sort(),
+    attachments: attachments.map((attachment: InstagramAttachment) => ({
+      type: typeof attachment?.type === 'string' ? attachment.type : 'unknown',
+      attachmentKeys: Object.keys(attachment ?? {}).sort(),
+      payloadKeys: Object.keys(attachment?.payload ?? {}).sort(),
+      hasUsableUrl: Boolean(attachmentUrl(attachment)),
+      hasInstagramPermalink: Boolean(instagramPermalink(
+        attachment?.permalink,
+        attachment?.payload?.permalink,
+        attachment?.payload?.post_url,
+      )),
+    })),
+  }
 }
 
 function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | null {
@@ -61,36 +125,55 @@ function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | n
   if (!senderId || !message) return null
   if (message.is_echo || String(senderId) === String(entryId)) return null
 
-  const attachments = Array.isArray(message.attachments) ? message.attachments : []
+  const attachments: InstagramAttachment[] = Array.isArray(message.attachments) ? message.attachments : []
   const story = message.reply_to?.story
   const replyToExternalId = message.reply_to?.mid
-  const shared = attachments.find((attachment: any) =>
-    ['share', 'ig_reel', 'reel', 'media'].includes(String(attachment?.type ?? '').toLowerCase()),
+  const normalizedType = (attachment?: InstagramAttachment) => String(attachment?.type ?? '').toLowerCase()
+  const shared = attachments.find((attachment) =>
+    ['share', 'ig_reel', 'reel', 'media', 'post'].includes(normalizedType(attachment)),
+  )
+  const visualMedia = attachments.find((attachment) =>
+    ['image', 'photo', 'video'].includes(normalizedType(attachment)),
   )
   const unsupported = Boolean(message.is_unsupported) || attachments.length > 0
 
   let instagramContextType: InboundMessage['instagramContextType']
   let instagramContextUrl: string | undefined
+  let instagramContextPermalink: string | undefined
   let instagramContextMediaType: string | undefined
   if (story) {
     instagramContextType = 'story_reply'
-    instagramContextUrl = story.url
-    instagramContextMediaType = 'story'
+    instagramContextUrl = validHttpUrl(story.url ?? story.media_url ?? story.image_url ?? story.video_url)
+    instagramContextPermalink = instagramPermalink(story.permalink, story.post_url)
+    instagramContextMediaType = story.video_url ? 'story_video' : 'story'
   } else if (replyToExternalId) {
     instagramContextType = 'inline_reply'
   } else if (shared) {
     instagramContextType = 'shared_post'
-    instagramContextUrl = shared.payload?.url
-    instagramContextMediaType = shared.type
+    instagramContextUrl = attachmentUrl(shared)
+    instagramContextPermalink = instagramPermalink(
+      shared.permalink,
+      shared.payload?.permalink,
+      shared.payload?.post_url,
+      shared.payload?.url,
+    )
+    if (instagramContextUrl === instagramContextPermalink) instagramContextUrl = undefined
+    instagramContextMediaType = normalizedType(shared)
+  } else if (visualMedia) {
+    instagramContextType = 'media'
+    instagramContextUrl = attachmentUrl(visualMedia)
+    instagramContextMediaType = normalizedType(visualMedia)
   } else if (unsupported) {
     instagramContextType = 'unsupported_media'
-    instagramContextMediaType = attachments[0]?.type
+    instagramContextMediaType = normalizedType(attachments[0]) || undefined
   }
 
   const fallback = instagramContextType === 'story_reply'
     ? 'Replied to your story'
     : instagramContextType === 'shared_post'
       ? 'Shared an Instagram post'
+      : instagramContextType === 'media'
+        ? 'Sent media'
       : instagramContextType === 'unsupported_media'
         ? 'Sent media — open this conversation on Instagram'
         : instagramContextType === 'inline_reply'
@@ -106,6 +189,7 @@ function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | n
     externalId: message.mid,
     ...(instagramContextType ? { instagramContextType } : {}),
     ...(instagramContextUrl ? { instagramContextUrl } : {}),
+    ...(instagramContextPermalink ? { instagramContextPermalink } : {}),
     ...(instagramContextMediaType ? { instagramContextMediaType } : {}),
     ...(replyToExternalId ? { replyToExternalId } : {}),
   }
@@ -144,6 +228,8 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
       // style shape (`entry[].messaging[]`). Keep supporting it because the
       // production token currently uses the Page-based flow.
       for (const event of entry.messaging ?? []) {
+        // eslint-disable-next-line no-console
+        console.info('[instagram:webhook-shape]', summarizeInstagramEvent(event))
         const parsed = extractInstagramEvent(entry.id, event)
         if (parsed) messages.push(parsed)
       }
@@ -154,6 +240,8 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
       for (const change of entry.changes ?? []) {
         if (change.field !== 'messages') continue
         const event = change.value ?? {}
+        // eslint-disable-next-line no-console
+        console.info('[instagram:webhook-shape]', summarizeInstagramEvent(event))
         const parsed = extractInstagramEvent(entry.id, event)
         if (parsed) messages.push(parsed)
       }
@@ -274,6 +362,7 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       externalId: msg.externalId,
       instagramContextType: msg.instagramContextType,
       instagramContextUrl: msg.instagramContextUrl,
+      instagramContextPermalink: msg.instagramContextPermalink,
       instagramContextMediaType: msg.instagramContextMediaType,
       replyToExternalId: msg.replyToExternalId,
       replyToText,
