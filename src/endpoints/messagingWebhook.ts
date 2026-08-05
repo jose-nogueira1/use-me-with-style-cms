@@ -45,6 +45,7 @@ const verifyEndpoint: Endpoint = {
 
 type InboundMessage = {
   channel: 'instagram'
+  direction: 'inbound' | 'outbound'
   contactHandle: string
   customerName?: string
   body: string
@@ -121,9 +122,12 @@ export function summarizeInstagramEvent(event: any) {
 
 function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | null {
   const senderId = event?.sender?.id
+  const recipientId = event?.recipient?.id
   const message = event?.message
   if (!senderId || !message) return null
-  if (message.is_echo || String(senderId) === String(entryId)) return null
+  const isOutbound = Boolean(message.is_echo) || String(senderId) === String(entryId)
+  const contactHandle = isOutbound ? recipientId : senderId
+  if (!contactHandle || String(contactHandle) === String(entryId)) return null
 
   const attachments: InstagramAttachment[] = Array.isArray(message.attachments) ? message.attachments : []
   const story = message.reply_to?.story
@@ -184,7 +188,8 @@ function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | n
 
   return {
     channel: 'instagram',
-    contactHandle: String(senderId),
+    direction: isOutbound ? 'outbound' : 'inbound',
+    contactHandle: String(contactHandle),
     body: text || fallback,
     externalId: message.mid,
     ...(instagramContextType ? { instagramContextType } : {}),
@@ -309,7 +314,7 @@ export function verifyMetaWebhookSignature(
 }
 
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
-  const intent = classifyIncomingMessage(msg.body)
+  const intent = msg.direction === 'inbound' ? classifyIncomingMessage(msg.body) : 'unknown'
 
   // Meta retries webhooks when acknowledgements are delayed. `externalId` is
   // the stable message id, so ignore an event we have already persisted.
@@ -322,6 +327,42 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       overrideAccess: true,
     })
     if (existing.docs.length > 0) return
+  }
+
+  // An Admin reply is persisted before the Send API returns its Meta message
+  // ID. If Meta's echo races that update, match the recent local outbound row
+  // and attach the ID instead of creating a duplicate. A message composed in
+  // Instagram has no matching local row and is therefore imported normally.
+  if (msg.direction === 'outbound') {
+    const recentAdminReply = await payloadClient.find({
+      collection: 'messages',
+      where: {
+        and: [
+          { channel: { equals: 'instagram' } },
+          { direction: { equals: 'outbound' } },
+          { contactHandle: { equals: msg.contactHandle } },
+          { body: { equals: msg.body } },
+          { sentByAutomation: { equals: false } },
+          { createdAt: { greater_than: new Date(Date.now() - 2 * 60 * 1000).toISOString() } },
+        ],
+      },
+      sort: '-createdAt',
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const matched = recentAdminReply.docs[0]
+    if (matched) {
+      if (msg.externalId && matched.externalId !== msg.externalId) {
+        await payloadClient.update({
+          collection: 'messages',
+          id: matched.id,
+          data: { externalId: msg.externalId },
+          overrideAccess: true,
+        })
+      }
+      return
+    }
   }
 
   let replyToText: string | undefined
@@ -341,9 +382,11 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
   // questions remain open for an admin unless the customer supplies details.
   // if (msg.channel === 'whatsapp' && intent === 'order_status') { ... }
 
-  let status: 'open' | 'escalated' = 'open'
-  let automationNote = 'instagram-inbox -- manual reply required'
-  if (intent === 'sensitive') {
+  let status: 'open' | 'escalated' | 'resolved' = msg.direction === 'outbound' ? 'resolved' : 'open'
+  let automationNote = msg.direction === 'outbound'
+    ? 'instagram-app -- synced outbound echo'
+    : 'instagram-inbox -- manual reply required'
+  if (msg.direction === 'inbound' && intent === 'sensitive') {
     status = 'escalated'
     automationNote = 'sensitive-topic -- escalated to Raisa'
   }
@@ -353,13 +396,14 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
     overrideAccess: true,
     data: {
       channel: msg.channel,
-      direction: 'inbound',
+      direction: msg.direction,
       contactHandle: msg.contactHandle,
       customerName: msg.customerName,
       body: msg.body,
       status,
       automationNote,
       externalId: msg.externalId,
+      sentByAutomation: msg.direction === 'outbound',
       instagramContextType: msg.instagramContextType,
       instagramContextUrl: msg.instagramContextUrl,
       instagramContextPermalink: msg.instagramContextPermalink,

@@ -43,7 +43,7 @@ test('Instagram text messages are extracted', () => {
     entry: [{ messaging: [{ sender: { id: 'ig-user' }, message: { mid: 'ig-mid', text: 'Olá' } }] }],
   })
   assert.deepEqual(messages, [{
-    channel: 'instagram', contactHandle: 'ig-user', body: 'Olá', externalId: 'ig-mid',
+    channel: 'instagram', direction: 'inbound', contactHandle: 'ig-user', body: 'Olá', externalId: 'ig-mid',
   }])
 })
 
@@ -62,11 +62,11 @@ test('Instagram v26 changes payloads from Meta webhook testing are extracted', (
     }],
   })
   assert.deepEqual(messages, [{
-    channel: 'instagram', contactHandle: '12334', body: 'random_text', externalId: 'random_mid',
+    channel: 'instagram', direction: 'inbound', contactHandle: '12334', body: 'random_text', externalId: 'random_mid',
   }])
 })
 
-test('Instagram outbound echoes are ignored instead of creating a second conversation', () => {
+test('Instagram outbound echoes use the recipient as the customer conversation key', () => {
   const messages = extractInboundMessages({
     object: 'instagram',
     entry: [{
@@ -76,17 +76,15 @@ test('Instagram outbound echoes are ignored instead of creating a second convers
         recipient: { id: 'customer-account' },
         message: { mid: 'echo-mid', text: 'Reply from admin', is_echo: true },
       }],
-      changes: [{
-        field: 'messages',
-        value: {
-          sender: { id: 'business-account' },
-          recipient: { id: 'customer-account' },
-          message: { mid: 'echo-mid-2', text: 'Reply from admin' },
-        },
-      }],
     }],
   })
-  assert.deepEqual(messages, [])
+  assert.deepEqual(messages, [{
+    channel: 'instagram',
+    direction: 'outbound',
+    contactHandle: 'customer-account',
+    body: 'Reply from admin',
+    externalId: 'echo-mid',
+  }])
 })
 
 test('Instagram story replies retain the story preview and customer text', () => {
@@ -104,6 +102,7 @@ test('Instagram story replies retain the story preview and customer text', () =>
   })
   assert.deepEqual(messages, [{
     channel: 'instagram',
+    direction: 'inbound',
     contactHandle: 'customer',
     body: 'Is this dress available?',
     externalId: 'story-reply-mid',
