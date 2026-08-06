@@ -168,6 +168,7 @@ async function seed() {
         descriptionPT: `Uma peça versátil da coleção Use Me With Style, criada para conforto e confiança ao longo do dia.`,
         descriptionEN: `A versatile Use Me With Style piece, designed for comfort and confidence throughout the day.`,
         category: categoryIdBySlug.get(product.category)!,
+        productType: 'standard',
         // hasMany since 2026-07-31 -- Payload expects an array even for a
         // single seeded tag.
         tag: product.tag ? [tagIdByValue.get(product.tag)!] : undefined,

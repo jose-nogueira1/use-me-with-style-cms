@@ -20,6 +20,8 @@ const invoiceSettingsColumns = await columns('invoice_settings')
 const invoicesColumns = await columns('invoices')
 const legalContentColumns = await columns('legal_content')
 const messageColumns = await columns('messages')
+const productVariantColumns = await columns('products_variants')
+const orderItemColumns = await columns('orders_items')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -34,6 +36,17 @@ if (!marketColumns.has('portugal_free_shipping_threshold')) statements.push('ALT
 if (!marketColumns.has('angola_municipality_prices')) statements.push(`ALTER TABLE market_settings ADD COLUMN angola_municipality_prices TEXT NOT NULL DEFAULT '{"Luanda":3000,"Cacuaco":5000,"Cazenga":3500,"Viana":6000,"Belas":6500,"Talatona":4000,"Mussulo":8000,"Sambizanga":3000,"Rangel":3000,"Maianga":2500,"Samba":3500,"Camama":4500,"Mulenvos":5500,"Kilamba":5000,"Hoji Ya Henda":3500,"Ingombota":2500}'`)
 if (!marketColumns.has('angola_free_shipping_threshold')) statements.push('ALTER TABLE market_settings ADD COLUMN angola_free_shipping_threshold REAL NOT NULL DEFAULT 80000')
 if (!productColumns.has('shipping_weight_grams')) statements.push('ALTER TABLE products ADD COLUMN shipping_weight_grams REAL NOT NULL DEFAULT 500')
+if (!productColumns.has('product_type')) statements.push("ALTER TABLE products ADD COLUMN product_type TEXT NOT NULL DEFAULT 'standard'")
+if (!productColumns.has('option_label_p_t')) statements.push('ALTER TABLE products ADD COLUMN option_label_p_t TEXT')
+if (!productColumns.has('option_label_e_n')) statements.push('ALTER TABLE products ADD COLUMN option_label_e_n TEXT')
+if (!productColumns.has('return_eligible')) statements.push('ALTER TABLE products ADD COLUMN return_eligible INTEGER DEFAULT true')
+if (!productColumns.has('return_note_p_t')) statements.push('ALTER TABLE products ADD COLUMN return_note_p_t TEXT')
+if (!productColumns.has('return_note_e_n')) statements.push('ALTER TABLE products ADD COLUMN return_note_e_n TEXT')
+if (!orderItemColumns.has('variant_id')) statements.push('ALTER TABLE orders_items ADD COLUMN variant_id TEXT')
+if (!orderItemColumns.has('option_label')) statements.push('ALTER TABLE orders_items ADD COLUMN option_label TEXT')
+if (!orderItemColumns.has('option_value')) statements.push('ALTER TABLE orders_items ADD COLUMN option_value TEXT')
+if (!orderItemColumns.has('product_type')) statements.push("ALTER TABLE orders_items ADD COLUMN product_type TEXT DEFAULT 'standard'")
+if (!orderItemColumns.has('inventory_components')) statements.push('ALTER TABLE orders_items ADD COLUMN inventory_components TEXT')
 if (!marketColumns.has('portugal_standard_weight_limit_grams')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_standard_weight_limit_grams REAL NOT NULL DEFAULT 2000')
 if (!marketColumns.has('portugal_heavy_mainland_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_heavy_mainland_shipping_price REAL NOT NULL DEFAULT 9.9')
 if (!marketColumns.has('portugal_heavy_islands_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_heavy_islands_shipping_price REAL NOT NULL DEFAULT 14.9')
@@ -106,10 +119,133 @@ if (!invoiceSettingsColumns.has('vat_rate_portugal_azores'))
   statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_azores REAL DEFAULT 16')
 // Missing since 20260804_160000_invoice_vat_region.ts.
 if (!invoicesColumns.has('vat_region')) statements.push('ALTER TABLE invoices ADD COLUMN vat_region TEXT')
-if (messageColumns.size > 0 && !messageColumns.has('ai_automation_decision'))
-  statements.push('ALTER TABLE messages ADD COLUMN ai_automation_decision TEXT')
+// Messaging/AI fields were introduced through Postgres migrations while the
+// checked-in SQLite dev database retained the original Phase 1 table. Keep
+// local browser QA on the same schema instead of allowing every inbox query
+// to fail at the first missing column.
+const localMessageColumns = {
+  instagram_context_type: 'TEXT',
+  instagram_context_url: 'TEXT',
+  instagram_context_permalink: 'TEXT',
+  instagram_context_media_type: 'TEXT',
+  reply_to_external_id: 'TEXT',
+  reply_to_text: 'TEXT',
+  admin_read_at: 'TEXT',
+  instagram_seen_at: 'TEXT',
+  conversation_status: "TEXT DEFAULT 'needs_reply'",
+  internal_note: 'TEXT',
+  ai_processing_status: 'TEXT',
+  ai_attempts: 'REAL',
+  ai_available_at: 'TEXT',
+  ai_started_at: 'TEXT',
+  ai_completed_at: 'TEXT',
+  ai_cancelled_at: 'TEXT',
+  ai_last_error: 'TEXT',
+  ai_draft_status: 'TEXT',
+  ai_draft: 'TEXT',
+  ai_draft_confidence: 'REAL',
+  ai_draft_source_record_ids: 'TEXT',
+  ai_draft_reason: 'TEXT',
+  ai_market: 'TEXT',
+  ai_intent: 'TEXT',
+  ai_language: 'TEXT',
+  ai_facts: 'TEXT',
+  ai_model: 'TEXT',
+  ai_request_id: 'TEXT',
+  ai_input_tokens: 'REAL',
+  ai_output_tokens: 'REAL',
+  ai_total_tokens: 'REAL',
+  ai_estimated_cost_usd: 'REAL',
+  ai_requires_human: 'INTEGER',
+  ai_outcome: 'TEXT',
+  ai_automation_decision: 'TEXT',
+  ai_bot_paused: 'INTEGER',
+}
+for (const [column, definition] of Object.entries(localMessageColumns)) {
+  if (messageColumns.size > 0 && !messageColumns.has(column)) statements.push(`ALTER TABLE messages ADD COLUMN ${column} ${definition}`)
+}
 
 if (statements.length > 0) await client.batch(statements, 'write')
+
+// Flexible catalogue variants (2026-08-06). SQLite cannot DROP NOT NULL
+// from colour/size in place, so rebuild the two array tables once. The row
+// IDs and every existing apparel value are copied unchanged.
+if (!productVariantColumns.has('sku')) {
+  await client.execute('PRAGMA foreign_keys = OFF')
+  await client.execute(`
+    CREATE TABLE products_variants_flexible (
+      _order integer NOT NULL,
+      _parent_id integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      sku text,
+      color_id integer,
+      size text,
+      option_value_e_n text,
+      stock_a_o numeric DEFAULT 0 NOT NULL,
+      stock_p_t numeric DEFAULT 0 NOT NULL,
+      FOREIGN KEY (color_id) REFERENCES colors(id) ON UPDATE no action ON DELETE set null,
+      FOREIGN KEY (_parent_id) REFERENCES products(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`INSERT INTO products_variants_flexible (_order, _parent_id, id, color_id, size, stock_a_o, stock_p_t)
+    SELECT _order, _parent_id, id, color_id, size, stock_a_o, stock_p_t FROM products_variants`)
+  await client.execute('DROP TABLE products_variants')
+  await client.execute('ALTER TABLE products_variants_flexible RENAME TO products_variants')
+  await client.execute('CREATE INDEX products_variants_order_idx ON products_variants (_order)')
+  await client.execute('CREATE INDEX products_variants_parent_id_idx ON products_variants (_parent_id)')
+  await client.execute('CREATE INDEX products_variants_color_idx ON products_variants (color_id)')
+  await client.execute('PRAGMA foreign_keys = ON')
+}
+
+if (!orderItemColumns.has('variant_id')) {
+  await client.execute('PRAGMA foreign_keys = OFF')
+  await client.execute(`
+    CREATE TABLE orders_items_flexible (
+      _order integer NOT NULL,
+      _parent_id integer NOT NULL,
+      id text PRIMARY KEY NOT NULL,
+      product_id integer NOT NULL,
+      product_name text NOT NULL,
+      variant_id text,
+      size text,
+      option_label text,
+      option_value text,
+      color text,
+      color_id text,
+      product_type text DEFAULT 'standard',
+      inventory_components text,
+      qty numeric NOT NULL,
+      unit_price numeric NOT NULL,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON UPDATE no action ON DELETE set null,
+      FOREIGN KEY (_parent_id) REFERENCES orders(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`INSERT INTO orders_items_flexible (_order, _parent_id, id, product_id, product_name, size, color, color_id, qty, unit_price)
+    SELECT _order, _parent_id, id, product_id, product_name, size, color, color_id, qty, unit_price FROM orders_items`)
+  await client.execute('DROP TABLE orders_items')
+  await client.execute('ALTER TABLE orders_items_flexible RENAME TO orders_items')
+  await client.execute('CREATE INDEX orders_items_order_idx ON orders_items (_order)')
+  await client.execute('CREATE INDEX orders_items_parent_id_idx ON orders_items (_parent_id)')
+  await client.execute('CREATE INDEX orders_items_product_idx ON orders_items (product_id)')
+  await client.execute('PRAGMA foreign_keys = ON')
+}
+
+await client.execute(`CREATE TABLE IF NOT EXISTS products_specifications (
+  _order integer NOT NULL, _parent_id integer NOT NULL, id text PRIMARY KEY NOT NULL,
+  label_p_t text NOT NULL, label_e_n text, value_p_t text NOT NULL, value_e_n text,
+  FOREIGN KEY (_parent_id) REFERENCES products(id) ON UPDATE no action ON DELETE cascade
+)`)
+await client.execute('CREATE INDEX IF NOT EXISTS products_specifications_order_idx ON products_specifications (_order)')
+await client.execute('CREATE INDEX IF NOT EXISTS products_specifications_parent_id_idx ON products_specifications (_parent_id)')
+await client.execute(`CREATE TABLE IF NOT EXISTS products_bundle_components (
+  _order integer NOT NULL, _parent_id integer NOT NULL, id text PRIMARY KEY NOT NULL,
+  product_id integer NOT NULL, variant_id text NOT NULL, qty numeric DEFAULT 1 NOT NULL,
+  FOREIGN KEY (_parent_id) REFERENCES products(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON UPDATE no action ON DELETE restrict
+)`)
+await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_order_idx ON products_bundle_components (_order)')
+await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_parent_id_idx ON products_bundle_components (_parent_id)')
+await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_product_idx ON products_bundle_components (product_id)')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
 
 if (statements.length > 0) {

@@ -7,7 +7,10 @@ import type { InvoiceAttachment } from './email'
 type Market = 'AO' | 'PT'
 type InvoiceLineInput = {
   productName: string
-  size: string
+  size?: string | null
+  optionLabel?: string | null
+  optionValue?: string | null
+  productType?: 'standard' | 'bundle' | null
   color?: string | null
   qty: number
   unitPrice: number
@@ -174,7 +177,7 @@ export function calculateIncludedVatInvoice(
     const grossAmount = roundMoney(item.qty * item.unitPrice)
     const netAmount = rate > 0 ? roundMoney(grossAmount / divisor) : grossAmount
     return {
-      description: `${item.productName} — ${item.size}${item.color ? ` / ${item.color}` : ''}`,
+      description: `${item.productName}${item.productType === 'bundle' ? ` — ${lang === 'en' ? 'Product kit' : 'Kit de produtos'}` : [item.optionValue || item.size, item.color].filter(Boolean).length ? ` — ${[item.optionValue || item.size, item.color].filter(Boolean).join(' / ')}` : ''}`,
       quantity: item.qty,
       unitPrice: roundMoney(item.unitPrice),
       netAmount,

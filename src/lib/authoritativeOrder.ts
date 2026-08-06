@@ -8,6 +8,7 @@ type Market = 'AO' | 'PT'
 
 type SubmittedOrderItem = {
   product?: string | number | { id?: string | number }
+  variantId?: string
   size?: string
   color?: string
   qty?: number
@@ -24,6 +25,9 @@ type InventoryProduct = {
   priceAOKz: number
   pricePTEur: number
   shippingWeightGrams?: number | null
+  productType?: 'standard' | 'bundle' | null
+  optionLabelPT?: string | null
+  optionLabelEN?: string | null
   // Discounts phase 1 (2026-07-25): optional per-market sale price + window
   // -- see lib/salePricing.ts, the single place this is resolved into an
   // actual charged unit price.
@@ -34,10 +38,17 @@ type InventoryProduct = {
   // Variant-level inventory (2026-07-25): stock per colour+size row. The
   // colour ref is a plain id at depth 0, a populated doc at depth >= 1.
   variants?: Array<{
+    id?: string | null
     color?: string | number | { id?: string | number; name?: string | null } | null
-    size: string
+    size?: string | null
+    optionValueEN?: string | null
     stockAO: number
     stockPT: number
+  }> | null
+  bundleComponents?: Array<{
+    product?: string | number | { id?: string | number }
+    variantId?: string | null
+    qty?: number | null
   }> | null
 }
 
@@ -153,52 +164,24 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   const authoritativeItems = []
   let totalWeightGrams = 0
 
-  for (const submitted of submittedItems) {
-    const productId = relationshipId(submitted.product)
-    const qty = Number(submitted.qty)
-    const size = String(submitted.size ?? '')
-    const color = String(submitted.color ?? '')
-
-    if (productId === null || !Number.isInteger(qty) || qty < 1 || qty > 20 || !size) {
-      badRequest('Invalid order item.')
-    }
-
-    let product: InventoryProduct
+  const loadProduct = async (id: string | number) => {
     try {
-      product = (await req.payload.findByID({
+      return (await req.payload.findByID({
         collection: 'products',
-        id: productId,
+        id,
         overrideAccess: true,
         depth: 0,
       })) as unknown as InventoryProduct
     } catch {
       badRequest('A selected product is unavailable.')
     }
+  }
 
-    const isAvailable = product.active && (market === 'AO' ? product.availableAO : product.availablePT)
-    if (!isAvailable) badRequest('A selected product is unavailable.')
-
-    // Variant-level stock (2026-07-25), colours bilingual (2026-07-25
-    // follow-up): the storefront cart carries the colour's stable ROW ID
-    // (language-independent -- switching PT/EN mid-session never changes
-    // which colour a cart line means), submitted here as `color`. Order
-    // items still store a human-readable, LOCALIZED colour name (like
-    // productName) plus that same id as `colorId`, so inventory matching
-    // stays exact regardless of display language.
-    //
-    // Falls back to matching `color` as a NAME (any language) if it isn't a
-    // known id -- covers a stale cached storefront bundle sending the old
-    // shape during rollout, and is otherwise a no-op.
+  const variantRowsFor = async (product: InventoryProduct) => {
     const variantRefs = product.variants ?? []
-    if (variantRefs.length === 0) badRequest('A selected product is unavailable.')
-
-    const unresolvedIds = [
-      ...new Set(
-        variantRefs
-          .map((entry) => relationshipId(entry.color ?? undefined))
-          .filter((value): value is string | number => value !== null),
-      ),
-    ]
+    const unresolvedIds = [...new Set(variantRefs
+      .map((entry) => relationshipId(entry.color ?? undefined))
+      .filter((value): value is string | number => value !== null))]
     const colorDocById = new Map<string, { namePT?: string | null; nameEN?: string | null }>()
     if (unresolvedIds.length > 0) {
       const colorDocs = await req.payload.find({
@@ -212,45 +195,96 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
         colorDocById.set(String(doc.id), doc as { namePT?: string | null; nameEN?: string | null })
       }
     }
-    const localizedName = (doc: { namePT?: string | null; nameEN?: string | null } | undefined) =>
+    const localizedColorName = (doc: { namePT?: string | null; nameEN?: string | null } | undefined) =>
       (data.lang === 'en' ? doc?.nameEN : doc?.namePT)?.trim() || doc?.namePT?.trim() || ''
-
-    const variantRows = variantRefs.map((entry) => {
-      const id = String(relationshipId(entry.color ?? undefined))
+    return variantRefs.map((entry) => {
+      const rawColorId = relationshipId(entry.color ?? undefined)
+      const colorId = rawColorId === null ? '' : String(rawColorId)
       const populated = entry.color && typeof entry.color === 'object' ? entry.color : undefined
-      const doc = colorDocById.get(id) ?? (populated as { namePT?: string | null; nameEN?: string | null } | undefined)
+      const doc = colorDocById.get(colorId) ?? (populated as { namePT?: string | null; nameEN?: string | null } | undefined)
       return {
-        colorId: id,
-        colorLabel: localizedName(doc),
-        // Every known name of this colour, any language, lowercased --
-        // for the legacy/fallback text match only.
-        colorNames: [doc?.namePT, doc?.nameEN].filter((n): n is string => Boolean(n)).map((n) => n.trim().toLowerCase()),
-        size: entry.size,
+        id: String(entry.id ?? ''),
+        colorId,
+        colorLabel: localizedColorName(doc),
+        colorNames: [doc?.namePT, doc?.nameEN].filter((name): name is string => Boolean(name)).map((name) => name.trim().toLowerCase()),
+        optionValue: (data.lang === 'en' ? entry.optionValueEN : entry.size)?.trim() || entry.size?.trim() || '',
+        legacySize: entry.size?.trim() || '',
         stock: market === 'AO' ? Number(entry.stockAO ?? 0) : Number(entry.stockPT ?? 0),
       }
     })
+  }
 
-    // Tolerate an omitted colour only when it's unambiguous (single-colour
-    // product) -- covers older cached storefront bundles.
-    const distinctColorIds = [...new Set(variantRows.map((entry) => entry.colorId))]
-    let chosenColorId = color && variantRows.some((entry) => entry.colorId === color)
-      ? color
-      : ''
-    if (!chosenColorId && color) {
-      // Legacy fallback: treat the submitted value as a NAME, not an id.
-      const byName = variantRows.find((entry) => entry.colorNames.includes(color.trim().toLowerCase()))
-      if (byName) chosenColorId = byName.colorId
+  const reserveRequestedVariant = (productId: string | number, variantId: string, stock: number, requestedQty: number) => {
+    const key = `${String(productId)}:${variantId}`
+    const total = (requestedByVariant.get(key) ?? 0) + requestedQty
+    requestedByVariant.set(key, total)
+    if (total > stock) badRequest('The requested quantity is no longer in stock.')
+  }
+
+  for (const submitted of submittedItems) {
+    const productId = relationshipId(submitted.product)
+    const qty = Number(submitted.qty)
+    const submittedVariantId = String(submitted.variantId ?? '')
+    const size = String(submitted.size ?? '')
+    const color = String(submitted.color ?? '')
+
+    if (productId === null || !Number.isInteger(qty) || qty < 1 || qty > 20) {
+      badRequest('Invalid order item.')
     }
-    if (!chosenColorId && !color && distinctColorIds.length === 1) chosenColorId = distinctColorIds[0]
-    if (!chosenColorId) badRequest('A selected colour is unavailable.')
 
-    const variantRow = variantRows.find((entry) => entry.size === size && entry.colorId === chosenColorId)
-    if (!variantRow) badRequest('A selected size/colour combination is unavailable.')
+    const product = await loadProduct(productId)
 
-    const variantKey = `${String(product.id)}:${size}:${chosenColorId}`
-    const requestedQty = (requestedByVariant.get(variantKey) ?? 0) + qty
-    requestedByVariant.set(variantKey, requestedQty)
-    if (requestedQty > variantRow.stock) badRequest('The requested quantity is no longer in stock.')
+    const isAvailable = product.active && (market === 'AO' ? product.availableAO : product.availablePT)
+    if (!isAvailable) badRequest('A selected product is unavailable.')
+
+    let chosenVariantId = ''
+    let chosenColorId = ''
+    let colorLabel = ''
+    let optionValue = ''
+    let legacySize = ''
+    let inventoryComponents: Array<{ product: string | number; variantId: string; qty: number }> | undefined
+
+    if (product.productType === 'bundle') {
+      const components = product.bundleComponents ?? []
+      if (components.length === 0) badRequest('This product kit is not configured.')
+      inventoryComponents = []
+      for (const component of components) {
+        const componentProductId = relationshipId(component.product)
+        const componentVariantId = String(component.variantId ?? '')
+        const componentQty = Number(component.qty)
+        if (componentProductId === null || !componentVariantId || !Number.isInteger(componentQty) || componentQty < 1) {
+          badRequest('This product kit is not configured.')
+        }
+        const componentProduct = await loadProduct(componentProductId)
+        const componentAvailable = componentProduct.active && (market === 'AO' ? componentProduct.availableAO : componentProduct.availablePT)
+        if (!componentAvailable || componentProduct.productType === 'bundle') badRequest('A product in this kit is unavailable.')
+        const componentVariant = (await variantRowsFor(componentProduct)).find((row) => row.id === componentVariantId)
+        if (!componentVariant) badRequest('A product in this kit is unavailable.')
+        reserveRequestedVariant(componentProduct.id, componentVariant.id, componentVariant.stock, componentQty * qty)
+        inventoryComponents.push({ product: componentProduct.id, variantId: componentVariant.id, qty: componentQty })
+      }
+    } else {
+      const variantRows = await variantRowsFor(product)
+      if (variantRows.length === 0) badRequest('A selected product is unavailable.')
+      let variantRow = submittedVariantId ? variantRows.find((row) => row.id === submittedVariantId) : undefined
+      // Backward-compatible colour/size matching for carts created before
+      // stable variant IDs shipped.
+      if (!variantRow) {
+        let legacyColorId = color && variantRows.some((row) => row.colorId === color) ? color : ''
+        if (!legacyColorId && color) {
+          legacyColorId = variantRows.find((row) => row.colorNames.includes(color.trim().toLowerCase()))?.colorId ?? ''
+        }
+        variantRow = variantRows.find((row) => row.legacySize === size && (!legacyColorId || row.colorId === legacyColorId))
+      }
+      if (!variantRow && variantRows.length === 1 && !submittedVariantId && !size && !color) variantRow = variantRows[0]
+      if (!variantRow) badRequest('A selected product option is unavailable.')
+      chosenVariantId = variantRow.id
+      chosenColorId = variantRow.colorId
+      colorLabel = variantRow.colorLabel
+      optionValue = variantRow.optionValue
+      legacySize = variantRow.legacySize
+      reserveRequestedVariant(product.id, variantRow.id, variantRow.stock, qty)
+    }
 
     const usesEurSettlement = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal'
     const unitPrice = effectiveUnitPrice(product, usesEurSettlement ? 'PT' : 'AO')
@@ -259,9 +293,14 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     authoritativeItems.push({
       product: product.id,
       productName: data.lang === 'en' ? product.nameEN || product.name : product.namePT || product.name,
-      size,
-      color: variantRow.colorLabel || undefined,
+      variantId: chosenVariantId || undefined,
+      size: legacySize || undefined,
+      optionLabel: product.productType === 'bundle' ? undefined : ((data.lang === 'en' ? product.optionLabelEN : product.optionLabelPT)?.trim() || product.optionLabelPT?.trim() || undefined),
+      optionValue: optionValue || undefined,
+      color: colorLabel || undefined,
       colorId: chosenColorId || undefined,
+      productType: product.productType === 'bundle' ? 'bundle' : 'standard',
+      inventoryComponents,
       qty,
       unitPrice,
       // Sale-price exclusion (2026-08-04) -- not persisted on the order

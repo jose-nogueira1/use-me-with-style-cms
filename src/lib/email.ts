@@ -31,6 +31,9 @@ export type InvoiceAttachment = { filename: string; content: Buffer }
 export type OrderConfirmationItemInput = {
   productName: string
   size?: string | null
+  optionLabel?: string | null
+  optionValue?: string | null
+  productType?: 'standard' | 'bundle' | null
   color?: string | null
   qty: number
   unitPrice: number
@@ -293,7 +296,9 @@ function renderItemRow(item: OrderConfirmationItemInput, currency: string, lang:
   const lineTotal = formatOrderMoney(item.unitPrice * qty, currency, lang)
 
   const metaParts: string[] = []
-  if (item.size) metaParts.push(`${copy.sizeLabel} ${escapeHtml(item.size)}`)
+  if (item.productType === 'bundle') metaParts.push(lang === 'en' ? 'Product kit' : 'Kit de produtos')
+  else if (item.optionValue) metaParts.push(`${escapeHtml(item.optionLabel || copy.sizeLabel)} ${escapeHtml(item.optionValue)}`)
+  else if (item.size) metaParts.push(`${copy.sizeLabel} ${escapeHtml(item.size)}`)
   if (item.color) metaParts.push(`${copy.colorLabel} ${escapeHtml(item.color)}`)
   metaParts.push(`${copy.qtyLabel} ${qty}`)
   const metaLine = metaParts.join('&nbsp;&nbsp;·&nbsp;&nbsp;')

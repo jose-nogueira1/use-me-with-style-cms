@@ -16,6 +16,12 @@ type ReservationOrder = {
     // Preferred whenever present; `color` alone is the legacy fallback for
     // orders created before this field existed.
     colorId?: string | null
+    variantId?: string | null
+    inventoryComponents?: Array<{
+      product?: string | number | { id?: string | number }
+      variantId?: string | null
+      qty?: number
+    }> | null
     qty?: number
   }>
   market?: string
@@ -25,7 +31,7 @@ type ReservationOrder = {
   inventoryReservationStatus?: string
 }
 
-type StockDelta = { productId: string | number; size: string; color: string; colorId: string; qty: number }
+type StockDelta = { productId: string | number; variantId: string; size: string; color: string; colorId: string; qty: number }
 
 function relationshipId(value: StockDelta['productId'] | { id?: string | number } | undefined) {
   if (typeof value === 'string' || typeof value === 'number') return value
@@ -36,17 +42,35 @@ function relationshipId(value: StockDelta['productId'] | { id?: string | number 
 export function inventoryDeltasForOrder(order: ReservationOrder): StockDelta[] {
   const grouped = new Map<string, StockDelta>()
   for (const item of order.items ?? []) {
+    const lineQty = Number(item.qty)
+    if (!Number.isInteger(lineQty) || lineQty < 1) {
+      throw new APIError('Invalid inventory reservation item.', 400, null, true)
+    }
+    if (Array.isArray(item.inventoryComponents) && item.inventoryComponents.length > 0) {
+      for (const component of item.inventoryComponents) {
+        const productId = relationshipId(component.product)
+        const variantId = String(component.variantId ?? '')
+        const componentQty = Number(component.qty)
+        if (productId === null || !variantId || !Number.isInteger(componentQty) || componentQty < 1) {
+          throw new APIError('Invalid kit inventory component.', 400, null, true)
+        }
+        const key = `${String(productId)}:${variantId}`
+        const current = grouped.get(key)
+        grouped.set(key, { productId, variantId, size: '', color: '', colorId: '', qty: (current?.qty ?? 0) + componentQty * lineQty })
+      }
+      continue
+    }
     const productId = relationshipId(item.product)
+    const variantId = String(item.variantId ?? '')
     const size = String(item.size ?? '')
     const color = String(item.color ?? '')
     const colorId = String(item.colorId ?? '')
-    const qty = Number(item.qty)
-    if (productId === null || !size || !Number.isInteger(qty) || qty < 1) {
+    if (productId === null || (!variantId && !size)) {
       throw new APIError('Invalid inventory reservation item.', 400, null, true)
     }
-    const key = `${String(productId)}:${size}:${colorId || color}`
+    const key = variantId ? `${String(productId)}:${variantId}` : `${String(productId)}:${size}:${colorId || color}`
     const current = grouped.get(key)
-    grouped.set(key, { productId, size, color, colorId, qty: (current?.qty ?? 0) + qty })
+    grouped.set(key, { productId, variantId, size, color, colorId, qty: (current?.qty ?? 0) + lineQty })
   }
   return [...grouped.values()].sort((a, b) => String(a.productId).localeCompare(String(b.productId)))
 }
@@ -87,7 +111,9 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
     type VariantRow = {
       id?: string | null
       color?: string | number | { id?: string | number; namePT?: string | null; nameEN?: string | null } | null
-      size: string
+      size?: string | null
+      sku?: string | null
+      optionValueEN?: string | null
       stockAO: number
       stockPT: number
     }
@@ -95,7 +121,9 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
       id: row.id,
       colorId: relationshipId(row.color as never) ?? undefined,
       populated: row.color && typeof row.color === 'object' ? row.color : undefined,
-      size: row.size,
+      size: String(row.size ?? ''),
+      sku: row.sku ?? undefined,
+      optionValueEN: row.optionValueEN ?? undefined,
       stockAO: Number(row.stockAO ?? 0),
       stockPT: Number(row.stockPT ?? 0),
     }))
@@ -128,7 +156,10 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
 
     for (const delta of productDeltas) {
       let idx = -1
-      if (delta.colorId) {
+      if (delta.variantId) {
+        idx = variants.findIndex((v) => String(v.id) === delta.variantId)
+      }
+      if (idx === -1 && delta.colorId) {
         idx = variants.findIndex((v) => v.size === delta.size && String(v.colorId) === delta.colorId)
       }
       if (idx === -1 && delta.color) {
@@ -162,10 +193,12 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
         variants: variants.map((v) => ({
           id: v.id ?? undefined,
           color: v.colorId,
-          size: v.size,
+          size: v.size || undefined,
+          sku: v.sku,
+          optionValueEN: v.optionValueEN,
           stockAO: v.stockAO,
           stockPT: v.stockPT,
-        })) as unknown as { color: number; size: 'XS' | 'S' | 'M' | 'L' | 'XL'; stockAO: number; stockPT: number; id?: string | null }[],
+        })) as never,
       },
       depth: 0,
       overrideAccess: true,

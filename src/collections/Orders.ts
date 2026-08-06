@@ -225,7 +225,13 @@ export const Orders: CollectionConfig = {
       fields: [
         { name: 'product', type: 'relationship', relationTo: 'products', required: true },
         { name: 'productName', type: 'text', required: true },
-        { name: 'size', type: 'text', required: true },
+        // `variantId` is the stable sellable identity introduced with
+        // flexible accessory variants. `size` remains as a human-readable
+        // legacy snapshot so old orders and invoice templates stay valid.
+        { name: 'variantId', type: 'text', admin: { readOnly: true, hidden: true } },
+        { name: 'size', type: 'text' },
+        { name: 'optionLabel', type: 'text', admin: { readOnly: true } },
+        { name: 'optionValue', type: 'text', admin: { readOnly: true } },
         // Human-readable, localized colour name -- resolved server-side at
         // order creation (see authoritativeOrder.ts), same snapshot pattern
         // as productName. What the admin/invoices show.
@@ -239,6 +245,12 @@ export const Orders: CollectionConfig = {
         // before this field existed simply don't have it (inventory
         // matching falls back to the legacy name-based path for those).
         { name: 'colorId', type: 'text', admin: { readOnly: true, hidden: true } },
+        { name: 'productType', type: 'select', options: ['standard', 'bundle'], defaultValue: 'standard', admin: { readOnly: true } },
+        {
+          name: 'inventoryComponents',
+          type: 'json',
+          admin: { hidden: true },
+        },
         { name: 'qty', type: 'number', required: true, min: 1 },
         { name: 'unitPrice', type: 'number', required: true, min: 0 },
       ],

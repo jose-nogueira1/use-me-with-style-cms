@@ -22,7 +22,10 @@ export function getStripeClient(): Stripe | null {
 
 type CheckoutItemInput = {
   productName: string
-  size: string
+  size?: string | null
+  optionLabel?: string | null
+  optionValue?: string | null
+  productType?: 'standard' | 'bundle' | null
   color?: string
   qty: number
   unitPrice: number
@@ -81,7 +84,7 @@ export async function createCheckoutSession(
       currency,
       unit_amount: Math.round(item.unitPrice * 100),
       product_data: {
-        name: `${item.productName} (${item.size}${item.color ? `, ${item.color}` : ''})`,
+        name: `${item.productName}${item.productType === 'bundle' ? ' (Product kit)' : [item.optionValue || item.size, item.color].filter(Boolean).length ? ` (${[item.optionValue || item.size, item.color].filter(Boolean).join(', ')})` : ''}`,
       },
     },
   }))

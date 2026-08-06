@@ -236,6 +236,10 @@ export interface Product {
   slug: string;
   category: number | Category;
   /**
+   * Standard products own stock variants. Product kits derive availability from their component variants.
+   */
+  productType: 'standard' | 'bundle';
+  /**
    * Legacy/default description. New storefront editing uses the language-specific fields below.
    */
   description?: string | null;
@@ -250,6 +254,29 @@ export interface Product {
    */
   fitNotePT?: string | null;
   fitNoteEN?: string | null;
+  /**
+   * Optional. Examples: Tamanho, Capacidade, Estilo. Leave empty when the product has no non-colour option.
+   */
+  optionLabelPT?: string | null;
+  /**
+   * Optional. Examples: Size, Capacity, Style.
+   */
+  optionLabelEN?: string | null;
+  /**
+   * Reusable customer-facing facts such as material, capacity, dimensions, care or fit.
+   */
+  specifications?:
+    | {
+        labelPT: string;
+        labelEN?: string | null;
+        valuePT: string;
+        valueEN?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  returnEligible?: boolean | null;
+  returnNotePT?: string | null;
+  returnNoteEN?: string | null;
   /**
    * Optional merchandising badge(s) shown on the product card.
    */
@@ -283,15 +310,33 @@ export interface Product {
    */
   saleEndDate?: string | null;
   /**
-   * One row per colour + size combination, with per-market stock.
+   * One row per sellable combination, with per-market stock.
    */
-  variants: {
-    color: number | Color;
-    size: 'XS' | 'S' | 'M' | 'L' | 'XL';
-    stockAO: number;
-    stockPT: number;
-    id?: string | null;
-  }[];
+  variants?:
+    | {
+        sku?: string | null;
+        color?: (number | null) | Color;
+        /**
+         * Examples: XS, 750 ml, Ajustável. Leave empty for a colour-only or option-less product.
+         */
+        size?: string | null;
+        optionValueEN?: string | null;
+        stockAO: number;
+        stockPT: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Fixed contents of this kit. Stock is derived from and deducted from these component variants.
+   */
+  bundleComponents?:
+    | {
+        product: number | Product;
+        variantId: string;
+        qty: number;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Unpublish to hide from the storefront without deleting it.
    */
@@ -448,9 +493,22 @@ export interface Order {
   items: {
     product: number | Product;
     productName: string;
-    size: string;
+    variantId?: string | null;
+    size?: string | null;
+    optionLabel?: string | null;
+    optionValue?: string | null;
     color?: string | null;
     colorId?: string | null;
+    productType?: ('standard' | 'bundle') | null;
+    inventoryComponents?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
     qty: number;
     unitPrice: number;
     id?: string | null;
@@ -938,12 +996,27 @@ export interface ProductsSelect<T extends boolean = true> {
   nameEN?: T;
   slug?: T;
   category?: T;
+  productType?: T;
   description?: T;
   descriptionPT?: T;
   descriptionEN?: T;
   sizeGuide?: T;
   fitNotePT?: T;
   fitNoteEN?: T;
+  optionLabelPT?: T;
+  optionLabelEN?: T;
+  specifications?:
+    | T
+    | {
+        labelPT?: T;
+        labelEN?: T;
+        valuePT?: T;
+        valueEN?: T;
+        id?: T;
+      };
+  returnEligible?: T;
+  returnNotePT?: T;
+  returnNoteEN?: T;
   tag?: T;
   images?:
     | T
@@ -961,10 +1034,20 @@ export interface ProductsSelect<T extends boolean = true> {
   variants?:
     | T
     | {
+        sku?: T;
         color?: T;
         size?: T;
+        optionValueEN?: T;
         stockAO?: T;
         stockPT?: T;
+        id?: T;
+      };
+  bundleComponents?:
+    | T
+    | {
+        product?: T;
+        variantId?: T;
+        qty?: T;
         id?: T;
       };
   active?: T;
@@ -1059,9 +1142,14 @@ export interface OrdersSelect<T extends boolean = true> {
     | {
         product?: T;
         productName?: T;
+        variantId?: T;
         size?: T;
+        optionLabel?: T;
+        optionValue?: T;
         color?: T;
         colorId?: T;
+        productType?: T;
+        inventoryComponents?: T;
         qty?: T;
         unitPrice?: T;
         id?: T;

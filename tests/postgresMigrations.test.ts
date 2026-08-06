@@ -11,6 +11,7 @@ import { up as freeShippingUp } from '../src/migrations/20260731_160000_coupons_
 import { up as legalDataDeletionUp } from '../src/migrations/20260801_110000_legal_content_data_deletion.ts'
 import { up as homeContentCurationUp, down as homeContentCurationDown } from '../src/migrations/20260804_170000_home_content_curation.ts'
 import { up as fixColorsLegacyNameUp } from '../src/migrations/20260806_160000_fix_colors_legacy_name.ts'
+import { up as flexibleProductsUp } from '../src/migrations/20260806_190000_flexible_products_and_kits.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -128,6 +129,48 @@ test('colour legacy-name migration removes the stale required column and permits
       { name_p_t: 'Preto', name_e_n: 'Black', hex: '#000000' },
       { name_p_t: 'Mostarda', name_e_n: 'Mustard', hex: '#F0A919' },
     ])
+  })
+})
+
+test('flexible products migration preserves clothing rows and accepts option-less accessories and kits', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TYPE enum_products_variants_size AS ENUM ('XS', 'S', 'M', 'L', 'XL');
+      CREATE TABLE products (id serial PRIMARY KEY);
+      CREATE TABLE colors (id serial PRIMARY KEY);
+      CREATE TABLE products_variants (
+        _order integer NOT NULL, _parent_id integer NOT NULL, id varchar PRIMARY KEY,
+        color_id integer NOT NULL, size enum_products_variants_size NOT NULL,
+        stock_a_o numeric DEFAULT 0 NOT NULL, stock_p_t numeric DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE orders (id serial PRIMARY KEY);
+      CREATE TABLE orders_items (
+        _order integer NOT NULL, _parent_id integer NOT NULL, id varchar PRIMARY KEY,
+        size varchar NOT NULL
+      );
+      INSERT INTO products DEFAULT VALUES;
+      INSERT INTO colors DEFAULT VALUES;
+      INSERT INTO products_variants VALUES (1, 1, 'legacy-medium', 1, 'M', 3, 2);
+      INSERT INTO orders DEFAULT VALUES;
+      INSERT INTO orders_items VALUES (1, 1, 'legacy-order-item', 'M');
+    `)
+    const db = drizzle(pool)
+    await flexibleProductsUp({ db } as never)
+
+    await pool.query(`
+      INSERT INTO products_variants (_order, _parent_id, id, color_id, size, sku, option_value_e_n, stock_a_o, stock_p_t)
+      VALUES (2, 1, 'accessory-single', NULL, NULL, 'BOTTLE-750', NULL, 4, 3);
+      INSERT INTO products_specifications (_order, _parent_id, id, label_p_t, value_p_t)
+      VALUES (1, 1, 'spec-1', 'Material', 'Aço');
+      INSERT INTO products_bundle_components (_order, _parent_id, id, product_id, variant_id, qty)
+      VALUES (1, 1, 'component-1', 1, 'accessory-single', 2);
+      UPDATE orders_items SET size = NULL, variant_id = 'accessory-single', product_type = 'standard';
+    `)
+
+    const variant = (await pool.query(`SELECT color_id, size, sku FROM products_variants WHERE id = 'accessory-single'`)).rows[0]
+    assert.deepEqual(variant, { color_id: null, size: null, sku: 'BOTTLE-750' })
+    assert.equal((await pool.query('SELECT qty FROM products_bundle_components')).rows[0].qty, '2')
+    assert.equal((await pool.query('SELECT size FROM orders_items')).rows[0].size, null)
   })
 })
 

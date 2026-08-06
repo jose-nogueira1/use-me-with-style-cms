@@ -58,6 +58,7 @@ type CatalogueProduct = {
   namePT?: string | null
   nameEN?: string | null
   active?: boolean | null
+  productType?: 'standard' | 'bundle' | null
   availableAO?: boolean | null
   availablePT?: boolean | null
   priceAOKz?: number | null
@@ -68,10 +69,17 @@ type CatalogueProduct = {
   saleEndDate?: string | null
   images?: Array<{ image?: unknown }> | null
   variants?: Array<{
+    id?: string | null
     color?: unknown
     size?: string | null
+    optionValueEN?: string | null
     stockAO?: number | null
     stockPT?: number | null
+  }> | null
+  bundleComponents?: Array<{
+    product?: CatalogueProduct | string | number | null
+    variantId?: string | null
+    qty?: number | null
   }> | null
 }
 
@@ -109,6 +117,16 @@ function colourNames(value: unknown): { pt: string | null; en: string | null } {
   const pt = typeof colour.namePT === 'string' && colour.namePT.trim() ? colour.namePT.trim() : null
   const en = typeof colour.nameEN === 'string' && colour.nameEN.trim() ? colour.nameEN.trim() : pt
   return { pt, en }
+}
+
+function bundleStock(product: CatalogueProduct, market: 'AO' | 'PT'): number {
+  const stockField = market === 'AO' ? 'stockAO' : 'stockPT'
+  const componentStocks = (product.bundleComponents ?? []).map((component) => {
+    const componentProduct = relationshipDoc(component.product) as CatalogueProduct | null
+    const variant = componentProduct?.variants?.find((row) => String(row.id ?? '') === String(component.variantId ?? ''))
+    return Math.floor(Number(variant?.[stockField] ?? 0) / Math.max(1, Number(component.qty ?? 1)))
+  })
+  return componentStocks.length > 0 ? Math.min(...componentStocks) : 0
 }
 
 /** Stable, human-shareable identifier used by /shop-instagram/:lookSlug. */
@@ -165,9 +183,10 @@ export function resolveShopTheLookProducts(
       !selectedColorId || relationshipId(variant.color) === selectedColorId,
     )
     const stockField = market === 'AO' ? 'stockAO' : 'stockPT'
-    const availableSizes = [...new Set(relevantVariants
-      .filter((variant) => Number(variant[stockField] ?? 0) > 0 && typeof variant.size === 'string')
-      .map((variant) => String(variant.size)))]
+    const inStockVariants = relevantVariants.filter((variant) => Number(variant[stockField] ?? 0) > 0)
+    const availableSizes = [...new Set(inStockVariants
+      .map((variant) => variant.size?.trim() || variant.optionValueEN?.trim() || '')
+      .filter(Boolean))]
     const selectedVariant = selectedColorId
       ? (product.variants ?? []).find((variant) => relationshipId(variant.color) === selectedColorId)
       : null
@@ -195,7 +214,10 @@ export function resolveShopTheLookProducts(
       regularPrice,
       currency: market === 'AO' ? 'AOA' : 'EUR',
       onSale: price < regularPrice,
-      inStock: availableSizes.length > 0,
+      // A colour-only or option-less accessory has no display option but is
+      // still sellable. Fixed kits derive availability from every component
+      // variant instead of maintaining duplicate stock on the kit itself.
+      inStock: product.productType === 'bundle' ? bundleStock(product, market) > 0 : inStockVariants.length > 0,
       availableSizes,
       selectedColorId,
       selectedColorNamePT: names.pt,

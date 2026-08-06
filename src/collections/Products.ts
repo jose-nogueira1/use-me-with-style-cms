@@ -1,5 +1,25 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
 import { generateProductSlug } from '../lib/productSlug'
+
+const validateProductStructure: CollectionBeforeValidateHook = async ({ data, operation, originalDoc }) => {
+  if (!data) return data
+  const kind = (data.productType ?? originalDoc?.productType) === 'bundle' ? 'bundle' : 'standard'
+  const variants = Array.isArray(data.variants) ? data.variants : (Array.isArray(originalDoc?.variants) ? originalDoc.variants : [])
+  const components = Array.isArray(data.bundleComponents) ? data.bundleComponents : (Array.isArray(originalDoc?.bundleComponents) ? originalDoc.bundleComponents : [])
+
+  if (kind === 'standard' && variants.length < 1) {
+    throw new APIError('A standard product needs at least one inventory variant.', 400, null, true)
+  }
+  if (kind === 'bundle' && components.length < 1) {
+    throw new APIError('A product kit needs at least one component.', 400, null, true)
+  }
+  for (const component of components) {
+    if (!component?.product || !component?.variantId || !Number.isInteger(Number(component?.qty)) || Number(component.qty) < 1) {
+      throw new APIError('Every kit component needs a product, variant and positive quantity.', 400, null, true)
+    }
+  }
+  return operation === 'create' || data.productType ? { ...data, productType: kind } : data
+}
 
 // Product catalogue. Phase 1 decision (JOS-52/JOS-16): manual admin entry,
 // placeholder media until the client supplies final photography.
@@ -23,7 +43,7 @@ export const Products: CollectionConfig = {
     read: () => true,
   },
   hooks: {
-    beforeValidate: [generateProductSlug],
+    beforeValidate: [generateProductSlug, validateProductStructure],
   },
   fields: [
     {
@@ -63,6 +83,17 @@ export const Products: CollectionConfig = {
       required: true,
     },
     {
+      name: 'productType',
+      type: 'select',
+      required: true,
+      defaultValue: 'standard',
+      options: [
+        { label: 'Standard product', value: 'standard' },
+        { label: 'Product kit', value: 'bundle' },
+      ],
+      admin: { description: 'Standard products own stock variants. Product kits derive availability from their component variants.' },
+    },
+    {
       name: 'description',
       type: 'textarea',
       admin: { description: 'Legacy/default description. New storefront editing uses the language-specific fields below.' },
@@ -98,6 +129,38 @@ export const Products: CollectionConfig = {
       type: 'textarea',
       label: 'Fit note — English',
     },
+    {
+      name: 'optionLabelPT',
+      type: 'text',
+      label: 'Variant option label — Portuguese',
+      admin: { description: 'Optional. Examples: Tamanho, Capacidade, Estilo. Leave empty when the product has no non-colour option.' },
+    },
+    {
+      name: 'optionLabelEN',
+      type: 'text',
+      label: 'Variant option label — English',
+      admin: { description: 'Optional. Examples: Size, Capacity, Style.' },
+    },
+    {
+      name: 'specifications',
+      type: 'array',
+      labels: { singular: 'Product detail', plural: 'Product details' },
+      admin: { description: 'Reusable customer-facing facts such as material, capacity, dimensions, care or fit.' },
+      fields: [
+        { name: 'labelPT', type: 'text', required: true, label: 'Label — Portuguese' },
+        { name: 'labelEN', type: 'text', label: 'Label — English' },
+        { name: 'valuePT', type: 'text', required: true, label: 'Value — Portuguese' },
+        { name: 'valueEN', type: 'text', label: 'Value — English' },
+      ],
+    },
+    {
+      name: 'returnEligible',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Eligible for normal returns',
+    },
+    { name: 'returnNotePT', type: 'textarea', label: 'Product return note — Portuguese' },
+    { name: 'returnNoteEN', type: 'textarea', label: 'Product return note — English' },
     // Was a hardcoded select until 2026-07-25 -- same relationship
     // conversion as `category` above so admins can create their own badges.
     // hasMany since 2026-07-31 (admin bug report: "I can only select one
@@ -201,34 +264,33 @@ export const Products: CollectionConfig = {
         return true
       },
     },
-    // Variant-level inventory (2026-07-25): stock is tracked per COLOUR +
-    // SIZE combination, replacing the earlier per-size `sizes` array and
-    // the separate `colors` list. Every product has at least one colour
-    // (confirmed with Jay-P), so each row carries a required colour ref.
-    // The storefront derives the product's colour list from these rows
-    // (row order = display order) and disables size buttons that are out
-    // of stock for the selected colour.
+    // Flexible variant inventory (2026-08-06). Array-row `id` is the stable
+    // sellable identity used by carts and orders. Colour and the secondary
+    // option are both optional, so a standard product can be colour+size,
+    // capacity-only, colour-only, or a single option-less SKU.
     {
       name: 'variants',
       type: 'array',
-      required: true,
-      minRows: 1,
       labels: { singular: 'Variant', plural: 'Variants' },
-      admin: { description: 'One row per colour + size combination, with per-market stock.' },
+      admin: {
+        description: 'One row per sellable combination, with per-market stock.',
+        condition: (_, siblingData) => siblingData?.productType !== 'bundle',
+      },
       fields: [
+        { name: 'sku', type: 'text', label: 'SKU' },
         {
           name: 'color',
           type: 'relationship',
           relationTo: 'colors',
-          required: true,
           label: 'Colour',
         },
         {
           name: 'size',
-          type: 'select',
-          required: true,
-          options: ['XS', 'S', 'M', 'L', 'XL'],
+          type: 'text',
+          label: 'Option value — Portuguese',
+          admin: { description: 'Examples: XS, 750 ml, Ajustável. Leave empty for a colour-only or option-less product.' },
         },
+        { name: 'optionValueEN', type: 'text', label: 'Option value — English' },
         {
           name: 'stockAO',
           type: 'number',
@@ -245,6 +307,20 @@ export const Products: CollectionConfig = {
           defaultValue: 0,
           label: 'Stock -- Portugal',
         },
+      ],
+    },
+    {
+      name: 'bundleComponents',
+      type: 'array',
+      labels: { singular: 'Kit component', plural: 'Kit components' },
+      admin: {
+        description: 'Fixed contents of this kit. Stock is derived from and deducted from these component variants.',
+        condition: (_, siblingData) => siblingData?.productType === 'bundle',
+      },
+      fields: [
+        { name: 'product', type: 'relationship', relationTo: 'products', required: true },
+        { name: 'variantId', type: 'text', required: true, label: 'Component variant ID' },
+        { name: 'qty', type: 'number', required: true, min: 1, defaultValue: 1, label: 'Quantity in kit' },
       ],
     },
     {

@@ -156,6 +156,9 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       return {
         productName: String(item.productName ?? ''),
         size: (item.size as string | undefined) || undefined,
+        optionLabel: (item.optionLabel as string | undefined) || undefined,
+        optionValue: (item.optionValue as string | undefined) || undefined,
+        productType: item.productType === 'bundle' ? 'bundle' : 'standard',
         color: (item.color as string | undefined) || undefined,
         qty: Number(item.qty) || 1,
         unitPrice: Number(item.unitPrice) || 0,

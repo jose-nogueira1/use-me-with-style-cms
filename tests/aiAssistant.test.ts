@@ -34,6 +34,7 @@ const safeExtraction = {
 function product(overrides: Partial<ProductContext> = {}): ProductContext {
   return {
     sourceRecordId: '42', productId: 42, name: 'Vestido Aurora', namePT: 'Vestido Aurora', nameEN: 'Aurora Dress',
+    productType: 'standard', optionLabel: 'Tamanho', specifications: [], bundleContents: [],
     slug: 'vestido-aurora', market: 'AO', availableInMarket: true, price: 25_000, currency: 'AOA', onSale: false,
     fitNote: null, sizeGuide: null, productUrl: 'https://ao.usemewithstyle.shop/produto/vestido-aurora',
     variants: [], matchedVariants: [], categoryId: 'dresses', categorySlug: 'vestidos', tagIds: ['summer'], tagSlugs: ['verao'],

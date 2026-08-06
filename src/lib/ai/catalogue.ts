@@ -21,6 +21,11 @@ export type CatalogueProduct = {
   saleEndDate?: string | null
   fitNotePT?: string | null
   fitNoteEN?: string | null
+  productType?: 'standard' | 'bundle' | null
+  optionLabelPT?: string | null
+  optionLabelEN?: string | null
+  specifications?: Array<{ labelPT?: string | null; labelEN?: string | null; valuePT?: string | null; valueEN?: string | null }> | null
+  bundleComponents?: Array<{ product?: CatalogueProduct | string | number | null; variantId?: string | null; qty?: number | null }> | null
   sizeGuide?: unknown
   variants?: Array<CatalogueVariant> | null
   category?: unknown
@@ -30,6 +35,7 @@ export type CatalogueProduct = {
 export type CatalogueVariant = {
   id?: string | number | null
   size?: string | null
+  optionValueEN?: string | null
   color?: string | number | { id?: string | number; name?: string; namePT?: string; nameEN?: string } | null
   stockAO?: number | null
   stockPT?: number | null
@@ -49,6 +55,10 @@ export type ProductContext = {
   name: string
   namePT: string | null
   nameEN: string | null
+  productType: 'standard' | 'bundle'
+  optionLabel: string | null
+  specifications: Array<{ label: string; value: string }>
+  bundleContents: Array<{ name: string; qty: number }>
   slug: string | null
   market: CatalogueMarket
   availableInMarket: boolean
@@ -149,10 +159,24 @@ export function buildCatalogueSearchWhere(candidateNames: string[], market: Cata
 export function toProductContext(product: CatalogueProduct, extraction: MessageExtraction, market: CatalogueMarket, now = new Date()): ProductContext {
   const availableInMarket = product.active !== false && (market === 'AO' ? product.availableAO !== false : product.availablePT !== false)
   const rawVariants = product.variants || []
-  const variants = rawVariants.map((variant) => {
+  let variants = rawVariants.map((variant) => {
     const stock = Number(market === 'AO' ? variant.stockAO : variant.stockPT) || 0
-    return { id: variant.id ?? null, size: text(variant.size) || null, colour: colourName(variant.color), stock, available: stock > 0 }
+    return { id: variant.id ?? null, size: text(variant.size) || text(variant.optionValueEN) || null, colour: colourName(variant.color), stock, available: stock > 0 }
   })
+  const bundleContents = (product.bundleComponents ?? []).flatMap((component) => {
+    const child = component.product && typeof component.product === 'object' ? component.product : null
+    return child ? [{ name: text(child.namePT) || text(child.nameEN) || text(child.name) || 'Product', qty: Math.max(1, Number(component.qty ?? 1)) }] : []
+  })
+  if (product.productType === 'bundle') {
+    const stocks = (product.bundleComponents ?? []).map((component) => {
+      const child = component.product && typeof component.product === 'object' ? component.product : null
+      const variant = child?.variants?.find((row) => String(row.id) === String(component.variantId))
+      const stock = Number(market === 'AO' ? variant?.stockAO : variant?.stockPT) || 0
+      return Math.floor(stock / Math.max(1, Number(component.qty ?? 1)))
+    })
+    const stock = stocks.length ? Math.min(...stocks) : 0
+    variants = [{ id: 'bundle', size: null, colour: null, stock, available: stock > 0 }]
+  }
   const matchedVariants = variants.filter((variant, index) => {
     if (!matches(variant.size, extraction.size)) return false
     if (!extraction.colour) return true
@@ -172,6 +196,13 @@ export function toProductContext(product: CatalogueProduct, extraction: MessageE
   const tags = relationList(product.tag)
   return {
     sourceRecordId: String(product.id), productId: product.id, name: namePT || nameEN || 'Unnamed product', namePT, nameEN,
+    productType: product.productType === 'bundle' ? 'bundle' : 'standard',
+    optionLabel: text(product.optionLabelPT) || text(product.optionLabelEN) || null,
+    specifications: (product.specifications ?? []).flatMap((entry) => {
+      const label = text(entry.labelPT) || text(entry.labelEN); const value = text(entry.valuePT) || text(entry.valueEN)
+      return label && value ? [{ label, value }] : []
+    }),
+    bundleContents,
     slug: text(product.slug) || null, market, availableInMarket, price: priced, currency: market === 'AO' ? 'AOA' : 'EUR', onSale,
     fitNote: market === 'AO' ? (text(product.fitNotePT) || text(product.fitNoteEN) || null) : (text(product.fitNotePT) || text(product.fitNoteEN) || null),
     sizeGuide: product.sizeGuide ?? null, variants, matchedVariants,

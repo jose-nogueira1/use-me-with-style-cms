@@ -64,6 +64,7 @@ import * as migration_20260805_150000_ai_messaging_settings from './20260805_150
 import * as migration_20260806_120000_ai_out_of_stock_recovery from './20260806_120000_ai_out_of_stock_recovery';
 import * as migration_20260806_150000_instagram_shop_the_look from './20260806_150000_instagram_shop_the_look';
 import * as migration_20260806_160000_fix_colors_legacy_name from './20260806_160000_fix_colors_legacy_name';
+import * as migration_20260806_190000_flexible_products_and_kits from './20260806_190000_flexible_products_and_kits';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -394,5 +395,10 @@ export const migrations = [
     up: migration_20260806_160000_fix_colors_legacy_name.up,
     down: migration_20260806_160000_fix_colors_legacy_name.down,
     name: '20260806_160000_fix_colors_legacy_name',
+  },
+  {
+    up: migration_20260806_190000_flexible_products_and_kits.up,
+    down: migration_20260806_190000_flexible_products_and_kits.down,
+    name: '20260806_190000_flexible_products_and_kits',
   },
 ];

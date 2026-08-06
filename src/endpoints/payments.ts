@@ -48,7 +48,7 @@ type CreateOrderBody = {
   country: string
   taxId?: string
   notes?: string
-  items: { product: string; productName: string; size: string; color?: string; qty: number; unitPrice: number }[]
+  items: { product: string; productName: string; variantId?: string; size?: string; color?: string; qty: number; unitPrice: number }[]
   currency: 'Kz' | 'EUR'
   subtotal: number
   shippingCost: number
@@ -77,7 +77,10 @@ type PendingOrder = Omit<CreateOrderBody, 'items'> & {
   items: Array<{
     product: string | number | { id: string | number }
     productName: string
-    size: string
+    size?: string | null
+    optionLabel?: string | null
+    optionValue?: string | null
+    productType?: 'standard' | 'bundle' | null
     color?: string | null
     qty: number
     unitPrice: number
@@ -491,6 +494,9 @@ const stripeCreateSession: Endpoint = {
           product: String(typeof item.product === 'object' ? item.product.id : item.product),
           productName: item.productName,
           size: item.size,
+          optionLabel: item.optionLabel,
+          optionValue: item.optionValue,
+          productType: item.productType,
           color: item.color ?? undefined,
           qty: item.qty,
           unitPrice: item.unitPrice,

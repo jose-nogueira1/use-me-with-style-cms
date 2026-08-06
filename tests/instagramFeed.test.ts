@@ -239,6 +239,43 @@ test('shop-the-look products are market-safe and retain sold-out looks without b
   assert.deepEqual(products[0].availableSizes, [])
 })
 
+test('shop-the-look treats option-less accessories and component-backed kits as sellable', () => {
+  const accessory = {
+    id: 20,
+    slug: 'garrafa',
+    name: 'Garrafa',
+    productType: 'standard' as const,
+    active: true,
+    availableAO: true,
+    availablePT: true,
+    priceAOKz: 5000,
+    pricePTEur: 10,
+    variants: [{ id: 'bottle', stockAO: 4, stockPT: 0 }],
+  }
+  const products = resolveShopTheLookProducts({
+    products: [
+      accessory,
+      {
+        id: 21,
+        slug: 'kit-garrafa',
+        name: 'Kit Garrafa',
+        productType: 'bundle',
+        active: true,
+        availableAO: true,
+        availablePT: true,
+        priceAOKz: 9000,
+        pricePTEur: 18,
+        variants: [],
+        bundleComponents: [{ product: accessory, variantId: 'bottle', qty: 2 }],
+      },
+    ],
+  }, 'AO')
+
+  assert.equal(products[0].inStock, true)
+  assert.deepEqual(products[0].availableSizes, [])
+  assert.equal(products[1].inStock, true)
+})
+
 test('shop-the-look caps every Instagram post at four products', () => {
   const products = resolveShopTheLookProducts({
     permalink: 'https://instagram.com/p/look/',

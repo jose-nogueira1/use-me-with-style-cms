@@ -260,6 +260,50 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
   } as never), /tracked delivery/)
 })
 
+test('authoritative orders price fixed kits and snapshot exact component variants', async () => {
+  const products = new Map<number, Record<string, unknown>>([
+    [90, {
+      id: 90, active: true, availableAO: true, availablePT: true,
+      name: 'Kit Hidratação', priceAOKz: 12_000, pricePTEur: 24,
+      shippingWeightGrams: 900, productType: 'bundle', variants: [],
+      bundleComponents: [{ product: 4, variantId: 'bottle-750', qty: 2 }],
+    }],
+    [4, {
+      id: 4, active: true, availableAO: true, availablePT: true,
+      name: 'Garrafa', priceAOKz: 5_000, pricePTEur: 10,
+      productType: 'standard',
+      variants: [{ id: 'bottle-750', size: '750 ml', optionValueEN: '750 ml', stockAO: 3, stockPT: 3 }],
+    }],
+  ])
+  const payload = {
+    db: {},
+    findByID: async ({ id }: { id: number }) => products.get(Number(id)),
+    find: async () => ({ docs: [] }),
+    findGlobal: async () => ({}),
+  }
+  const input = {
+    market: 'AO', lang: 'pt', paymentMethod: 'multicaixa_express', deliveryMethod: 'courier_ao',
+    city: 'Maianga', customerEmail: 'cliente@example.com',
+    items: [{ product: 90, variantId: 'bundle', qty: 1 }],
+  }
+  const data = await applyAuthoritativeOrderValues({
+    data: input,
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never)
+
+  assert.equal(data?.items?.[0]?.productType, 'bundle')
+  assert.equal(data?.items?.[0]?.unitPrice, 12_000)
+  assert.equal(data?.items?.[0]?.size, undefined)
+  assert.deepEqual(data?.items?.[0]?.inventoryComponents, [{ product: 4, variantId: 'bottle-750', qty: 2 }])
+
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: { ...input, items: [{ product: 90, variantId: 'bundle', qty: 2 }] },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /no longer in stock/)
+})
+
 test('Portugal manual-WhatsApp checkout is only accepted while payments are deferred', async () => {
   const payload = {
     db: {},
@@ -369,6 +413,24 @@ test('inventory groups duplicate variants and reserves stock once', async () => 
   const result = await manageInventoryReservation({ data: order, operation: 'create', context: {}, req: { payload } } as never)
   assert.equal(updatedStock, 2)
   assert.equal(result?.inventoryReservationStatus, 'active')
+})
+
+test('product kits reserve component variants and multiply component quantities by kit quantity', () => {
+  const deltas = inventoryDeltasForOrder({
+    market: 'AO',
+    items: [{
+      product: 90,
+      qty: 2,
+      inventoryComponents: [
+        { product: 4, variantId: 'bottle-black', qty: 1 },
+        { product: 7, variantId: 'towel-white', qty: 2 },
+      ],
+    }],
+  })
+  assert.deepEqual(deltas.map((delta) => ({ productId: delta.productId, variantId: delta.variantId, qty: delta.qty })), [
+    { productId: 4, variantId: 'bottle-black', qty: 2 },
+    { productId: 7, variantId: 'towel-white', qty: 4 },
+  ])
 })
 
 // Shipping zero-rated, discount taken before VAT (2026-08-04, user rules:

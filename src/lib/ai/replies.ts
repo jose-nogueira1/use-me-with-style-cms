@@ -48,12 +48,22 @@ function availableSizes(product: ProductContext): string {
   return uniqueValues(product.variants.filter((variant) => variant.available).map((variant) => variant.size)).join(', ')
 }
 
+function optionLabel(product: ProductContext, language: ReplyLanguage, plural = false): string {
+  const configured = product.optionLabel?.trim()
+  if (!configured || /^(tamanho|size)$/i.test(configured)) {
+    if (language === 'en') return plural ? 'Available sizes' : 'size'
+    return plural ? 'Tamanhos disponíveis' : 'tamanho'
+  }
+  return configured
+}
+
 function alternativeProductLine(product: ProductContext, language: ReplyLanguage): string {
   const name = productName(product, language)
   const sizes = availableSizes(product)
   const price = product.price == null ? null : money(product.price, product.market)
-  if (language === 'en') return `${name}${sizes ? ` (sizes ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
-  return `${name}${sizes ? ` (tamanhos ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
+  const label = optionLabel(product, language, true)
+  if (language === 'en') return `${name}${sizes ? ` (${label.toLowerCase()}: ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
+  return `${name}${sizes ? ` (${label.toLowerCase()}: ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
 }
 
 function sameProductRecoveryText(
@@ -122,12 +132,16 @@ function productAvailability(input: DeterministicReplyInput): string | null {
   const price = product.price == null ? null : money(product.price, input.market)
   if (availableVariants.length) {
     const sizes = [...new Set(availableVariants.map((item) => item.size).filter(Boolean))].join(', ')
+    const availableOptionLabel = optionLabel(product, input.language, true)
+    const kitContents = product.productType === 'bundle' && product.bundleContents.length
+      ? (input.language === 'en' ? ` It includes ${product.bundleContents.map((item) => `${item.qty} × ${item.name}`).join(', ')}.` : ` Inclui ${product.bundleContents.map((item) => `${item.qty} × ${item.name}`).join(', ')}.`)
+      : ''
     if (product.matchedVariants.length > 1) {
-      if (input.language === 'en') return `Yes - ${name} is available in ${marketName(input.market, 'en')}.${sizes ? ` Available sizes: ${sizes}.` : ''}${price ? ` The current price is ${price}.` : ''}${link(product)}`
-      return `Sim - ${name} está disponível em ${marketName(input.market, 'pt')}.${sizes ? ` Tamanhos disponíveis: ${sizes}.` : ''}${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
+      if (input.language === 'en') return `Yes - ${name} is available in ${marketName(input.market, 'en')}.${sizes ? ` ${availableOptionLabel}: ${sizes}.` : ''}${kitContents}${price ? ` The current price is ${price}.` : ''}${link(product)}`
+      return `Sim - ${name} está disponível em ${marketName(input.market, 'pt')}.${sizes ? ` ${availableOptionLabel}: ${sizes}.` : ''}${kitContents}${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
     }
-    if (input.language === 'en') return `Yes - ${name}, size ${variant.size || 'requested'}, is available in ${marketName(input.market, 'en')}.${price ? ` The current price is ${price}.` : ''}${link(product)}`
-    return `Sim - ${name}, tamanho ${variant.size || 'pedido'}, está disponível em ${marketName(input.market, 'pt')}.${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
+    if (input.language === 'en') return `Yes - ${name}${variant.size ? `, ${optionLabel(product, input.language)} ${variant.size}` : ''}, is available in ${marketName(input.market, 'en')}.${kitContents}${price ? ` The current price is ${price}.` : ''}${link(product)}`
+    return `Sim - ${name}${variant.size ? `, ${optionLabel(product, input.language)} ${variant.size}` : ''}, está disponível em ${marketName(input.market, 'pt')}.${kitContents}${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
   }
   return outOfStockReply(input, product)
 }
