@@ -2,9 +2,11 @@ import type { CollectionAfterChangeHook } from 'payload'
 
 import { buildCttTrackingUrl } from '../lib/messaging'
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../lib/email'
+import type { OrderConfirmationItemInput } from '../lib/email'
 import { generateInternalInvoiceForOrder } from '../lib/internalInvoice'
 import type { InvoiceAttachment } from '../lib/email'
 import { sendMetaPurchase } from '../endpoints/metaConversions'
+import { absoluteMediaUrl } from '../lib/mediaUrl'
 
 // Customer order communication is email-only. Telephone numbers remain on
 // orders for exceptional staff-initiated contact, but order events never
@@ -107,10 +109,67 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     }, req)
     if (attachment) invoiceAttachment = attachment
 
+    // Resolve each item's product image for the confirmation email --
+    // Orders.items only snapshots productName/size/color/qty/unitPrice (see
+    // Orders.ts), never an image, so the `product` relationship has to be
+    // looked up separately. Best-effort: a lookup failure (or a product
+    // with no images) just means that item's email row falls back to the
+    // template's own placeholder swatch (see renderItemRow in lib/email.ts)
+    // instead of blocking or failing the confirmation send.
+    const orderItems: Array<Record<string, unknown>> = Array.isArray(doc.items) ? doc.items : []
+    const productIds = Array.from(new Set(orderItems.map((item) => item.product).filter((id) => id != null)))
+    const productImageById = new Map<string, { url?: string; alt?: string }>()
+    if (productIds.length) {
+      try {
+        const products = await req.payload.find({
+          collection: 'products',
+          where: { id: { in: productIds } },
+          depth: 1,
+          limit: productIds.length,
+          overrideAccess: true,
+        })
+        for (const product of products.docs) {
+          const firstImage = Array.isArray(product.images) ? product.images[0]?.image : undefined
+          if (firstImage && typeof firstImage === 'object') {
+            const media = firstImage as { url?: string | null; alt?: string | null; sizes?: { card?: { url?: string | null } } }
+            // Prefer the pre-cropped "card" size (600x800, matches the
+            // storefront's own product-card aspect ratio) over the full
+            // original when available -- smaller download for an email.
+            productImageById.set(String(product.id), {
+              url: absoluteMediaUrl(media.sizes?.card?.url || media.url),
+              alt: media.alt || product.name,
+            })
+          }
+        }
+      } catch (err) {
+        // Never let an image-lookup failure block the confirmation email.
+        // eslint-disable-next-line no-console
+        console.error('[email:product-image-lookup-failed]', err)
+      }
+    }
+
+    const emailItems: OrderConfirmationItemInput[] = orderItems.map((item) => {
+      const image = item.product != null ? productImageById.get(String(item.product)) : undefined
+      return {
+        productName: String(item.productName ?? ''),
+        size: (item.size as string | undefined) || undefined,
+        color: (item.color as string | undefined) || undefined,
+        qty: Number(item.qty) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        imageUrl: image?.url,
+        imageAlt: image?.alt || String(item.productName ?? ''),
+      }
+    })
+
     await sendOrderConfirmationEmail(req.payload, {
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,
+      orderDate: doc.createdAt,
       customerName: doc.customerName,
+      // customerFirstName is optional/not backfilled on older orders --
+      // buildOrderConfirmationEmail itself falls back to the first token of
+      // customerName when this is absent (see resolveFirstName).
+      customerFirstName: doc.customerFirstName || undefined,
       total: doc.total,
       currency: doc.currency,
       // doc.lang is the storefront language at checkout (Orders.lang,
@@ -118,6 +177,26 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       // itself if this is somehow missing (e.g. an order written before this
       // field existed).
       lang: doc.lang,
+      items: emailItems,
+      subtotal: doc.subtotal,
+      discountAmount: doc.discountAmount || undefined,
+      discountLabel: doc.discountLabel || undefined,
+      shippingCost: doc.shippingCost,
+      paymentMethod: doc.paymentMethod,
+      deliveryMethod: doc.deliveryMethod,
+      // Only set this early if staff somehow entered a tracking code before
+      // the payment-confirmation email went out -- rare (tracking is
+      // normally added at the shipped stage, see justShipped above) but
+      // harmless to include when it happens.
+      courierTrackingCode: doc.cttTrackingCode || undefined,
+      courierTrackingUrl: trackingUrl,
+      address: {
+        line1: doc.address,
+        line2: doc.addressLine2,
+        postalCode: doc.postalCode || undefined,
+        city: doc.city,
+        country: doc.country,
+      },
       attachment: invoiceAttachment,
     })
   }
