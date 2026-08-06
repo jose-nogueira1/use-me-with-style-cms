@@ -184,6 +184,59 @@ export type InstagramUserProfile = {
   is_verified_user?: boolean
 }
 
+type InstagramMessageTextOptions = {
+  token?: string
+  fetchImpl?: typeof fetch
+  timeoutMs?: number
+}
+
+/**
+ * Fetches the text Meta stores for an Instagram message. Some story-reply
+ * webhooks contain the story context and message ID but omit `message.text`;
+ * the message-details endpoint is the authoritative fallback in that case.
+ *
+ * This helper deliberately logs neither message IDs nor response bodies so a
+ * customer's DM and the access token cannot leak into application logs.
+ */
+export async function getInstagramMessageText(
+  messageId: string,
+  options: InstagramMessageTextOptions = {},
+): Promise<string | null> {
+  const token = options.token ?? process.env.INSTAGRAM_ACCESS_TOKEN
+  const normalizedId = messageId.trim()
+  if (!token || !normalizedId) return null
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 4_000)
+
+  try {
+    const params = new URLSearchParams({ fields: 'id,created_time,from,to,message' })
+    const response = await (options.fetchImpl ?? fetch)(
+      `https://graph.instagram.com/v23.0/${encodeURIComponent(normalizedId)}?${params}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      },
+    )
+    if (!response.ok) {
+      // eslint-disable-next-line no-console
+      console.info('[instagram:message-detail-unavailable]', response.status)
+      return null
+    }
+    const result = await response.json().catch(() => ({})) as { message?: unknown }
+    return typeof result.message === 'string' && result.message.trim()
+      ? result.message.trim()
+      : null
+  } catch {
+    // A failed enrichment must not cause Meta to retry the entire webhook.
+    // eslint-disable-next-line no-console
+    console.info('[instagram:message-detail-error]')
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export async function getInstagramUserProfile(igScopedId: string): Promise<InstagramUserProfile | null> {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN
   if (!token) return null
