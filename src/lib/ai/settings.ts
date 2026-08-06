@@ -27,6 +27,13 @@ export type AiMessagingSettings = {
   maxAutoRepliesPerConversation: number
   maxAutoRepliesPerHour: number
   monthlyBudgetUsd: number
+  outOfStockRecoveryEnabled: boolean
+  outOfStockAllowOtherColours: boolean
+  outOfStockAllowOtherSizes: boolean
+  outOfStockMaxAlternatives: number
+  outOfStockPriceTolerancePercent: number
+  outOfStockCategoryWeight: number
+  outOfStockTagWeight: number
 }
 
 export const DEFAULT_AI_MESSAGING_SETTINGS: AiMessagingSettings = {
@@ -41,6 +48,13 @@ export const DEFAULT_AI_MESSAGING_SETTINGS: AiMessagingSettings = {
   maxAutoRepliesPerConversation: 6,
   maxAutoRepliesPerHour: 40,
   monthlyBudgetUsd: 25,
+  outOfStockRecoveryEnabled: true,
+  outOfStockAllowOtherColours: true,
+  outOfStockAllowOtherSizes: true,
+  outOfStockMaxAlternatives: 3,
+  outOfStockPriceTolerancePercent: 25,
+  outOfStockCategoryWeight: 60,
+  outOfStockTagWeight: 40,
 }
 
 function finiteNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -65,6 +79,13 @@ export function normalizeAiMessagingSettings(value: unknown): AiMessagingSetting
     maxAutoRepliesPerConversation: Math.round(finiteNumber(raw.maxAutoRepliesPerConversation, 6, 1, 20)),
     maxAutoRepliesPerHour: Math.round(finiteNumber(raw.maxAutoRepliesPerHour, 40, 1, 200)),
     monthlyBudgetUsd: finiteNumber(raw.monthlyBudgetUsd, 25, 0, 10_000),
+    outOfStockRecoveryEnabled: raw.outOfStockRecoveryEnabled !== false,
+    outOfStockAllowOtherColours: raw.outOfStockAllowOtherColours !== false,
+    outOfStockAllowOtherSizes: raw.outOfStockAllowOtherSizes !== false,
+    outOfStockMaxAlternatives: Math.round(finiteNumber(raw.outOfStockMaxAlternatives, 3, 1, 5)),
+    outOfStockPriceTolerancePercent: finiteNumber(raw.outOfStockPriceTolerancePercent, 25, 0, 100),
+    outOfStockCategoryWeight: finiteNumber(raw.outOfStockCategoryWeight, 60, 0, 100),
+    outOfStockTagWeight: finiteNumber(raw.outOfStockTagWeight, 40, 0, 100),
   }
 }
 

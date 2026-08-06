@@ -1,5 +1,5 @@
 import type { ExtractionIntent, ExtractionLanguage } from './extraction'
-import type { CatalogueMarket, ProductContext } from './catalogue'
+import type { CatalogueMarket, OutOfStockRecovery, ProductContext, ProductVariantContext } from './catalogue'
 
 export type ReplyLanguage = Exclude<ExtractionLanguage, 'unknown'>
 
@@ -16,6 +16,7 @@ export type DeterministicReplyInput = {
   market: CatalogueMarket | null
   product?: ProductContext | null
   alternatives?: ProductContext[]
+  outOfStockRecovery?: OutOfStockRecovery | null
   facts?: ReplyFacts
 }
 
@@ -39,9 +40,82 @@ function marketName(market: CatalogueMarket, language: ReplyLanguage): string {
   return market === 'AO' ? 'Angola' : 'Portugal'
 }
 
+function uniqueValues(values: Array<string | null>): string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))]
+}
+
+function availableSizes(product: ProductContext): string {
+  return uniqueValues(product.variants.filter((variant) => variant.available).map((variant) => variant.size)).join(', ')
+}
+
+function alternativeProductLine(product: ProductContext, language: ReplyLanguage): string {
+  const name = productName(product, language)
+  const sizes = availableSizes(product)
+  const price = product.price == null ? null : money(product.price, product.market)
+  if (language === 'en') return `${name}${sizes ? ` (sizes ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
+  return `${name}${sizes ? ` (tamanhos ${sizes})` : ''}${price ? ` — ${price}` : ''}.${link(product)}`
+}
+
+function sameProductRecoveryText(
+  product: ProductContext,
+  recovery: OutOfStockRecovery,
+  language: ReplyLanguage,
+): string[] {
+  const parts: string[] = []
+  const sameSize = recovery.sameProductOptions.filter((option) => option.kind === 'same_size_other_colour')
+  const sameColour = recovery.sameProductOptions.filter((option) => option.kind === 'same_colour_other_size')
+  const other = recovery.sameProductOptions.filter((option) => option.kind === 'other_variant')
+  if (sameSize.length) {
+    const size = sameSize[0]?.size
+    const colours = uniqueValues(sameSize.map((option) => option.colour)).join(', ')
+    parts.push(language === 'en'
+      ? `The same product is available in size ${size || 'requested'} in ${colours}.`
+      : `O mesmo produto está disponível no tamanho ${size || 'pedido'} nas cores ${colours}.`)
+  }
+  if (sameColour.length) {
+    const colour = sameColour[0]?.colour
+    const sizes = uniqueValues(sameColour.map((option) => option.size)).join(', ')
+    parts.push(language === 'en'
+      ? `In ${colour || 'the requested colour'}, the available sizes are ${sizes}.`
+      : `Na cor ${colour || 'pedida'}, os tamanhos disponíveis são ${sizes}.`)
+  }
+  if (!sameSize.length && !sameColour.length && other.length) {
+    const labels = other.slice(0, 4).map((option: ProductVariantContext) => [option.colour, option.size].filter(Boolean).join(' — ')).join('; ')
+    parts.push(language === 'en' ? `Other available options for this product: ${labels}.` : `Outras opções disponíveis deste produto: ${labels}.`)
+  }
+  if (parts.length) parts[parts.length - 1] += link(product)
+  return parts
+}
+
+function outOfStockReply(input: DeterministicReplyInput, product: ProductContext): string {
+  const recovery = input.outOfStockRecovery
+  const sections = [input.language === 'en'
+    ? 'That exact option is currently out of stock.'
+    : 'Essa opção está atualmente esgotada.']
+  if (recovery) {
+    sections.push(...sameProductRecoveryText(product, recovery, input.language))
+    if (recovery.recommendations.length) {
+      const heading = input.language === 'en' ? 'Similar products currently available:' : 'Produtos semelhantes disponíveis:'
+      const recommendationLines: string[] = []
+      for (const recommendation of recovery.recommendations) {
+        const line = alternativeProductLine(recommendation.product, input.language)
+        if ([...sections, heading, ...recommendationLines, line].join(' ').length > 790) break
+        recommendationLines.push(line)
+      }
+      if (recommendationLines.length) sections.push(heading, ...recommendationLines)
+    }
+  }
+  if (sections.length === 1) {
+    sections.push(input.language === 'en'
+      ? 'Our team can help you find an alternative.'
+      : 'A nossa equipa pode ajudar a encontrar uma alternativa.')
+  }
+  return sections.join(' ')
+}
+
 function productAvailability(input: DeterministicReplyInput): string | null {
   const product = input.product
-  if (!product || !input.market || !product.availableInMarket || product.matchedVariants.length === 0) return null
+  if (!product || !input.market || !product.availableInMarket || product.variants.length === 0) return null
   const availableVariants = product.matchedVariants.filter((item) => item.available)
   const variant = availableVariants[0] || product.matchedVariants[0]
   const name = productName(product, input.language)
@@ -55,13 +129,7 @@ function productAvailability(input: DeterministicReplyInput): string | null {
     if (input.language === 'en') return `Yes - ${name}, size ${variant.size || 'requested'}, is available in ${marketName(input.market, 'en')}.${price ? ` The current price is ${price}.` : ''}${link(product)}`
     return `Sim - ${name}, tamanho ${variant.size || 'pedido'}, está disponível em ${marketName(input.market, 'pt')}.${price ? ` O preço atual é ${price}.` : ''}${link(product)}`
   }
-  const alternative = input.alternatives?.find((candidate) => candidate.availableInMarket && candidate.matchedVariants.some((item) => item.available))
-  if (alternative) {
-    const alternativeName = productName(alternative, input.language)
-    if (input.language === 'en') return `That exact option is currently out of stock. We can suggest ${alternativeName} instead.${link(alternative)}`
-    return `Essa opção está atualmente esgotada. Podemos sugerir ${alternativeName} em alternativa.${link(alternative)}`
-  }
-  return input.language === 'en' ? `That exact option is currently out of stock. Please contact our team and we can help you find an alternative.` : `Essa opção está atualmente esgotada. Contacte a nossa equipa e ajudaremos a encontrar uma alternativa.`
+  return outOfStockReply(input, product)
 }
 
 function productPrice(input: DeterministicReplyInput): string | null {

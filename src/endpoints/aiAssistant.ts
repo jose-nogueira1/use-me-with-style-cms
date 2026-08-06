@@ -2,7 +2,7 @@ import type { Endpoint, Payload } from 'payload'
 import { getAiAssistantConfig, canAutoSendAiReply } from '../lib/ai/config'
 import { createAiProvider, AiProviderError, type AiUsage } from '../lib/ai/provider'
 import { extractInstagramMessage, type MessageExtraction } from '../lib/ai/extraction'
-import { retrieveProductContexts, type CatalogueMarket } from '../lib/ai/catalogue'
+import { retrieveOutOfStockRecovery, retrieveProductContexts, type CatalogueMarket } from '../lib/ai/catalogue'
 import { draftInstagramReply } from '../lib/ai/drafting'
 import { evaluateExtractionSafety } from '../lib/ai/safety'
 import { buildDeterministicReply } from '../lib/ai/replies'
@@ -214,20 +214,28 @@ export const aiAssistantEndpoint: Endpoint = {
         }
 
         const products = await retrieveProductContexts(req.payload as any, extraction, { market: market || undefined })
+        const outOfStockRecovery = extraction.intent === 'product_availability' && products[0]
+          ? await retrieveOutOfStockRecovery(req.payload as any, products[0], extraction, settings)
+          : null
+        const recommendationProducts = outOfStockRecovery?.recommendations.map((recommendation) => recommendation.product) || []
+        const verifiedProducts = [...products, ...recommendationProducts.filter((candidate) =>
+          !products.some((product) => product.sourceRecordId === candidate.sourceRecordId),
+        )]
         const replyFacts = await loadReplyFacts(req.payload, extraction, market, replyLanguage)
-        const auditFacts = buildAuditFacts(extraction, market, products, replyFacts.policyAudit, replyFacts.couponAudit)
+        const auditFacts = buildAuditFacts(extraction, market, verifiedProducts, replyFacts.policyAudit, replyFacts.couponAudit, outOfStockRecovery)
         const deterministic = safety.allowed ? buildDeterministicReply({
           intent: extraction.intent,
           language: replyLanguage,
           market,
           product: products[0] || null,
           alternatives: products.slice(1),
+          outOfStockRecovery,
           facts: replyFacts,
         }) : null
 
         let reply = deterministic
         let requiresHuman = safety.requiresHuman
-        let sourceRecordIds = products.map((product) => product.sourceRecordId)
+        let sourceRecordIds = verifiedProducts.map((product) => product.sourceRecordId)
         let draftingUsage: AiUsage | undefined
         let draftingModel: string | undefined
         let draftingRequestId: string | undefined
@@ -241,7 +249,7 @@ export const aiAssistantEndpoint: Endpoint = {
             customerMessage: String((claimed as any).body || ''),
             intent: extraction.intent,
             language: replyLanguage,
-            facts: { product: products[0] || null, alternatives: products.slice(1), policyText: replyFacts.policyAudit?.text || null },
+            facts: { product: products[0] || null, alternatives: verifiedProducts.slice(1), policyText: replyFacts.policyAudit?.text || null },
             model: config.draftingModel,
           })
           reply = drafted.draft.reply

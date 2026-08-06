@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import type { CatalogueMarket, ProductContext } from './catalogue'
+import type { CatalogueMarket, OutOfStockRecovery, ProductContext } from './catalogue'
 import type { MessageExtraction } from './extraction'
 import type { AiUsage } from './provider'
 import type { ReplyFacts } from './replies'
@@ -19,6 +19,10 @@ export type AiAuditFacts = {
   intent: MessageExtraction['intent']
   product?: Pick<ProductContext, 'sourceRecordId' | 'name' | 'market' | 'price' | 'currency' | 'onSale' | 'availableInMarket' | 'matchedVariants' | 'productUrl'> | null
   alternatives?: Array<Pick<ProductContext, 'sourceRecordId' | 'name' | 'availableInMarket' | 'productUrl'>>
+  outOfStockRecovery?: {
+    sameProductOptions: Array<{ size: string | null; colour: string | null; kind: string }>
+    recommendations: Array<{ sourceRecordId: string; name: string; reasons: string[]; score: number }>
+  } | null
   policy?: { kind: 'delivery' | 'payment' | 'return_policy'; text: string } | null
   coupon?: { code: string; valid: boolean; detail?: string | null } | null
 }
@@ -92,7 +96,14 @@ export async function loadReplyFacts(payload: Payload, extraction: MessageExtrac
   return { payment: value || null, policyAudit: value ? { kind: 'payment', text: value } : null, couponAudit: null }
 }
 
-export function buildAuditFacts(extraction: MessageExtraction, market: CatalogueMarket | null, products: ProductContext[], policy: AiAuditFacts['policy'], coupon: AiAuditFacts['coupon'] = null): AiAuditFacts {
+export function buildAuditFacts(
+  extraction: MessageExtraction,
+  market: CatalogueMarket | null,
+  products: ProductContext[],
+  policy: AiAuditFacts['policy'],
+  coupon: AiAuditFacts['coupon'] = null,
+  outOfStockRecovery: OutOfStockRecovery | null = null,
+): AiAuditFacts {
   const product = products[0]
   return {
     market,
@@ -114,6 +125,17 @@ export function buildAuditFacts(extraction: MessageExtraction, market: Catalogue
       availableInMarket: candidate.availableInMarket,
       productUrl: candidate.productUrl,
     })),
+    outOfStockRecovery: outOfStockRecovery ? {
+      sameProductOptions: outOfStockRecovery.sameProductOptions.map((option) => ({
+        size: option.size, colour: option.colour, kind: option.kind,
+      })),
+      recommendations: outOfStockRecovery.recommendations.map((recommendation) => ({
+        sourceRecordId: recommendation.product.sourceRecordId,
+        name: recommendation.product.name,
+        reasons: recommendation.reasons,
+        score: recommendation.score,
+      })),
+    } : null,
     policy,
     coupon,
   }
