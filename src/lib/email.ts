@@ -644,16 +644,23 @@ export async function sendOrderConfirmationEmail(
 // customer updates via email and whatsapp" -- previously only the WhatsApp
 // half of that existed for 'shipped' and NEITHER channel existed for
 // 'delivered'; see notifyOrderEvent.ts for the transitions that call this).
-// Deliberately a separate, lighter template from the order-confirmation
-// email above (no price breakdown -- there's nothing new to confirm
-// financially at these stages) rather than overloading one function with an
-// optional "stage" no caller actually varies independently.
+// Redesigned 2026-08-06 to share the order-confirmation email's branded
+// shell (logo header, black/ivory/gold palette, footer) instead of the
+// original plain black-on-white template -- reviewed as HTML/PNG mockups
+// with Jay-P before this was written. Still deliberately a separate,
+// lighter template from the confirmation email above (no price breakdown
+// -- there's nothing new to confirm financially at these stages).
 export type OrderStatusEmailStage = 'shipped' | 'delivered'
 
 type OrderStatusEmailInput = {
   to: string
   orderNumber: string
   customerName: string
+  // Same optional-explicit-first-name pattern as OrderConfirmationInput --
+  // falls back to resolveFirstName(customerName) when absent. See
+  // notifyOrderEvent.ts's three call sites (shipped, delivered, and the
+  // tracking-code-added-after-shipping resend).
+  customerFirstName?: string | null
   lang?: EmailLang
   stage: OrderStatusEmailStage
   // CTT tracking code + its public tracking URL (2026-08-01 request), PT
@@ -661,82 +668,169 @@ type OrderStatusEmailInput = {
   // most 'shipped' emails still won't have one (the admin may not have
   // entered the code yet, or the order is Angola's untracked local
   // courier), and 'delivered' emails never pass this at all.
-  courierTrackingCode?: string
+  courierTrackingCode?: string | null
   courierTrackingUrl?: string
 }
 
-const STATUS_EMAIL_COPY: Record<
+// Only the stage-specific copy lives here -- orderNumberLabel,
+// trackingCodeLabel, ctaText, the support section, and the footer are all
+// identical in wording to CONFIRMATION_COPY above, so buildOrderStatusEmail
+// reuses that dictionary directly rather than re-authoring (and risking
+// drifting from) the same PT/EN strings a second time.
+const STATUS_PROGRESS_LABELS: Record<EmailLang, [string, string, string]> = {
+  pt: ['Confirmada', 'Enviada', 'Entregue'],
+  en: ['Confirmed', 'Shipped', 'Delivered'],
+}
+const STATUS_CTT_CTA_TEXT: Record<EmailLang, string> = {
+  pt: 'SEGUIR NOS CTT',
+  en: 'TRACK WITH CTT',
+}
+const STATUS_STAGE_COPY: Record<
   OrderStatusEmailStage,
-  Record<EmailLang, { subject: (orderNumber: string) => string; heading: (customerName: string) => string; body: string }>
+  Record<
+    EmailLang,
+    {
+      subject: (orderNumber: string) => string
+      preheader: (firstName: string) => string
+      eyebrow: string
+      heading: (firstName: string) => string
+      body: string
+    }
+  >
 > = {
   shipped: {
     pt: {
       subject: (orderNumber) => `Encomenda ${orderNumber} enviada -- Use Me With Style`,
-      heading: (customerName) => `Boas notícias, ${customerName}!`,
-      body: 'A sua encomenda foi enviada e está a caminho.',
+      preheader: (firstName) => `${firstName}, a sua encomenda está a caminho.`,
+      eyebrow: 'ENVIADA',
+      heading: (firstName) => `A caminho, ${firstName}.`,
+      body: 'A sua encomenda foi enviada e está a caminho. Assim que chegar, enviamos uma última mensagem a confirmar a entrega.',
     },
     en: {
       subject: (orderNumber) => `Order ${orderNumber} shipped -- Use Me With Style`,
-      heading: (customerName) => `Good news, ${customerName}!`,
-      body: 'Your order has shipped and is on its way.',
+      preheader: (firstName) => `${firstName}, your order is on its way.`,
+      eyebrow: 'SHIPPED',
+      heading: (firstName) => `On its way, ${firstName}.`,
+      body: "Your order has shipped and is on its way. We'll send one last message to confirm once it's delivered.",
     },
   },
   delivered: {
     pt: {
       subject: (orderNumber) => `Encomenda ${orderNumber} entregue -- Use Me With Style`,
-      heading: (customerName) => `A sua encomenda chegou, ${customerName}!`,
-      body: 'A sua encomenda foi entregue. Esperamos que goste!',
+      preheader: (firstName) => `${firstName}, a sua encomenda chegou.`,
+      eyebrow: 'ENTREGUE',
+      heading: (firstName) => `Chegou, ${firstName}!`,
+      body: 'A sua encomenda foi entregue. Esperamos que goste tanto das suas novas peças quanto nós gostámos de as preparar.',
     },
     en: {
       subject: (orderNumber) => `Order ${orderNumber} delivered -- Use Me With Style`,
-      heading: (customerName) => `Your order has arrived, ${customerName}!`,
-      body: 'Your order has been delivered. We hope you love it!',
+      preheader: (firstName) => `${firstName}, your order has arrived.`,
+      eyebrow: 'DELIVERED',
+      heading: (firstName) => `It's here, ${firstName}!`,
+      body: 'Your order has been delivered. We hope you love your new pieces as much as we loved preparing them.',
     },
   },
 }
 
+// Three evenly-spaced labeled circles (Confirmed -> Shipped -> Delivered),
+// same gold-outline/filled visual language as the confirmation email's
+// "what happens next" numbered steps. Deliberately no connecting line
+// between circles -- a thin cross-cell hairline is one of the more
+// failure-prone things to get pixel-perfect across Outlook/Gmail/Apple
+// Mail, and the rest of this template already favors standalone circles
+// over connectors. `activeIndex` = furthest complete stage (1 = shipped,
+// 2 = delivered) -- everything up to and including it renders solid gold.
+function renderStatusProgressTracker(labels: [string, string, string], activeIndex: number): string {
+  const cells = labels
+    .map((label, i) => {
+      const done = i <= activeIndex
+      const circle = done
+        ? `<div style="width:22px; height:22px; border-radius:50%; background-color:${GOLD}; text-align:center; font-family:${SANS}; font-size:11px; line-height:22px; color:${BLACK}; font-weight:700;">${i + 1}</div>`
+        : `<div style="width:22px; height:22px; border-radius:50%; border:1px solid ${HAIRLINE}; text-align:center; font-family:${SANS}; font-size:11px; line-height:20px; color:${INK_SOFT};">${i + 1}</div>`
+      const labelColor = done ? INK : INK_SOFT
+      return `
+        <td align="center" style="width:${100 / labels.length}%;">
+          ${circle}
+          <div style="font-family:${SANS}; font-size:10px; letter-spacing:0.5px; text-transform:uppercase; color:${labelColor}; margin-top:6px; white-space:nowrap;">${escapeHtml(label)}</div>
+        </td>`
+    })
+    .join('')
+  return `
+      <tr>
+        <td class="ums-px" style="padding:28px 32px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table>
+        </td>
+      </tr>`
+}
+
 export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: string; html: string } {
   const lang: EmailLang = input.lang === 'en' ? 'en' : 'pt'
-  const copy = STATUS_EMAIL_COPY[input.stage][lang]
-  const siteUrl = process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop'
+  const confirmationCopy = CONFIRMATION_COPY[lang]
+  const stageCopy = STATUS_STAGE_COPY[input.stage][lang]
+  const siteUrl = (process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop').replace(/\/$/, '')
   const trackingUrl = `${siteUrl}/conta`
-  const trackingIntro = lang === 'pt' ? 'Pode acompanhar o estado da sua encomenda a qualquer momento em' : 'You can check your order status any time at'
-  const trackingLinkText = lang === 'pt' ? 'consultar encomenda' : 'track your order'
-  const orderNumberLabel = lang === 'pt' ? 'Número da encomenda' : 'Order number'
 
-  const courierLabel = lang === 'pt' ? 'Código de rastreio CTT' : 'CTT tracking code'
-  const courierLinkText = lang === 'pt' ? 'Seguir encomenda nos CTT' : 'Track with CTT'
+  const firstName = resolveFirstName(input.customerName, input.customerFirstName) || input.customerName
+  const subject = stageCopy.subject(input.orderNumber)
+  const preheader = stageCopy.preheader(firstName)
+  const activeIndex = input.stage === 'shipped' ? 1 : 2
 
-  const subject = copy.subject(input.orderNumber)
-  const html = `
-    <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
-      <h2 style="margin-bottom: 4px;">${escapeHtml(copy.heading(input.customerName))}</h2>
-      <p>${escapeHtml(copy.body)}</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr>
-          <td style="padding: 8px 0; color: #666;">${escapeHtml(orderNumberLabel)}</td>
-          <td style="padding: 8px 0; text-align: right; font-weight: bold;">${escapeHtml(input.orderNumber)}</td>
-        </tr>
-        ${
-          input.courierTrackingCode
-            ? `<tr>
-                <td style="padding: 8px 0; color: #666;">${escapeHtml(courierLabel)}</td>
-                <td style="padding: 8px 0; text-align: right; font-weight: bold;">${escapeHtml(input.courierTrackingCode)}</td>
-              </tr>`
-            : ''
-        }
-      </table>
-      ${
-        input.courierTrackingUrl
-          ? `<p><a href="${input.courierTrackingUrl}">${escapeHtml(courierLinkText)}</a></p>`
-          : ''
-      }
-      <p>
-        ${escapeHtml(trackingIntro)}
-        <a href="${trackingUrl}">${escapeHtml(trackingLinkText)}</a>.
-      </p>
-    </div>
-  `.trim()
+  const detailsSection = input.courierTrackingCode
+    ? `
+      <tr>
+        <td class="ums-px" style="padding:24px 32px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${renderDetailBlock(confirmationCopy.trackingCodeLabel, [escapeHtml(input.courierTrackingCode)])}</tr></table>
+        </td>
+      </tr>`
+    : ''
+
+  const cttButton = input.courierTrackingUrl
+    ? `
+      <tr>
+        <td class="ums-px" align="center" style="padding:14px 32px 0;">
+          <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; font-family:${SANS}; font-size:11px; letter-spacing:1.5px; color:${GOLD}; text-decoration:underline;">${escapeHtml(STATUS_CTT_CTA_TEXT[lang])}</a>
+        </td>
+      </tr>`
+    : ''
+
+  const year = new Date().getFullYear()
+  const supportEmail = process.env.CONTACT_EMAIL || 'support@usemewithstyle.shop'
+
+  const rows = `
+          ${renderHeaderRow()}
+          <tr>
+            <td class="ums-px" style="padding:40px 32px 0;">
+              <div style="font-family:${SANS}; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:${GOLD};">${escapeHtml(confirmationCopy.orderNumberLabel)} ${escapeHtml(input.orderNumber)}&nbsp;&nbsp;&middot;&nbsp;&nbsp;${escapeHtml(stageCopy.eyebrow)}</div>
+              <div style="font-family:${SERIF}; font-size:28px; line-height:34px; color:${INK}; margin-top:10px; font-weight:400;">${escapeHtml(stageCopy.heading(firstName))}</div>
+              <div style="font-family:${SANS}; font-size:14px; line-height:22px; color:${INK_SOFT}; margin-top:14px;">${escapeHtml(stageCopy.body)}</div>
+            </td>
+          </tr>
+          ${renderStatusProgressTracker(STATUS_PROGRESS_LABELS[lang], activeIndex)}
+          ${detailsSection}
+          ${cttButton}
+          <tr>
+            <td class="ums-px" align="center" style="padding:32px 32px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="${BLACK}" style="border-radius:2px; background-color:${BLACK}; border:1px solid ${GOLD};">
+                    <a href="${escapeHtml(trackingUrl)}" target="_blank" style="display:inline-block; padding:15px 34px; font-family:${SANS}; font-size:12px; letter-spacing:2px; font-weight:700; color:${GOLD_ON_BLACK}; text-decoration:none; text-transform:uppercase;">${escapeHtml(confirmationCopy.ctaText)}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="ums-px" style="padding:44px 32px 0;">
+              <div style="font-family:${SERIF}; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:${INK}; border-bottom:1px solid ${INK}; padding-bottom:10px;">${escapeHtml(confirmationCopy.supportHeading)}</div>
+              <div style="font-family:${SANS}; font-size:13px; line-height:20px; color:${INK_SOFT}; margin-top:14px;">${escapeHtml(confirmationCopy.supportBody)}</div>
+              <div style="font-family:${SANS}; font-size:13px; line-height:26px; margin-top:8px;">
+                <a href="mailto:${escapeHtml(supportEmail)}" style="color:${GOLD}; text-decoration:none;">${escapeHtml(confirmationCopy.emailLinkText)}</a>
+              </div>
+            </td>
+          </tr>
+          ${renderFooterRows({ tagline: confirmationCopy.footerTagline, rights: confirmationCopy.footerRights(year), siteUrl })}`
+
+  const html = renderEmailShell({ lang, subject, preheader, rows })
 
   return { subject, html }
 }

@@ -13,7 +13,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-import { buildContactAutoReplyEmail, buildOrderConfirmationEmail } from '../src/lib/email.ts'
+import { buildContactAutoReplyEmail, buildOrderConfirmationEmail, buildOrderStatusEmail } from '../src/lib/email.ts'
 
 const outputDir = resolve('output/email-previews')
 await mkdir(outputDir, { recursive: true })
@@ -135,6 +135,52 @@ const contactSamples = [
   },
 ]
 
+// Shipped/delivered status emails (2026-08-06 redesign) -- one shipped
+// sample with a CTT tracking code already entered, one shipped sample
+// without one yet (the common case right after clicking "mark as
+// shipped"), and one delivered sample, covering both languages between
+// them.
+const statusSamples = [
+  {
+    filename: 'order-status-shipped-pt-with-tracking.html',
+    label: 'PT copy / shipped, with CTT tracking code',
+    input: {
+      to: 'jose.nogueira.working@gmail.com',
+      orderNumber: 'PT-118842',
+      customerName: 'Helena Marques',
+      customerFirstName: 'Helena',
+      lang: 'pt',
+      stage: 'shipped',
+      courierTrackingCode: 'RR123456789PT',
+      courierTrackingUrl: 'https://www.ctt.pt/particulares/encomendas-e-correio/seguir-encomendas?objects=RR123456789PT',
+    },
+  },
+  {
+    filename: 'order-status-shipped-en-no-tracking-yet.html',
+    label: 'EN copy / shipped, no tracking code entered yet',
+    input: {
+      to: 'jose.nogueira.working@gmail.com',
+      orderNumber: 'AO-261787',
+      customerName: 'Ana Sofia Coelho Martins',
+      customerFirstName: 'Ana',
+      lang: 'en',
+      stage: 'shipped',
+    },
+  },
+  {
+    filename: 'order-status-delivered-pt.html',
+    label: 'PT copy / delivered',
+    input: {
+      to: 'jose.nogueira.working@gmail.com',
+      orderNumber: 'PT-118842',
+      customerName: 'Helena Marques',
+      customerFirstName: 'Helena',
+      lang: 'pt',
+      stage: 'delivered',
+    },
+  },
+]
+
 for (const sample of samples) {
   const { subject, html } = buildOrderConfirmationEmail(sample.input)
   const filePath = resolve(outputDir, sample.filename)
@@ -146,6 +192,15 @@ for (const sample of samples) {
 
 for (const sample of contactSamples) {
   const { subject, html } = buildContactAutoReplyEmail(sample.input)
+  const filePath = resolve(outputDir, sample.filename)
+  await writeFile(filePath, html, 'utf8')
+  console.log(`\n===== ${sample.label} =====`)
+  console.log(`SUBJECT: ${subject}`)
+  console.log(`WRITTEN: ${filePath}`)
+}
+
+for (const sample of statusSamples) {
+  const { subject, html } = buildOrderStatusEmail(sample.input)
   const filePath = resolve(outputDir, sample.filename)
   await writeFile(filePath, html, 'utf8')
   console.log(`\n===== ${sample.label} =====`)

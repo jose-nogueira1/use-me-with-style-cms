@@ -50,6 +50,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,
       customerName: doc.customerName,
+      customerFirstName: doc.customerFirstName || undefined,
       lang: doc.lang,
       stage: 'shipped',
       courierTrackingCode: doc.cttTrackingCode || undefined,
@@ -61,6 +62,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,
       customerName: doc.customerName,
+      customerFirstName: doc.customerFirstName || undefined,
       lang: doc.lang,
       stage: 'delivered',
     })
@@ -72,6 +74,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,
       customerName: doc.customerName,
+      customerFirstName: doc.customerFirstName || undefined,
       lang: doc.lang,
       stage: 'shipped',
       courierTrackingCode: doc.cttTrackingCode,
