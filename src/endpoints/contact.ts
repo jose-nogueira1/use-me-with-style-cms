@@ -1,5 +1,6 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { sendContactFormEmail } from '../lib/email'
+import { sendContactAutoReplyEmail, sendContactFormEmail } from '../lib/email'
+import type { EmailLang } from '../lib/email'
 
 // Help page "send us an email" form (JOS-64 follow-up, added 2026-07-24).
 // Same rate-limit shape as orderLookup.ts -- an unauthenticated public
@@ -9,7 +10,7 @@ const WINDOW_MS = 10 * 60_000
 const MAX_ATTEMPTS = 5
 const attempts = new Map<string, { count: number; resetAt: number }>()
 
-type ContactBody = { name?: string; email?: string; phone?: string; orderNumber?: string; message?: string }
+type ContactBody = { name?: string; email?: string; phone?: string; orderNumber?: string; message?: string; lang?: string }
 
 function clientKey(req: PayloadRequest): string {
   return (req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown').trim()
@@ -55,6 +56,13 @@ export const contactEndpoint: Endpoint = {
     const phone = body?.phone?.trim().slice(0, 40)
     const orderNumber = body?.orderNumber?.trim().slice(0, 40)
     const message = body?.message?.trim().slice(0, 5000)
+    // Storefront UI language (Help page, see api.ts's submitContactMessage
+    // and Help.tsx's handleContactSubmit) -- only decides the language of
+    // the auto-reply below, never the internal team notification (that one
+    // stays PT-only on purpose, see sendContactFormEmail's own comment).
+    // Falls back to 'pt' for any older frontend build that doesn't send it
+    // yet, same default every other email in lib/email.ts uses.
+    const lang: EmailLang = body?.lang === 'en' ? 'en' : 'pt'
 
     if (!name || !email || !message || !EMAIL_RE.test(email)) {
       return Response.json({ error: 'Missing or invalid fields.' }, { status: 400 })
@@ -69,6 +77,13 @@ export const contactEndpoint: Endpoint = {
       )
       return Response.json({ error: 'Could not send your message. Please email support@usemewithstyle.shop directly.' }, { status: 502 })
     }
+
+    // Customer-facing "we got it" acknowledgement -- sent only after the
+    // internal notification above has actually succeeded (no point
+    // reassuring the customer their message arrived if it didn't).
+    // sendContactAutoReplyEmail never throws (see its own try/catch), so
+    // this can't turn a successful submission into an error response.
+    await sendContactAutoReplyEmail(req.payload, { to: email, name, lang, orderNumber, message })
 
     return Response.json({ ok: true })
   },
