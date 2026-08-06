@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   buildContactAutoReplyEmail,
   buildOrderConfirmationEmail,
+  buildOrderStatusEmail,
   deliveryMethodLabel,
   formatOrderMoney,
   paymentMethodLabel,
@@ -335,4 +336,136 @@ test('contact auto-reply shares the same branded shell as the order-confirmation
   assert.match(html, />USE ME WITH STYLE</)
   assert.match(html, /Instagram/)
   assert.doesNotMatch(html, /<script/i)
+})
+
+// ---------------------------------------------------------------------------
+// Shipped/delivered status emails (redesigned 2026-08-06 to share the
+// order-confirmation email's branded shell -- see buildOrderStatusEmail).
+const STATUS_BASE = {
+  to: 'customer@example.com',
+  orderNumber: 'PT-100200',
+  customerName: 'Maria Fernandes',
+  stage: 'shipped',
+} as const
+
+test('status email subject/eyebrow/heading/body match the requested PT/EN copy, per stage', () => {
+  const shippedPt = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'shipped' })
+  assert.equal(shippedPt.subject, 'Encomenda PT-100200 enviada -- Use Me With Style')
+  assert.match(shippedPt.html, /ENVIADA/)
+  assert.match(shippedPt.html, /A caminho, Maria\./)
+  assert.match(shippedPt.html, /A sua encomenda foi enviada e está a caminho\./)
+
+  const shippedEn = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'shipped' })
+  assert.equal(shippedEn.subject, 'Order PT-100200 shipped -- Use Me With Style')
+  assert.match(shippedEn.html, /SHIPPED/)
+  assert.match(shippedEn.html, /On its way, Maria\./)
+  assert.match(shippedEn.html, /Your order has shipped and is on its way\./)
+
+  const deliveredPt = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'delivered' })
+  assert.equal(deliveredPt.subject, 'Encomenda PT-100200 entregue -- Use Me With Style')
+  assert.match(deliveredPt.html, /ENTREGUE/)
+  assert.match(deliveredPt.html, /Chegou, Maria!/)
+
+  const deliveredEn = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'delivered' })
+  assert.equal(deliveredEn.subject, 'Order PT-100200 delivered -- Use Me With Style')
+  assert.match(deliveredEn.html, /DELIVERED/)
+  assert.match(deliveredEn.html, /It's here, Maria!/)
+})
+
+test('status email defaults to Portuguese copy when lang is omitted or unrecognized', () => {
+  const omitted = buildOrderStatusEmail({ ...STATUS_BASE })
+  assert.match(omitted.subject, /enviada/)
+  const unrecognized = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'fr' as never })
+  assert.match(unrecognized.subject, /enviada/)
+})
+
+test('status email greeting uses the first name, preferring the explicit field over a derived one', () => {
+  const explicit = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', customerName: 'Maria Fernandes', customerFirstName: 'Mia' })
+  assert.match(explicit.html, /A caminho, Mia\./)
+
+  const derived = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', customerName: 'João Pedro Silva', customerFirstName: null })
+  assert.match(derived.html, /A caminho, João\./)
+})
+
+test('status email progress marker highlights up through the current stage: shipped = 2 filled circles, delivered = 3', () => {
+  const shipped = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'shipped' })
+  const shippedFilled = shipped.html.match(/background-color:#B08A4E;/g) ?? []
+  assert.equal(shippedFilled.length, 2, 'Confirmed + Shipped should be filled, Delivered should not')
+  assert.match(shipped.html, />Confirmada</)
+  assert.match(shipped.html, />Enviada</)
+  assert.match(shipped.html, />Entregue</)
+
+  const delivered = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'delivered' })
+  const deliveredFilled = delivered.html.match(/background-color:#B08A4E;/g) ?? []
+  assert.equal(deliveredFilled.length, 3, 'all three stages should be filled once delivered')
+})
+
+test('status email shows the tracking code and CTT link only when provided, independently of each other', () => {
+  const neither = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
+  assert.doesNotMatch(neither.html, /Código de rastreio/)
+  assert.doesNotMatch(neither.html, /SEGUIR NOS CTT/)
+
+  const codeOnly = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', courierTrackingCode: 'RR123456789PT' })
+  assert.match(codeOnly.html, /Código de rastreio/)
+  assert.match(codeOnly.html, /RR123456789PT/)
+  assert.doesNotMatch(codeOnly.html, /SEGUIR NOS CTT/)
+
+  const both = buildOrderStatusEmail({
+    ...STATUS_BASE,
+    lang: 'pt',
+    courierTrackingCode: 'RR123456789PT',
+    courierTrackingUrl: 'https://www.ctt.pt/track?objects=RR123456789PT',
+  })
+  assert.match(both.html, /Código de rastreio/)
+  assert.match(both.html, /SEGUIR NOS CTT/)
+  assert.match(both.html, /href="https:\/\/www\.ctt\.pt\/track\?objects=RR123456789PT"/)
+
+  const englishCta = buildOrderStatusEmail({
+    ...STATUS_BASE,
+    lang: 'en',
+    courierTrackingCode: 'RR123456789PT',
+    courierTrackingUrl: 'https://www.ctt.pt/track?objects=RR123456789PT',
+  })
+  assert.match(englishCta.html, /TRACK WITH CTT/)
+})
+
+test('status email HTML-escapes every customer- and order-controlled value', () => {
+  const { html } = buildOrderStatusEmail({
+    to: 'customer@example.com',
+    orderNumber: '<i>PT-1</i>',
+    customerName: '<b>Zoë</b>',
+    lang: 'pt',
+    stage: 'shipped',
+    courierTrackingCode: '<script>alert(1)</script> & "quoted"',
+    courierTrackingUrl: 'https://example.com/?x=1&y=2',
+  })
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/)
+  assert.match(html, /&lt;i&gt;PT-1&lt;\/i&gt;/)
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; &quot;quoted&quot;/)
+})
+
+test('status email CTA always links to /conta regardless of language or stage', () => {
+  const shipped = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'shipped' })
+  const delivered = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'delivered' })
+  assert.match(shipped.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
+  assert.match(delivered.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
+})
+
+test('status email reuses the exact support/footer copy from the confirmation email (single source of truth)', () => {
+  const { html } = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
+  assert.match(html, /O email é o nosso canal oficial de apoio\./)
+  assert.match(html, /Peças pensadas para durar, com um acabamento cuidado\./)
+  assert.match(html, /ACOMPANHAR A MINHA ENCOMENDA/)
+})
+
+test('status email shares the same branded shell as the order-confirmation email', () => {
+  const { html } = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
+  assert.match(html, /^<!doctype html>/)
+  const logoMatch = html.match(/<img src="(data:image\/png;base64,[^"]+)" alt="Use Me With Style"/)
+  assert.ok(logoMatch, 'expected the same embedded logo as the order-confirmation email')
+  assert.match(html, />USE ME WITH STYLE</)
+  assert.match(html, /Instagram/)
+  assert.doesNotMatch(html, /<script/i)
+  const preheaderDiv = html.match(/<div style="display:none;[^"]*">\s*([^\n<]+)/)
+  assert.ok(preheaderDiv, 'expected a hidden preheader div')
 })
