@@ -13,7 +13,15 @@ type MetaEventBody = {
   fbc?: string
 }
 
-const ALLOWED_EVENTS = new Set(['PageView', 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase'])
+const ALLOWED_EVENTS = new Set([
+  'PageView',
+  'ViewContent',
+  'AddToCart',
+  'InitiateCheckout',
+  'Purchase',
+  'ShopTheLookOpen',
+  'ShopTheLookProductClick',
+])
 
 function hash(value: string | undefined) {
   if (!value) return undefined

@@ -4,9 +4,13 @@ import {
   applyHighlight,
   buildInstagramMediaRequest,
   cleanCaptionForDisplay,
+  findInstagramProductTag,
+  indexInstagramProductTags,
+  instagramLookSlug,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   normalizePermalink,
+  resolveShopTheLookProducts,
 } from '../src/lib/instagramFeed.ts'
 
 test('Instagram Login feed requests use graph.instagram.com and bearer authorization', () => {
@@ -154,4 +158,102 @@ test('applyHighlight highlights nothing when no permalink is set', () => {
   assert.equal(applyHighlight(pool, null)[0].size, 'regular')
   assert.equal(applyHighlight(pool, undefined)[0].size, 'regular')
   assert.equal(applyHighlight(pool, '   ')[0].size, 'regular')
+})
+
+test('shop-the-look associations prefer stable media IDs and retain permalink compatibility', () => {
+  const byId = { mediaId: '1789', permalink: 'https://instagram.com/p/original/', products: [] }
+  const legacy = { permalink: 'https://instagram.com/p/legacy/?igsh=old', products: [] }
+  const index = indexInstagramProductTags([byId, legacy])
+
+  assert.equal(findInstagramProductTag(index, { id: '1789', permalink: 'https://instagram.com/p/changed/' }), byId)
+  assert.equal(findInstagramProductTag(index, { id: 'other', permalink: 'https://www.instagram.com/p/legacy/' }), legacy)
+})
+
+test('instagram look slugs are stable shortcode routes', () => {
+  assert.equal(instagramLookSlug('https://www.instagram.com/p/AbCd123/?igsh=share'), 'AbCd123')
+  assert.equal(instagramLookSlug('https://www.instagram.com/reel/Reel987/'), 'Reel987')
+})
+
+test('shop-the-look products resolve current market price, stock, image and selected colour', () => {
+  const products = resolveShopTheLookProducts({
+    mediaId: 'post-1',
+    permalink: 'https://instagram.com/p/look/',
+    variantSelections: { '10': 'red' },
+    products: [{
+      id: 10,
+      slug: 'vestido-vermelho',
+      name: 'Vestido',
+      namePT: 'Vestido Vermelho',
+      nameEN: 'Red Dress',
+      active: true,
+      availableAO: true,
+      availablePT: true,
+      priceAOKz: 42000,
+      pricePTEur: 79,
+      saleAOKz: 39000,
+      images: [{ image: { url: '/media/dress.jpg' } }],
+      variants: [
+        { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'S', stockAO: 2, stockPT: 0 },
+        { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'M', stockAO: 1, stockPT: 3 },
+        { color: { id: 'blue', namePT: 'Azul', nameEN: 'Blue' }, size: 'S', stockAO: 5, stockPT: 5 },
+      ],
+    }],
+  }, 'AO')
+
+  assert.equal(products.length, 1)
+  assert.deepEqual(products[0], {
+    id: '10',
+    slug: 'vestido-vermelho',
+    name: 'Vestido Vermelho',
+    namePT: 'Vestido Vermelho',
+    nameEN: 'Red Dress',
+    imageUrl: '/media/dress.jpg',
+    price: 39000,
+    regularPrice: 42000,
+    currency: 'AOA',
+    onSale: true,
+    inStock: true,
+    availableSizes: ['S', 'M'],
+    selectedColorId: 'red',
+    selectedColorNamePT: 'Vermelho',
+    selectedColorNameEN: 'Red',
+  })
+})
+
+test('shop-the-look products are market-safe and retain sold-out looks without broken products', () => {
+  const base = {
+    name: 'Top', namePT: 'Top', nameEN: 'Top', active: true,
+    priceAOKz: 20000, pricePTEur: 40, images: [],
+  }
+  const products = resolveShopTheLookProducts({
+    permalink: 'https://instagram.com/p/look/',
+    products: [
+      { ...base, id: 1, slug: 'ao-only', availableAO: true, availablePT: false, variants: [{ color: { id: 'black' }, size: 'M', stockAO: 1, stockPT: 0 }] },
+      { ...base, id: 2, slug: 'sold-out-pt', availableAO: true, availablePT: true, variants: [{ color: { id: 'black' }, size: 'M', stockAO: 1, stockPT: 0 }] },
+      { ...base, id: 3, slug: 'draft', active: false, availableAO: true, availablePT: true, variants: [] },
+    ],
+  }, 'PT')
+
+  assert.deepEqual(products.map((product) => product.slug), ['sold-out-pt'])
+  assert.equal(products[0].inStock, false)
+  assert.deepEqual(products[0].availableSizes, [])
+})
+
+test('shop-the-look caps every Instagram post at four products', () => {
+  const products = resolveShopTheLookProducts({
+    permalink: 'https://instagram.com/p/look/',
+    products: Array.from({ length: 6 }, (_, index) => ({
+      id: index + 1,
+      slug: `product-${index + 1}`,
+      name: `Product ${index + 1}`,
+      active: true,
+      availableAO: true,
+      availablePT: true,
+      priceAOKz: 1000,
+      pricePTEur: 10,
+      variants: [{ color: { id: 'black' }, size: 'M', stockAO: 1, stockPT: 1 }],
+    })),
+  }, 'AO')
+
+  assert.equal(products.length, 4)
 })

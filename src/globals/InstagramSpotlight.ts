@@ -40,5 +40,47 @@ export const InstagramSpotlight: GlobalConfig = {
         description: 'e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.',
       },
     },
+    {
+      name: 'productTags',
+      type: 'array',
+      label: 'Shop the look associations',
+      admin: {
+        description:
+          'Products linked to individual Instagram posts. Managed from Storefront Admin > Settings > Instagram feed.',
+      },
+      fields: [
+        {
+          name: 'mediaId',
+          type: 'text',
+          label: 'Instagram media ID',
+          admin: {
+            description: 'Stable Instagram identifier. The permalink remains as a fallback when older entries have no media ID.',
+          },
+        },
+        {
+          name: 'permalink',
+          type: 'text',
+          required: true,
+          label: 'Instagram post URL',
+        },
+        {
+          name: 'products',
+          type: 'relationship',
+          relationTo: 'products',
+          hasMany: true,
+          maxRows: 4,
+          label: 'Products in this look',
+        },
+        {
+          name: 'variantSelections',
+          type: 'json',
+          label: 'Selected colours',
+          admin: {
+            hidden: true,
+            description: 'Storefront-admin managed map of product ID to the colour visible in the Instagram post.',
+          },
+        },
+      ],
+    },
   ],
 }
