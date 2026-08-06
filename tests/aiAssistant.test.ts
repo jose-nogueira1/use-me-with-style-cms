@@ -11,6 +11,13 @@ import { recordAiTelemetry } from '../src/lib/ai/telemetry'
 import { evaluateHybridAutoSend } from '../src/lib/ai/automation'
 import { DEFAULT_AI_MESSAGING_SETTINGS, normalizeAiMessagingSettings } from '../src/lib/ai/settings'
 import { getAiAssistantConfig } from '../src/lib/ai/config'
+import {
+  rankOutOfStockRecommendations,
+  retrieveOutOfStockRecovery,
+  sameProductRecoveryOptions,
+  type OutOfStockRecovery,
+  type ProductContext,
+} from '../src/lib/ai/catalogue'
 
 const safeExtraction = {
   intent: 'product_price' as const,
@@ -22,6 +29,16 @@ const safeExtraction = {
   market: 'angola' as const,
   confidence: 0.97,
   requiresHuman: false,
+}
+
+function product(overrides: Partial<ProductContext> = {}): ProductContext {
+  return {
+    sourceRecordId: '42', productId: 42, name: 'Vestido Aurora', namePT: 'Vestido Aurora', nameEN: 'Aurora Dress',
+    slug: 'vestido-aurora', market: 'AO', availableInMarket: true, price: 25_000, currency: 'AOA', onSale: false,
+    fitNote: null, sizeGuide: null, productUrl: 'https://ao.usemewithstyle.shop/produto/vestido-aurora',
+    variants: [], matchedVariants: [], categoryId: 'dresses', categorySlug: 'vestidos', tagIds: ['summer'], tagSlugs: ['verao'],
+    ...overrides,
+  }
 }
 
 test('extraction receives recent conversation so a market-only follow-up retains the product question', () => {
@@ -50,12 +67,10 @@ test('strict extraction normalizes coupon and reuses a fresh conversation market
 test('deterministic stock reply uses only the verified market variant and current price', () => {
   const reply = buildDeterministicReply({
     intent: 'product_availability', language: 'pt', market: 'AO',
-    product: {
-      sourceRecordId: '42', productId: 42, name: 'Vestido Aurora', namePT: 'Vestido Aurora', nameEN: 'Aurora Dress',
-      slug: 'vestido-aurora', market: 'AO', availableInMarket: true, price: 25000, currency: 'AOA', onSale: false,
-      fitNote: null, sizeGuide: null, productUrl: 'https://ao.usemewithstyle.shop/produto/vestido-aurora', variants: [],
+    product: product({
+      variants: [{ id: 1, size: 'M', colour: 'Preto', stock: 2, available: true }],
       matchedVariants: [{ id: 1, size: 'M', colour: 'Preto', stock: 2, available: true }],
-    },
+    }),
   })
   assert.match(reply || '', /Vestido Aurora/)
   assert.match(reply || '', /25[ .]000 Kz/)
@@ -65,18 +80,112 @@ test('deterministic stock reply uses only the verified market variant and curren
 test('availability without a requested size uses every verified variant, not only the first row', () => {
   const reply = buildDeterministicReply({
     intent: 'product_availability', language: 'pt', market: 'AO',
-    product: {
-      sourceRecordId: '42', productId: 42, name: 'Vestido Aurora', namePT: 'Vestido Aurora', nameEN: 'Aurora Dress',
-      slug: 'vestido-aurora', market: 'AO', availableInMarket: true, price: 25000, currency: 'AOA', onSale: false,
-      fitNote: null, sizeGuide: null, productUrl: 'https://ao.usemewithstyle.shop/produto/vestido-aurora', variants: [],
+    product: product({
+      variants: [
+        { id: 1, size: 'S', colour: 'Preto', stock: 0, available: false },
+        { id: 2, size: 'M', colour: 'Preto', stock: 2, available: true },
+      ],
       matchedVariants: [
         { id: 1, size: 'S', colour: 'Preto', stock: 0, available: false },
         { id: 2, size: 'M', colour: 'Preto', stock: 2, available: true },
       ],
-    },
+    }),
   })
   assert.match(reply || '', /está disponível/)
   assert.match(reply || '', /Tamanhos disponíveis: M/)
+})
+
+test('out-of-stock recovery prioritizes same-size colours before other sizes', () => {
+  const requested = product({
+    variants: [
+      { id: 1, size: 'M', colour: 'Preto', stock: 0, available: false },
+      { id: 2, size: 'M', colour: 'Azul', stock: 2, available: true },
+      { id: 3, size: 'S', colour: 'Preto', stock: 3, available: true },
+      { id: 4, size: 'L', colour: 'Branco', stock: 1, available: true },
+    ],
+    matchedVariants: [{ id: 1, size: 'M', colour: 'Preto', stock: 0, available: false }],
+  })
+  const options = sameProductRecoveryOptions(requested, { size: 'M', colour: 'Preto' }, DEFAULT_AI_MESSAGING_SETTINGS)
+  assert.deepEqual(options.map((option) => [option.kind, option.size, option.colour]), [
+    ['same_size_other_colour', 'M', 'Azul'],
+    ['same_colour_other_size', 'S', 'Preto'],
+    ['other_variant', 'L', 'Branco'],
+  ])
+})
+
+test('out-of-stock product recommendations rank category, tags, price and live stock', () => {
+  const requested = product()
+  const sameCategoryAndTag = product({
+    sourceRecordId: '43', productId: 43, name: 'Vestido Sol', price: 27_000,
+    variants: [{ id: 1, size: 'M', colour: 'Azul', stock: 2, available: true }],
+  })
+  const sharedTag = product({
+    sourceRecordId: '44', productId: 44, name: 'Top Verão', categoryId: 'tops', categorySlug: 'tops', price: 24_000,
+    variants: [{ id: 1, size: 'M', colour: 'Branco', stock: 5, available: true }],
+  })
+  const tooExpensive = product({
+    sourceRecordId: '45', productId: 45, name: 'Vestido Luxo', price: 50_000,
+    variants: [{ id: 1, size: 'M', colour: 'Preto', stock: 9, available: true }],
+  })
+  const unavailable = product({
+    sourceRecordId: '46', productId: 46, name: 'Vestido Noite',
+    variants: [{ id: 1, size: 'M', colour: 'Preto', stock: 0, available: false }],
+  })
+  const ranked = rankOutOfStockRecommendations(requested, [sharedTag, unavailable, tooExpensive, sameCategoryAndTag], DEFAULT_AI_MESSAGING_SETTINGS)
+  assert.deepEqual(ranked.map((item) => item.product.sourceRecordId), ['43', '44'])
+  assert.deepEqual(ranked[0]?.reasons, ['same_category', 'shared_merchandising_tag'])
+})
+
+test('out-of-stock retrieval queries the active market by category and merchandising tags', async () => {
+  let query: Record<string, any> | null = null
+  const requested = product({
+    variants: [{ id: 1, size: 'M', colour: 'Preto', stock: 0, available: false }],
+    matchedVariants: [{ id: 1, size: 'M', colour: 'Preto', stock: 0, available: false }],
+  })
+  const recovery = await retrieveOutOfStockRecovery({
+    find: async (args) => {
+      query = args as Record<string, any>
+      return { docs: [{
+        id: 43, name: 'Vestido Sol', namePT: 'Vestido Sol', slug: 'vestido-sol', active: true,
+        availableAO: true, availablePT: true, priceAOKz: 27_000, pricePTEur: 45,
+        category: { id: 'dresses', slug: 'vestidos' }, tag: [{ id: 'summer', slug: 'verao' }],
+        variants: [{ id: 1, size: 'M', color: { id: 2, namePT: 'Azul' }, stockAO: 2, stockPT: 1 }],
+      }] }
+    },
+  }, requested, { ...safeExtraction, intent: 'product_availability', size: 'M', colour: 'Preto' }, DEFAULT_AI_MESSAGING_SETTINGS)
+  assert.deepEqual((query as any)?.where.and.slice(0, 2), [
+    { active: { equals: true } }, { availableAO: { equals: true } },
+  ])
+  assert.deepEqual((query as any)?.where.and[2].or, [
+    { category: { equals: 'dresses' } }, { tag: { in: ['summer'] } },
+  ])
+  assert.equal(recovery?.recommendations[0]?.product.productUrl, 'https://ao.usemewithstyle.shop/produto/vestido-sol')
+})
+
+test('deterministic out-of-stock reply includes verified variants and ranked products', () => {
+  const requested = product({
+    variants: [
+      { id: 1, size: 'M', colour: 'Preto', stock: 0, available: false },
+      { id: 2, size: 'M', colour: 'Azul', stock: 2, available: true },
+    ],
+    matchedVariants: [{ id: 1, size: 'M', colour: 'Preto', stock: 0, available: false }],
+  })
+  const alternative = product({
+    sourceRecordId: '43', productId: 43, name: 'Vestido Sol', namePT: 'Vestido Sol', price: 27_000,
+    productUrl: 'https://ao.usemewithstyle.shop/produto/vestido-sol',
+    variants: [{ id: 1, size: 'M', colour: 'Preto', stock: 2, available: true }],
+  })
+  const recovery: OutOfStockRecovery = {
+    sameProductOptions: [{ id: 2, size: 'M', colour: 'Azul', stock: 2, available: true, kind: 'same_size_other_colour' }],
+    recommendations: [{ product: alternative, score: 100, reasons: ['same_category'], sharedTagCount: 0, priceDifferencePercent: 8 }],
+  }
+  const reply = buildDeterministicReply({
+    intent: 'product_availability', language: 'pt', market: 'AO', product: requested, outOfStockRecovery: recovery,
+  })
+  assert.match(reply || '', /esgotada/i)
+  assert.match(reply || '', /tamanho M.*Azul/i)
+  assert.match(reply || '', /Vestido Sol.*27[ .]000 Kz/i)
+  assert.match(reply || '', /produto\/vestido-sol/)
 })
 
 test('product questions ask for market first, then identify the product without escalating', () => {
@@ -164,6 +273,8 @@ test('market clarification has its own allow switch and settings are bounded', (
     operatingMode: 'hybrid', confidenceThreshold: 0.1, replyDelaySeconds: 999,
     maxAutoRepliesPerConversation: 0, maxAutoRepliesPerHour: 999, monthlyBudgetUsd: -3,
     autoReplyIntents: ['greeting', 'complaint', 'greeting'],
+    outOfStockMaxAlternatives: 99, outOfStockPriceTolerancePercent: -1,
+    outOfStockCategoryWeight: 120, outOfStockTagWeight: -10,
   })
   assert.equal(settings.confidenceThreshold, 0.75)
   assert.equal(settings.replyDelaySeconds, 120)
@@ -171,6 +282,10 @@ test('market clarification has its own allow switch and settings are bounded', (
   assert.equal(settings.maxAutoRepliesPerHour, 200)
   assert.equal(settings.monthlyBudgetUsd, 0)
   assert.deepEqual(settings.autoReplyIntents, ['greeting'])
+  assert.equal(settings.outOfStockMaxAlternatives, 5)
+  assert.equal(settings.outOfStockPriceTolerancePercent, 0)
+  assert.equal(settings.outOfStockCategoryWeight, 100)
+  assert.equal(settings.outOfStockTagWeight, 0)
 
   const decision = evaluateHybridAutoSend({
     mode: 'hybrid', settings: { ...settings, autoReplyMarketClarification: false },
