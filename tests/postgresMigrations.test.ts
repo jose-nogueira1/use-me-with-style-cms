@@ -10,6 +10,7 @@ import { up as heroUp, down as heroDown } from '../src/migrations/20260731_15000
 import { up as freeShippingUp } from '../src/migrations/20260731_160000_coupons_free_shipping.ts'
 import { up as legalDataDeletionUp } from '../src/migrations/20260801_110000_legal_content_data_deletion.ts'
 import { up as homeContentCurationUp, down as homeContentCurationDown } from '../src/migrations/20260804_170000_home_content_curation.ts'
+import { up as fixColorsLegacyNameUp } from '../src/migrations/20260806_160000_fix_colors_legacy_name.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -90,6 +91,43 @@ test('catalogue migration recovers from the production partial state', { skip: !
     const columns = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'products'`)
     assert.ok(columns.rows.some((row) => row.column_name === 'category_id'))
     assert.equal((await pool.query('SELECT count(*)::int AS count FROM categories')).rows[0].count, 4)
+  })
+})
+
+test('colour legacy-name migration removes the stale required column and permits bilingual inserts', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE colors (
+        id serial PRIMARY KEY,
+        name_p_t varchar NOT NULL,
+        name_e_n varchar,
+        hex varchar,
+        name varchar NOT NULL
+      );
+      INSERT INTO colors (name_p_t, name_e_n, hex, name)
+      VALUES ('Preto', 'Black', '#000000', 'Preto');
+    `)
+
+    const db = drizzle(pool)
+    await fixColorsLegacyNameUp({ db } as never)
+    await fixColorsLegacyNameUp({ db } as never)
+
+    const columns = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'colors'
+    `)
+    assert.ok(!columns.rows.some((row) => row.column_name === 'name'))
+
+    await pool.query(`
+      INSERT INTO colors (name_p_t, name_e_n, hex)
+      VALUES ('Mostarda', 'Mustard', '#F0A919')
+    `)
+    const rows = await pool.query('SELECT name_p_t, name_e_n, hex FROM colors ORDER BY id')
+    assert.deepEqual(rows.rows, [
+      { name_p_t: 'Preto', name_e_n: 'Black', hex: '#000000' },
+      { name_p_t: 'Mostarda', name_e_n: 'Mustard', hex: '#F0A919' },
+    ])
   })
 })
 
