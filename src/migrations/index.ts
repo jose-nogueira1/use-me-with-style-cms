@@ -62,6 +62,7 @@ import * as migration_20260805_130000_fix_instagram_spotlight_product_rel from '
 import * as migration_20260805_140000_ai_assistant_audit from './20260805_140000_ai_assistant_audit';
 import * as migration_20260805_150000_ai_messaging_settings from './20260805_150000_ai_messaging_settings';
 import * as migration_20260806_120000_ai_out_of_stock_recovery from './20260806_120000_ai_out_of_stock_recovery';
+import * as migration_20260806_150000_instagram_shop_the_look from './20260806_150000_instagram_shop_the_look';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -382,5 +383,10 @@ export const migrations = [
     up: migration_20260806_120000_ai_out_of_stock_recovery.up,
     down: migration_20260806_120000_ai_out_of_stock_recovery.down,
     name: '20260806_120000_ai_out_of_stock_recovery',
+  },
+  {
+    up: migration_20260806_150000_instagram_shop_the_look.up,
+    down: migration_20260806_150000_instagram_shop_the_look.down,
+    name: '20260806_150000_instagram_shop_the_look',
   },
 ];

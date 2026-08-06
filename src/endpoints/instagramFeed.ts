@@ -4,10 +4,15 @@ import {
   INSTAGRAM_GRAPH_VERSION,
   applyHighlight,
   cleanCaptionForDisplay,
+  findInstagramProductTag,
+  indexInstagramProductTags,
+  instagramLookSlug,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
+  resolveShopTheLookProducts,
   type GraphMediaItem,
   type HighlightedInstagramPost,
+  type InstagramProductTagEntry,
   type InstagramPost,
 } from '../lib/instagramFeed'
 
@@ -57,22 +62,13 @@ async function fetchHighlightedPermalink(reqPayload: any): Promise<string | null
   }
 }
 
-async function fetchProductTags(reqPayload: any): Promise<Record<string, Array<{ slug: string; name: string }>>> {
+async function fetchProductTags(reqPayload: any): Promise<Map<string, InstagramProductTagEntry>> {
   try {
-    const global = await reqPayload.findGlobal({ slug: 'instagram-spotlight', depth: 1 })
-    const tags: Record<string, Array<{ slug: string; name: string }>> = {}
-    for (const entry of global?.productTags ?? []) {
-      const key = typeof entry?.permalink === 'string' ? entry.permalink : ''
-      if (!key) continue
-      tags[key] = (entry.products ?? []).map((product: any) => ({
-        slug: typeof product === 'object' ? String(product.slug ?? '') : '',
-        name: typeof product === 'object' ? String(product.namePT ?? product.nameEN ?? '') : '',
-      })).filter((product: { slug: string }) => product.slug)
-    }
-    return tags
+    const global = await reqPayload.findGlobal({ slug: 'instagram-spotlight', depth: 2 })
+    return indexInstagramProductTags(global?.productTags ?? [])
   } catch (err) {
     reqPayload.logger.error({ err: err instanceof Error ? err.message : String(err) }, '[instagram:product-tags-fetch-failed]')
-    return {}
+    return new Map()
   }
 }
 
@@ -80,15 +76,21 @@ async function fetchProductTags(reqPayload: any): Promise<Record<string, Array<{
 // `captionDisplay` is always server-computed (hashtags/newlines stripped,
 // truncated) from the real Instagram caption -- "give each tile a reason to
 // exist beyond a photo" applies to every post, not just a highlighted one.
-function toApiPost(post: HighlightedInstagramPost, productTags: Record<string, Array<{ slug: string; name: string }>>) {
+function toApiPost(
+  post: HighlightedInstagramPost,
+  productTags: Map<string, InstagramProductTagEntry>,
+  market: 'AO' | 'PT',
+) {
+  const association = findInstagramProductTag(productTags, post)
   return {
     id: post.id,
+    lookSlug: instagramLookSlug(post.permalink),
     imageUrl: post.imageUrl,
     permalink: post.permalink,
     caption: post.caption,
     captionDisplay: cleanCaptionForDisplay(post.caption),
     size: post.size,
-    products: productTags[post.permalink] ?? [],
+    products: resolveShopTheLookProducts(association, market),
   }
 }
 
@@ -100,6 +102,7 @@ export const instagramFeedEndpoints: Endpoint[] = [
       const url = new URL(req.url ?? '', 'http://localhost')
       const limitParam = Number(url.searchParams.get('limit'))
       const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(Math.floor(limitParam), MAX_LIMIT) : DEFAULT_LIMIT
+      const market: 'AO' | 'PT' = url.searchParams.get('market') === 'PT' ? 'PT' : 'AO'
 
       // Not configured yet -- tell the storefront so it can fall back to
       // the static placeholder grid, same "log instead of throw when
@@ -132,7 +135,7 @@ export const instagramFeedEndpoints: Endpoint[] = [
       const productTags = await fetchProductTags(req.payload)
       const posts = applyHighlight(pool, highlightedPermalink)
         .slice(0, limit)
-        .map((post) => toApiPost(post, productTags))
+        .map((post) => toApiPost(post, productTags, market))
       return Response.json({ configured: true, posts })
     },
   },

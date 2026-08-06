@@ -1611,6 +1611,32 @@ export interface InstagramSpotlight {
    * e.g. https://www.instagram.com/p/AbCdEfG/ -- must still be one of the ~12 most recent posts, or nothing will be highlighted.
    */
   highlightedPermalink?: string | null;
+  /**
+   * Products linked to individual Instagram posts. Managed from Storefront Admin > Settings > Instagram feed.
+   */
+  productTags?:
+    | {
+        /**
+         * Stable Instagram identifier. The permalink remains as a fallback when older entries have no media ID.
+         */
+        mediaId?: string | null;
+        permalink: string;
+        products?: (number | Product)[] | null;
+        /**
+         * Storefront-admin managed map of product ID to the colour visible in the Instagram post.
+         */
+        variantSelections?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1656,6 +1682,16 @@ export interface AiMessagingSetting {
    * New AI processing pauses when the estimated application spend reaches this amount.
    */
   monthlyBudgetUsd: number;
+  outOfStockRecoveryEnabled?: boolean | null;
+  outOfStockAllowOtherColours?: boolean | null;
+  outOfStockAllowOtherSizes?: boolean | null;
+  outOfStockMaxAlternatives: number;
+  /**
+   * Related products outside this difference from the requested product are excluded.
+   */
+  outOfStockPriceTolerancePercent: number;
+  outOfStockCategoryWeight: number;
+  outOfStockTagWeight: number;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1812,6 +1848,15 @@ export interface HomeCollectionsSelect<T extends boolean = true> {
  */
 export interface InstagramSpotlightSelect<T extends boolean = true> {
   highlightedPermalink?: T;
+  productTags?:
+    | T
+    | {
+        mediaId?: T;
+        permalink?: T;
+        products?: T;
+        variantSelections?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -1832,6 +1877,13 @@ export interface AiMessagingSettingsSelect<T extends boolean = true> {
   maxAutoRepliesPerConversation?: T;
   maxAutoRepliesPerHour?: T;
   monthlyBudgetUsd?: T;
+  outOfStockRecoveryEnabled?: T;
+  outOfStockAllowOtherColours?: T;
+  outOfStockAllowOtherSizes?: T;
+  outOfStockMaxAlternatives?: T;
+  outOfStockPriceTolerancePercent?: T;
+  outOfStockCategoryWeight?: T;
+  outOfStockTagWeight?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
