@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { test } from 'node:test'
 
-import { extractInboundMessages, extractInstagramSeenReceipts, summarizeInstagramEvent, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
-import { buildAutoReply, classifyIncomingMessage } from '../src/lib/messaging'
+import { enrichInstagramStoryReply, extractInboundMessages, extractInstagramSeenReceipts, summarizeInstagramEvent, verifyMetaWebhookSignature } from '../src/endpoints/messagingWebhook'
+import { buildAutoReply, classifyIncomingMessage, getInstagramMessageText } from '../src/lib/messaging'
 
 test('legacy rule helpers remain deterministic for a future assisted-reply plan', () => {
   assert.equal(classifyIncomingMessage('Quero cancelar a minha encomenda e receber reembolso'), 'sensitive')
@@ -130,6 +130,63 @@ test('Instagram story replies retain the story preview and customer text', () =>
     instagramContextUrl: 'https://cdn.example/story.jpg',
     instagramContextMediaType: 'story',
   }])
+})
+
+test('Instagram story replies missing webhook text are enriched from message details', async () => {
+  const [parsed] = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      recipient: { id: 'business' },
+      message: {
+        mid: 'story-reply-mid-without-text',
+        reply_to: { story: { id: 'story-id', url: 'https://cdn.example/story.jpg' } },
+      },
+    }] }],
+  })
+
+  let requestedId = ''
+  const enriched = await enrichInstagramStoryReply(parsed!, async (messageId) => {
+    requestedId = messageId
+    return 'Quero este vestido, por favor'
+  })
+
+  assert.equal(requestedId, 'story-reply-mid-without-text')
+  assert.equal(enriched.body, 'Quero este vestido, por favor')
+  assert.equal(enriched.instagramContextType, 'story_reply')
+  assert.equal(enriched.instagramContextUrl, 'https://cdn.example/story.jpg')
+})
+
+test('Instagram story replies keep the safe label when message details have no text', async () => {
+  const [parsed] = extractInboundMessages({
+    object: 'instagram',
+    entry: [{ id: 'business', messaging: [{
+      sender: { id: 'customer' },
+      message: {
+        mid: 'story-reply-mid-without-details',
+        reply_to: { story: { id: 'story-id' } },
+      },
+    }] }],
+  })
+  const enriched = await enrichInstagramStoryReply(parsed!, async () => null)
+  assert.equal(enriched.body, 'Replied to your story')
+})
+
+test('Instagram message-detail lookup requests only the required fields', async () => {
+  let requestedUrl = ''
+  let requestedAuthorization = ''
+  const text = await getInstagramMessageText('message/id', {
+    token: 'test-token',
+    fetchImpl: async (input, init) => {
+      requestedUrl = String(input)
+      requestedAuthorization = new Headers(init?.headers).get('authorization') ?? ''
+      return Response.json({ id: 'message/id', message: '  Story answer  ' })
+    },
+  })
+
+  assert.equal(text, 'Story answer')
+  assert.match(requestedUrl, /message%2Fid\?fields=id%2Ccreated_time%2Cfrom%2Cto%2Cmessage$/)
+  assert.equal(requestedAuthorization, 'Bearer test-token')
 })
 
 test('Instagram shared posts and inline replies retain useful sales context', () => {

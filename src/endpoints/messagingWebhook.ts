@@ -1,7 +1,7 @@
 import type { Endpoint } from 'payload'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { classifyIncomingMessage, markInstagramConversationSeen } from '../lib/messaging'
+import { classifyIncomingMessage, getInstagramMessageText, markInstagramConversationSeen } from '../lib/messaging'
 import { cancelPendingAiJobs, enqueueAiMessageJob } from '../lib/ai/jobs'
 import { getAiAssistantConfig, isAiAssistantEnabled } from '../lib/ai/config'
 import { loadAiMessagingSettings } from '../lib/ai/settings'
@@ -40,7 +40,7 @@ const verifyEndpoint: Endpoint = {
   },
 }
 
-type InboundMessage = {
+export type InboundMessage = {
   channel: 'instagram'
   direction: 'inbound' | 'outbound'
   contactHandle: string
@@ -53,6 +53,8 @@ type InboundMessage = {
   instagramContextMediaType?: string
   replyToExternalId?: string
 }
+
+export const INSTAGRAM_STORY_REPLY_FALLBACK = 'Replied to your story'
 
 type InstagramAttachment = {
   type?: unknown
@@ -166,7 +168,7 @@ function extractInstagramEvent(entryId: unknown, event: any): InboundMessage | n
   }
 
   const fallback = instagramContextType === 'story_reply'
-    ? 'Replied to your story'
+    ? INSTAGRAM_STORY_REPLY_FALLBACK
     : instagramContextType === 'shared_post'
       ? 'Shared an Instagram post'
       : instagramContextType === 'media'
@@ -222,6 +224,26 @@ export function extractInboundMessages(payload: unknown): InboundMessage[] {
   }
 
   return messages
+}
+
+/**
+ * Meta occasionally omits `message.text` from a story-reply webhook even
+ * though the text is available from the message-details endpoint. Enrich the
+ * parsed event before persisting/classifying it, while preserving the existing
+ * UI fallback if Meta cannot return the text.
+ */
+export async function enrichInstagramStoryReply(
+  msg: InboundMessage,
+  resolveText: (messageId: string) => Promise<string | null> = getInstagramMessageText,
+): Promise<InboundMessage> {
+  if (
+    msg.instagramContextType !== 'story_reply'
+    || msg.body !== INSTAGRAM_STORY_REPLY_FALLBACK
+    || !msg.externalId
+  ) return msg
+
+  const text = await resolveText(msg.externalId)
+  return text ? { ...msg, body: text } : msg
 }
 
 export function extractInstagramSeenReceipts(payload: unknown): Array<{ contactHandle: string; externalId: string; seenAt: string }> {
@@ -326,6 +348,7 @@ export function verifyMetaWebhookSignature(
 }
 
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
+  msg = await enrichInstagramStoryReply(msg)
   const intent = msg.direction === 'inbound' ? classifyIncomingMessage(msg.body) : 'unknown'
 
   // Meta retries deliveries; its message ID is the stable idempotency key.
@@ -337,7 +360,51 @@ async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
       depth: 0,
       overrideAccess: true,
     })
-    if (existing.docs.length > 0) return
+    const existingMessage = existing.docs[0]
+    if (existingMessage) {
+      // A retry can be richer than the first delivery. Replace the temporary
+      // story-reply label with the actual DM instead of permanently preserving
+      // the incomplete first copy.
+      if (
+        msg.direction === 'inbound'
+        && existingMessage.instagramContextType === 'story_reply'
+        && existingMessage.body === INSTAGRAM_STORY_REPLY_FALLBACK
+        && msg.body !== INSTAGRAM_STORY_REPLY_FALLBACK
+      ) {
+        const sensitive = intent === 'sensitive'
+        await cancelPendingAiJobs(payloadClient, msg.contactHandle)
+        const updatedMessage = await payloadClient.update({
+          collection: 'messages',
+          id: existingMessage.id,
+          data: {
+            body: msg.body,
+            status: sensitive ? 'escalated' : 'open',
+            conversationStatus: sensitive ? 'priority' : 'needs_reply',
+            automationNote: sensitive
+              ? 'sensitive-topic -- escalated to Raisa'
+              : 'instagram-inbox -- manual reply required',
+            aiDraftStatus: 'queued',
+            aiDraft: null,
+            aiDraftConfidence: null,
+            aiDraftSourceRecordIds: null,
+            aiDraftReason: null,
+            aiRequiresHuman: false,
+            aiOutcome: null,
+          },
+          overrideAccess: true,
+        })
+        const aiSettings = await loadAiMessagingSettings(payloadClient as any)
+        const aiConfig = getAiAssistantConfig(process.env, aiSettings)
+        await enqueueAiMessageJob(payloadClient, {
+          ...updatedMessage,
+          aiProcessingStatus: undefined,
+        }, {
+          enabled: isAiAssistantEnabled(aiConfig),
+          debounceMs: aiSettings.replyDelaySeconds * 1_000,
+        })
+      }
+      return
+    }
   }
 
   // Match the echo of an admin-sent reply to its existing local row. Messages
