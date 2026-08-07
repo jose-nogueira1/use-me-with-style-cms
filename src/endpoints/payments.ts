@@ -16,6 +16,7 @@ import {
   latestAppyPayResponse,
   type AppyPayCharge,
 } from '../lib/payments/appypay'
+import { releaseCouponRedemption } from '../lib/couponPricing'
 
 // Real Stripe + PayPal integration (JOS-61). Both gateways only support EUR
 // here -- enforced below -- which covers Portugal directly and, since
@@ -375,6 +376,13 @@ export async function applyVerifiedAppyPayCharge(
       } as any,
       req,
     })) as unknown as Record<string, unknown> & { id: string | number }
+    // Release the coupon claim on the transition INTO failed only (not on
+    // a repeat webhook delivery once already failed) -- `current` is the
+    // pre-update, lock-protected snapshot read above, so this is exactly
+    // as race-safe as the paid-transition dedup check further up.
+    if (charge.status === 'Failed' && current.paymentStatus !== 'failed' && current.couponCode) {
+      await releaseCouponRedemption(req, String(current.couponCode))
+    }
     if (ownsTransaction) await commitTransaction(req)
     return result
   } catch (err) {
@@ -457,6 +465,12 @@ const appyPayCancelOrder: Endpoint = {
       data: { status: 'cancelled', paymentStatus: 'failed' },
       context: { inventoryReleaseReason: 'shopper_cancelled' },
     })
+    // The guard above (`order.status === 'cancelled' -> early return`)
+    // means this only runs once per order, same idempotency the inventory
+    // release above already relies on.
+    if (order.couponCode) {
+      await releaseCouponRedemption(req, String(order.couponCode))
+    }
     return Response.json({ cancelled: true })
   },
 }

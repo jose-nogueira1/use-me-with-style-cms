@@ -128,6 +128,16 @@ export async function resolveCoupon(
         and: [
           { couponCode: { equals: code } },
           { customerEmail: { equals: params.customerEmail.trim().toLowerCase() } },
+          // A cancelled order never actually enjoyed the discount (bug found
+          // 2026-08-07: a shopper's test order was cancelled before payment,
+          // but the coupon still showed as "already used" on their next real
+          // attempt). Excluding cancelled orders here means the per-email
+          // count only reflects orders that could plausibly have gone
+          // through -- matches usageCount's release-on-cancel compensating
+          // action below (claimCouponRedemption/releaseCouponRedemption),
+          // which is why an order counts against this limit right up until
+          // it's cancelled, never after.
+          { status: { not_equals: 'cancelled' } },
         ],
       },
       overrideAccess: true,
@@ -172,6 +182,65 @@ async function lockCouponRow(req: PayloadRequest, code: string): Promise<void> {
     | undefined
   if (!session?.db?.execute) throw new APIError('Coupon transaction session is unavailable.', 503, null, true)
   await session.db.execute(sql`SELECT id FROM coupons WHERE code = ${code} FOR UPDATE`)
+}
+
+/** Same row lock as lockCouponRow, but best-effort: releaseCouponRedemption
+ * is called from cancellation/expiry paths that don't always run inside an
+ * explicit Postgres transaction (unlike claimCouponRedemption, which always
+ * runs inside order-creation's transaction) -- silently skipping the lock
+ * when there's no transaction on `req` still leaves the decrement itself
+ * race-tolerant the same way the rest of this release path already is (see
+ * releaseCouponRedemption's doc comment). */
+async function lockCouponRowIfPossible(req: PayloadRequest, code: string): Promise<void> {
+  if (!String(process.env.DATABASE_URL ?? '').startsWith('postgres')) return
+  const transactionID = await req.transactionID
+  if (!transactionID) return
+  const session = req.payload.db.sessions?.[String(transactionID)] as
+    | { db?: { execute?: (query: unknown) => Promise<unknown> } }
+    | undefined
+  if (!session?.db?.execute) return
+  await session.db.execute(sql`SELECT id FROM coupons WHERE code = ${code} FOR UPDATE`)
+}
+
+/**
+ * Compensating action for claimCouponRedemption -- gives back one usageCount
+ * claim when an order that claimed it never completes (bug found
+ * 2026-08-07: a cancelled/abandoned order left usageCount permanently
+ * incremented, exhausting limited-use codes for orders that never actually
+ * happened). Called from the same three places an order's inventory
+ * reservation gets released -- appyPayCancelOrder, the AppyPay webhook's
+ * Failed branch, and releaseExpiredReservations -- each of which already
+ * guards against re-firing on an order that's already in its terminal
+ * state, so this never needs its own idempotency flag on the order: it
+ * piggybacks on those existing guards.
+ *
+ * Not paired with the maxRedemptionsPerEmail check in resolveCoupon() above
+ * -- that's fixed separately by excluding cancelled orders from the count
+ * query, since a per-email check can just re-derive "was this actually
+ * used" from order status at read time, no counter to correct.
+ */
+export async function releaseCouponRedemption(req: PayloadRequest, code: string): Promise<void> {
+  const normalized = code.trim().toUpperCase()
+  if (!normalized) return
+  await lockCouponRowIfPossible(req, normalized)
+  const matches = await req.payload.find({
+    collection: 'coupons',
+    where: { code: { equals: normalized } },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  })
+  const coupon = matches.docs[0]
+  if (!coupon) return
+  const currentUsageCount = Number(coupon.usageCount) || 0
+  if (currentUsageCount <= 0) return
+  await req.payload.update({
+    collection: 'coupons',
+    id: coupon.id,
+    overrideAccess: true,
+    req,
+    data: { usageCount: currentUsageCount - 1 },
+  })
 }
 
 /** Atomically validates and claims one coupon redemption inside the order

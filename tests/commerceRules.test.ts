@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { applyAuthoritativeOrderValues, authoritativeShippingCost } from '../src/lib/authoritativeOrder.ts'
-import { claimCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.ts'
+import { claimCouponRedemption, releaseCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.ts'
 import { calculateIncludedVatInvoice, resolveVatRate } from '../src/lib/internalInvoice.ts'
 import { inventoryDeltasForOrder, manageInventoryReservation } from '../src/lib/inventoryReservation.ts'
 import { effectiveUnitPrice, isProductOnSale } from '../src/lib/salePricing.ts'
@@ -136,6 +136,74 @@ test('coupon claim increments usage inside the request transaction', async () =>
   const result = await claimCouponRedemption(req, { code: 'save10', market: 'PT', pricingMarket: 'PT', subtotal: 80, now: NOW })
   assert.equal(result.valid, true)
   assert.deepEqual(calls, ['find', 'find', 'update'])
+})
+
+// Bug found 2026-08-07: a shopper's order was cancelled before payment, but
+// the coupon's per-email limit still counted it, permanently blocking them
+// from ever using that code again. The fix excludes cancelled orders from
+// the count query -- this pins the `where` clause shape so a future edit
+// can't silently drop that filter.
+test('maxRedemptionsPerEmail excludes cancelled orders from the prior-redemptions count', async () => {
+  const coupon = { id: 30, code: 'ONCE', active: true, type: 'percent', percentOff: 10, maxRedemptionsPerEmail: 1, availableAO: true, availablePT: true }
+  let capturedWhere: unknown
+  const payload = {
+    find: async () => ({ docs: [coupon] }),
+    count: async (options: { where: unknown }) => {
+      capturedWhere = options.where
+      return { totalDocs: 0 }
+    },
+  }
+  const result = await resolveCoupon(payload as never, {
+    code: 'once', market: 'PT', pricingMarket: 'PT', subtotal: 100, customerEmail: 'shopper@example.com', now: NOW,
+  })
+  assert.equal(result.valid, true)
+  assert.deepEqual(capturedWhere, {
+    and: [
+      { couponCode: { equals: 'ONCE' } },
+      { customerEmail: { equals: 'shopper@example.com' } },
+      { status: { not_equals: 'cancelled' } },
+    ],
+  })
+})
+
+// Compensating action for the claim above: cancelling/expiring an order
+// that claimed a coupon gives the redemption back so a genuinely limited
+// code isn't exhausted by orders that never went through.
+test('releaseCouponRedemption decrements usage by one and never goes below zero', async () => {
+  const coupon = { id: 31, code: 'SAVE10', usageCount: 3 }
+  const updates: number[] = []
+  const payload = {
+    find: async () => ({ docs: [coupon] }),
+    update: async (options: { data: { usageCount: number } }) => {
+      updates.push(options.data.usageCount)
+      coupon.usageCount = options.data.usageCount
+      return coupon
+    },
+  }
+  const req = { payload } as never
+  await releaseCouponRedemption(req, 'save10')
+  assert.deepEqual(updates, [2])
+
+  // Already at zero (e.g. a duplicate release racing the guard at the call
+  // site) -- no-ops instead of going negative.
+  coupon.usageCount = 0
+  await releaseCouponRedemption(req, 'save10')
+  assert.deepEqual(updates, [2])
+})
+
+test('releaseCouponRedemption is a no-op for an unknown or blank code', async () => {
+  let updateCalled = false
+  const payload = {
+    find: async () => ({ docs: [] }),
+    update: async () => {
+      updateCalled = true
+      return {}
+    },
+  }
+  const req = { payload } as never
+  await releaseCouponRedemption(req, 'GHOST')
+  await releaseCouponRedemption(req, '  ')
+  assert.equal(updateCalled, false)
 })
 
 test('Portugal shipping is authoritative, method-specific, and free from EUR 75 after discounts', () => {

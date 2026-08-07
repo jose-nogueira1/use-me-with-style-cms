@@ -1,6 +1,7 @@
 import { APIError, type CollectionBeforeChangeHook, type PayloadRequest } from 'payload'
 import { sql } from 'drizzle-orm'
 import { reservationTerminalState, reservationTtlMs } from './inventoryRules'
+import { releaseCouponRedemption } from './couponPricing'
 
 type ReservationOrder = {
   id?: string | number
@@ -327,6 +328,13 @@ export async function releaseExpiredReservations(req: PayloadRequest, limit = 10
       req,
       context: { inventoryReleaseReason: 'expired' },
     })
+    // The query above only ever selects orders still 'active' -- once this
+    // update lands, a re-run won't pick the same order up again, so this
+    // fires exactly once per order, same idempotency the inventory release
+    // above already relies on.
+    if (order.couponCode) {
+      await releaseCouponRedemption(req, String(order.couponCode))
+    }
   }
   return expired.docs.length
 }
