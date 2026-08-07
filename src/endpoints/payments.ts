@@ -224,6 +224,13 @@ export async function applyVerifiedAppyPayCharge(
     throw new Error('Order is already linked to a different AppyPay transaction')
   }
 
+  if (gatewayMethod === 'REF') {
+    req.payload.logger.warn(
+      { orderId: order.id, transactionId: charge.id, merchantTransactionId },
+      '[payments:appypay:unexpected-ref-charge] REF payment received despite GPO-only launch config -- verify AppyPay portal payment-method settings',
+    )
+  }
+
   const response = latestAppyPayResponse(charge)
   const common = {
     paymentReference: charge.id,
