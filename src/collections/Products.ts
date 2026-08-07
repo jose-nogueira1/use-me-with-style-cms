@@ -186,6 +186,20 @@ export const Products: CollectionConfig = {
           relationTo: 'media',
           required: true,
         },
+        // Per-colour photo galleries (2026-08-07): optional on purpose --
+        // unset means "general" (shown regardless of which colour is
+        // selected), so every image uploaded before this field existed
+        // keeps working exactly as it does today, and a product doesn't
+        // need every photo re-tagged before its gallery is usable. The
+        // storefront (ProductDetail.tsx) filters this array by the
+        // shopper's selected colour and falls back to the untagged/general
+        // pool when that colour has no photos of its own yet.
+        {
+          name: 'color',
+          type: 'relationship',
+          relationTo: 'colors',
+          admin: { description: 'Optional. Leave blank for a general photo shown for every colour. Set this to show the photo only when this colour is selected.' },
+        },
       ],
     },
     {

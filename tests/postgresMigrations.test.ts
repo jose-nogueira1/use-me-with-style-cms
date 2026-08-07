@@ -12,6 +12,7 @@ import { up as legalDataDeletionUp } from '../src/migrations/20260801_110000_leg
 import { up as homeContentCurationUp, down as homeContentCurationDown } from '../src/migrations/20260804_170000_home_content_curation.ts'
 import { up as fixColorsLegacyNameUp } from '../src/migrations/20260806_160000_fix_colors_legacy_name.ts'
 import { up as flexibleProductsUp } from '../src/migrations/20260806_190000_flexible_products_and_kits.ts'
+import { up as productImageColorsUp, down as productImageColorsDown } from '../src/migrations/20260807_200000_product_image_colors.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -515,5 +516,68 @@ test('legal content data-deletion migration is idempotent', { skip: !adminUrl },
     await pool.query(`UPDATE legal_content SET data_deletion_text_p_t = 'ok' WHERE id = 1`)
     const row = (await pool.query(`SELECT data_deletion_text_p_t FROM legal_content WHERE id = 1`)).rows[0]
     assert.equal(row.data_deletion_text_p_t, 'ok')
+  })
+})
+
+// Per-colour product photo galleries (2026-08-07): products_images gets an
+// optional color_id, mirroring products_variants.color_id. Existing image
+// rows must keep working with NULL (= "general", shown for every colour).
+async function createProductImageColorsPrerequisites(pool: pg.Pool) {
+  await pool.query(`
+    CREATE TABLE colors (id serial PRIMARY KEY);
+    CREATE TABLE media (id serial PRIMARY KEY);
+    CREATE TABLE products (id serial PRIMARY KEY);
+    CREATE TABLE products_images (
+      _order integer NOT NULL, _parent_id integer NOT NULL, id varchar PRIMARY KEY,
+      image_id integer NOT NULL
+    );
+    INSERT INTO colors DEFAULT VALUES;
+    INSERT INTO media DEFAULT VALUES;
+    INSERT INTO products DEFAULT VALUES;
+    INSERT INTO products_images VALUES (1, 1, 'legacy-photo', 1);
+  `)
+}
+
+async function runProductImageColorsUp(pool: pg.Pool) {
+  const db = drizzle(pool)
+  await productImageColorsUp({ db } as never)
+}
+
+test('product image colours migration adds a nullable colour column without disturbing existing photos', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createProductImageColorsPrerequisites(pool)
+    await runProductImageColorsUp(pool)
+
+    const legacy = (await pool.query(`SELECT color_id FROM products_images WHERE id = 'legacy-photo'`)).rows[0]
+    assert.equal(legacy.color_id, null)
+
+    await pool.query(`
+      INSERT INTO products_images (_order, _parent_id, id, image_id, color_id)
+      VALUES (2, 1, 'red-photo', 1, 1);
+    `)
+    const tagged = (await pool.query(`SELECT color_id FROM products_images WHERE id = 'red-photo'`)).rows[0]
+    assert.equal(tagged.color_id, 1)
+
+    // Deleting the referenced colour should null the photo's tag, not
+    // delete or block deletion of the photo itself (ON DELETE SET NULL,
+    // same policy as products_variants.color_id).
+    await pool.query(`DELETE FROM colors WHERE id = 1`)
+    const afterColorDelete = (await pool.query(`SELECT color_id FROM products_images WHERE id = 'red-photo'`)).rows[0]
+    assert.equal(afterColorDelete.color_id, null)
+  })
+})
+
+test('product image colours migration is idempotent and down() removes the column cleanly', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await createProductImageColorsPrerequisites(pool)
+    await runProductImageColorsUp(pool)
+    await runProductImageColorsUp(pool) // must not error the second time
+
+    const db = drizzle(pool)
+    await productImageColorsDown({ db } as never)
+    const columns = (
+      await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'products_images' AND column_name = 'color_id'`)
+    ).rows
+    assert.equal(columns.length, 0)
   })
 })

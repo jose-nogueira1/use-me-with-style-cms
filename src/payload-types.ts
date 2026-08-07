@@ -284,6 +284,10 @@ export interface Product {
   images?:
     | {
         image: number | Media;
+        /**
+         * Optional. Leave blank for a general photo shown for every colour. Set this to show the photo only when this colour is selected.
+         */
+        color?: (number | null) | Color;
         id?: string | null;
       }[]
     | null;
@@ -1022,6 +1026,7 @@ export interface ProductsSelect<T extends boolean = true> {
     | T
     | {
         image?: T;
+        color?: T;
         id?: T;
       };
   priceAOKz?: T;
