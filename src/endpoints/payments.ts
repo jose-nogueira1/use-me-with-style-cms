@@ -1,5 +1,7 @@
 import type { Endpoint, PayloadRequest } from 'payload'
+import { commitTransaction, initTransaction, killTransaction } from 'payload'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { sql } from 'drizzle-orm'
 
 import {
   createCheckoutSession,
@@ -198,6 +200,22 @@ function appyPayAmountMatches(actual: number, expected: number): boolean {
   return Number.isFinite(actual) && Math.abs(actual - expected) < 0.005
 }
 
+// Same pattern as lockProductRow in inventoryReservation.ts: a no-op outside
+// Postgres (local/dev SQLite has no concurrent writers to race), otherwise
+// takes a row lock so a second concurrent caller for the same order blocks
+// here until the first has committed, instead of both reading stale
+// pre-write state.
+async function lockOrderRow(req: PayloadRequest, orderId: string | number) {
+  if (!String(process.env.DATABASE_URL ?? '').startsWith('postgres')) return
+  const transactionID = await req.transactionID
+  if (!transactionID) throw new Error('AppyPay charge verification requires a database transaction.')
+  const session = req.payload.db.sessions?.[String(transactionID)] as
+    | { db?: { execute?: (query: unknown) => Promise<unknown> } }
+    | undefined
+  if (!session?.db?.execute) throw new Error('AppyPay transaction session is unavailable.')
+  await session.db.execute(sql`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`)
+}
+
 export async function applyVerifiedAppyPayCharge(
   req: PayloadRequest,
   order: Record<string, unknown> & { id: string | number },
@@ -219,11 +237,6 @@ export async function applyVerifiedAppyPayCharge(
     throw new Error('AppyPay charge does not match the Angola order')
   }
 
-  const existingTransactionId = String(order.appyPayTransactionId ?? '')
-  if (existingTransactionId && existingTransactionId !== charge.id) {
-    throw new Error('Order is already linked to a different AppyPay transaction')
-  }
-
   if (gatewayMethod === 'REF') {
     req.payload.logger.warn(
       { orderId: order.id, transactionId: charge.id, merchantTransactionId },
@@ -231,84 +244,143 @@ export async function applyVerifiedAppyPayCharge(
     )
   }
 
-  const response = latestAppyPayResponse(charge)
-  const common = {
-    paymentReference: charge.id,
-    appyPayTransactionId: charge.id,
-    appyPayStatus: charge.status,
-    appyPayPaymentMethod: charge.paymentMethod,
-    appyPayResponseCode: response?.code,
-    appyPayResponseMessage: response?.message,
-    appyPayReferenceEntity: charge.reference?.entity,
-    appyPayReferenceNumber: charge.reference?.referenceNumber,
-    appyPayReferenceDueDate: charge.reference?.dueDate,
-    appyPayVerifiedAt: new Date().toISOString(),
-  }
-
-  if (charge.status === 'Success') {
-    if (order.paymentStatus === 'paid' && existingTransactionId === charge.id) return order
-
-    // A success may arrive after an explicit shopper cancellation or the
-    // reservation timeout. First try to atomically reserve the original
-    // variants again. If somebody else bought the released stock, retain
-    // the truthful paid/cancelled combination for manual refund/review and
-    // never reopen an unfulfillable order or drive stock below zero.
-    if (order.inventoryReservationStatus === 'released' || order.status === 'cancelled') {
-      try {
-        return await req.payload.update({
-          collection: 'orders',
-          id: order.id,
-          overrideAccess: true,
-          data: {
-            ...common,
-            paymentStatus: 'paid',
-            status: 'processing',
-          } as any,
-          context: { lateVerifiedPayment: true },
-        })
-      } catch (err) {
-        req.payload.logger.error({ err, orderId: order.id, transactionId: charge.id }, '[payments:appypay:late-success-stock-conflict]')
-        return req.payload.update({
-          collection: 'orders',
-          id: order.id,
-          overrideAccess: true,
-          data: {
-            ...common,
-            paymentStatus: 'paid',
-            status: 'cancelled',
-          } as any,
-        })
-      }
-    }
-    return req.payload.update({
+  // A duplicate webhook delivery for the same charge (AppyPay retrying, or
+  // this same event racing the admin's manual /reconcile endpoint) can
+  // arrive close enough to a first delivery that both read the order as
+  // not-yet-paid before either write lands. Without a lock, both would
+  // proceed to mark it paid, each firing notifyOrderEvent's paid-transition
+  // side effects (confirmation email, Meta Purchase pixel, invoice
+  // generation) a second time -- unlike the inventory reservation, which is
+  // self-idempotent by design (stock is decremented once at order-creation
+  // reserve time; the 'paid' transition below only flips a status flag).
+  // Row-locking the order the same way lockProductRow already locks
+  // products serializes concurrent callers on this exact order: the loser
+  // blocks until the winner's update below has committed, then re-reads
+  // the now-current state instead of acting on its stale snapshot.
+  const ownsTransaction = await initTransaction(req)
+  let current: Record<string, unknown> & { id: string | number }
+  try {
+    await lockOrderRow(req, order.id)
+    // Payload's generated `Order` type has no index signature (hence the
+    // same cast the webhook/reconcile call sites already apply when first
+    // calling this function) -- this re-read is otherwise a plain fresh
+    // fetch of the row we just locked, within the same transaction.
+    current = (await req.payload.findByID({
       collection: 'orders',
       id: order.id,
       overrideAccess: true,
-      // Payload types are generated after the collection migration is added.
+      depth: 0,
+      req,
+    })) as unknown as Record<string, unknown> & { id: string | number }
+  } catch (err) {
+    if (ownsTransaction) await killTransaction(req)
+    throw err
+  }
+
+  const existingTransactionId = String(current.appyPayTransactionId ?? '')
+  if (existingTransactionId && existingTransactionId !== charge.id) {
+    if (ownsTransaction) await killTransaction(req)
+    throw new Error('Order is already linked to a different AppyPay transaction')
+  }
+
+  try {
+    const response = latestAppyPayResponse(charge)
+    const common = {
+      paymentReference: charge.id,
+      appyPayTransactionId: charge.id,
+      appyPayStatus: charge.status,
+      appyPayPaymentMethod: charge.paymentMethod,
+      appyPayResponseCode: response?.code,
+      appyPayResponseMessage: response?.message,
+      appyPayReferenceEntity: charge.reference?.entity,
+      appyPayReferenceNumber: charge.reference?.referenceNumber,
+      appyPayReferenceDueDate: charge.reference?.dueDate,
+      appyPayVerifiedAt: new Date().toISOString(),
+    }
+
+    if (charge.status === 'Success') {
+      if (current.paymentStatus === 'paid' && existingTransactionId === charge.id) {
+        if (ownsTransaction) await commitTransaction(req)
+        return current
+      }
+
+      // A success may arrive after an explicit shopper cancellation or the
+      // reservation timeout. First try to atomically reserve the original
+      // variants again. If somebody else bought the released stock, retain
+      // the truthful paid/cancelled combination for manual refund/review and
+      // never reopen an unfulfillable order or drive stock below zero.
+      // Payload types are generated after the collection migration is
+      // added; each branch below casts back to the same shape `current`
+      // already uses, matching the cast the webhook/reconcile call sites
+      // apply when first calling this function.
+      let result: Record<string, unknown> & { id: string | number }
+      if (current.inventoryReservationStatus === 'released' || current.status === 'cancelled') {
+        try {
+          result = (await req.payload.update({
+            collection: 'orders',
+            id: order.id,
+            overrideAccess: true,
+            data: {
+              ...common,
+              paymentStatus: 'paid',
+              status: 'processing',
+            } as any,
+            context: { lateVerifiedPayment: true },
+            req,
+          })) as unknown as Record<string, unknown> & { id: string | number }
+        } catch (err) {
+          req.payload.logger.error({ err, orderId: order.id, transactionId: charge.id }, '[payments:appypay:late-success-stock-conflict]')
+          result = (await req.payload.update({
+            collection: 'orders',
+            id: order.id,
+            overrideAccess: true,
+            data: {
+              ...common,
+              paymentStatus: 'paid',
+              status: 'cancelled',
+            } as any,
+            req,
+          })) as unknown as Record<string, unknown> & { id: string | number }
+        }
+      } else {
+        result = (await req.payload.update({
+          collection: 'orders',
+          id: order.id,
+          overrideAccess: true,
+          data: {
+            ...common,
+            paymentStatus: 'paid',
+            status:
+              current.status === 'new' || current.status === 'payment_review'
+                ? 'processing'
+                : current.status,
+          } as any,
+          req,
+        })) as unknown as Record<string, unknown> & { id: string | number }
+      }
+      if (ownsTransaction) await commitTransaction(req)
+      return result
+    }
+
+    const result = (await req.payload.update({
+      collection: 'orders',
+      id: order.id,
+      overrideAccess: true,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         ...common,
-        paymentStatus: 'paid',
-        status:
-          order.status === 'new' || order.status === 'payment_review'
-            ? 'processing'
-            : order.status,
+        ...(charge.status === 'Failed'
+          ? { paymentStatus: 'failed', status: 'payment_review' }
+          : {}),
       } as any,
-    })
+      req,
+    })) as unknown as Record<string, unknown> & { id: string | number }
+    if (ownsTransaction) await commitTransaction(req)
+    return result
+  } catch (err) {
+    if (ownsTransaction) await killTransaction(req)
+    throw err
   }
-
-  return req.payload.update({
-    collection: 'orders',
-    id: order.id,
-    overrideAccess: true,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: {
-      ...common,
-      ...(charge.status === 'Failed'
-        ? { paymentStatus: 'failed', status: 'payment_review' }
-        : {}),
-    } as any,
-  })
 }
 
 const appyPayCreateOrder: Endpoint = {

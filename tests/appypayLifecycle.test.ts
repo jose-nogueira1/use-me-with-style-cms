@@ -27,15 +27,38 @@ const successfulCharge = {
   responses: [{ code: 0, message: 'Success' }],
 }
 
+// applyVerifiedAppyPayCharge now locks the order row and re-fetches it via
+// req.payload.findByID before deciding anything (2026-08-07, closing a
+// concurrent-duplicate-webhook race) -- it needs req.payload.db.
+// {begin,commit,rollback}Transaction to exist (Payload's own
+// initTransaction/commitTransaction/killTransaction call them) and
+// req.payload.findByID to exist. None of these tests set
+// DATABASE_URL=postgres, so lockOrderRow's actual `FOR UPDATE` no-ops --
+// only Postgres, in staging/production, can exercise the real row lock;
+// these tests instead verify the surrounding logic (the idempotency
+// decision itself, and the existing late-success/stock-conflict paths)
+// still behaves correctly.
+function fakeTransactionDb() {
+  return {
+    beginTransaction: async () => 'test-tx',
+    commitTransaction: async () => {},
+    rollbackTransaction: async () => {},
+  }
+}
+
 test('late AppyPay success reopens only after stock is atomically re-reserved', async () => {
   const updates: Array<Record<string, unknown>> = []
+  let state = { ...validOrder }
   const req = {
     payload: {
       update: async (args: Record<string, unknown>) => {
         updates.push(args)
-        return { ...validOrder, ...(args.data as object) }
+        state = { ...state, ...(args.data as object) }
+        return state
       },
-      logger: { error: () => {} },
+      findByID: async () => state,
+      logger: { error: () => {}, warn: () => {} },
+      db: fakeTransactionDb(),
     },
   }
 
@@ -49,14 +72,18 @@ test('late AppyPay success reopens only after stock is atomically re-reserved', 
 test('late AppyPay success stays cancelled and paid when stock cannot be re-reserved', async () => {
   const updates: Array<Record<string, unknown>> = []
   const logged: Array<Record<string, unknown>> = []
+  let state = { ...validOrder }
   const req = {
     payload: {
       update: async (args: Record<string, unknown>) => {
         updates.push(args)
         if (updates.length === 1) throw new Error('The requested quantity is no longer in stock.')
-        return { ...validOrder, ...(args.data as object) }
+        state = { ...state, ...(args.data as object) }
+        return state
       },
-      logger: { error: (entry: Record<string, unknown>) => logged.push(entry) },
+      findByID: async () => state,
+      logger: { error: (entry: Record<string, unknown>) => logged.push(entry), warn: () => {} },
+      db: fakeTransactionDb(),
     },
   }
 
@@ -65,6 +92,48 @@ test('late AppyPay success stays cancelled and paid when stock cannot be re-rese
   assert.equal(result.status, 'cancelled')
   assert.equal(result.paymentStatus, 'paid')
   assert.equal(logged.length, 1)
+})
+
+test('a duplicate delivery that loses the race sees the already-paid state after the lock and does not re-apply the charge', async () => {
+  // Simulates the real race this fix closes: two callers (a duplicate
+  // webhook redelivery, or the webhook racing the admin's manual
+  // /reconcile endpoint) each start with the SAME stale, not-yet-paid
+  // snapshot of the order. The first to acquire the lock wins and commits;
+  // this test represents the second caller reaching the lock+refetch step
+  // AFTER that first commit has already landed -- its own stale `order`
+  // argument (passed in before either caller's lock attempt) still says
+  // 'pending', but the fresh read after the lock must win the decision.
+  const paidState = {
+    ...validOrder,
+    paymentStatus: 'paid',
+    appyPayTransactionId: successfulCharge.id,
+    status: 'processing',
+    inventoryReservationStatus: 'committed',
+  }
+  const updates: Array<Record<string, unknown>> = []
+  const req = {
+    payload: {
+      update: async (args: Record<string, unknown>) => {
+        updates.push(args)
+        return { ...paidState, ...(args.data as object) }
+      },
+      findByID: async () => paidState,
+      logger: { error: () => {}, warn: () => {} },
+      db: fakeTransactionDb(),
+    },
+  }
+
+  const staleOrderSnapshot = {
+    ...validOrder,
+    paymentStatus: 'pending',
+    appyPayTransactionId: null,
+    status: 'new',
+    inventoryReservationStatus: 'active',
+  }
+
+  const result = await applyVerifiedAppyPayCharge(req as never, staleOrderSnapshot, successfulCharge)
+  assert.equal(updates.length, 0, 'must not write again -- the fresh post-lock read already shows this charge applied')
+  assert.equal(result.paymentStatus, 'paid')
 })
 
 test('public cancellation token cancels a pending AppyPay order and releases through the order hook', async () => {
