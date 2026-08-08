@@ -86,6 +86,8 @@ function toApiPost(
     id: post.id,
     lookSlug: instagramLookSlug(post.permalink),
     imageUrl: post.imageUrl,
+    mediaType: post.mediaType,
+    videoUrl: post.videoUrl,
     permalink: post.permalink,
     caption: post.caption,
     captionDisplay: cleanCaptionForDisplay(post.caption),

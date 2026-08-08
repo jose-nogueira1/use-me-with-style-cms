@@ -34,7 +34,7 @@ test('feed is unconfigured until both Graph API credentials are set', () => {
   )
 })
 
-test('image posts use media_url', () => {
+test('image posts use media_url and are tagged mediaType IMAGE with no videoUrl', () => {
   const posts = mapGraphMediaToPosts([
     {
       id: '1',
@@ -45,11 +45,18 @@ test('image posts use media_url', () => {
     },
   ])
   assert.deepEqual(posts, [
-    { id: '1', imageUrl: 'https://cdn.example/photo.jpg', permalink: 'https://instagram.com/p/1', caption: 'New drop' },
+    {
+      id: '1',
+      imageUrl: 'https://cdn.example/photo.jpg',
+      mediaType: 'IMAGE',
+      videoUrl: undefined,
+      permalink: 'https://instagram.com/p/1',
+      caption: 'New drop',
+    },
   ])
 })
 
-test('video posts fall back to thumbnail_url since media_url is not an image', () => {
+test('video posts fall back to thumbnail_url for imageUrl but keep the real playable file as videoUrl', () => {
   const posts = mapGraphMediaToPosts([
     {
       id: '2',
@@ -60,13 +67,17 @@ test('video posts fall back to thumbnail_url since media_url is not an image', (
     },
   ])
   assert.equal(posts[0].imageUrl, 'https://cdn.example/clip-thumb.jpg')
+  assert.equal(posts[0].mediaType, 'VIDEO')
+  assert.equal(posts[0].videoUrl, 'https://cdn.example/clip.mp4')
 })
 
-test('carousel albums prefer media_url, falling back to thumbnail_url', () => {
+test('carousel albums prefer media_url, falling back to thumbnail_url, and are treated as IMAGE (no per-slide video support yet)', () => {
   const withCover = mapGraphMediaToPosts([
     { id: '3', media_type: 'CAROUSEL_ALBUM', media_url: 'https://cdn.example/cover.jpg', permalink: 'https://instagram.com/p/3' },
   ])
   assert.equal(withCover[0].imageUrl, 'https://cdn.example/cover.jpg')
+  assert.equal(withCover[0].mediaType, 'IMAGE')
+  assert.equal(withCover[0].videoUrl, undefined)
 
   const noCover = mapGraphMediaToPosts([
     { id: '4', media_type: 'CAROUSEL_ALBUM', thumbnail_url: 'https://cdn.example/thumb.jpg', permalink: 'https://instagram.com/p/4' },
@@ -125,8 +136,8 @@ test('cleanCaptionForDisplay returns an empty string for a caption that is only 
 
 test('applyHighlight marks only the matching post large, everything else regular', () => {
   const pool = [
-    { id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: 'First' },
-    { id: '2', imageUrl: 'https://cdn.example/2.jpg', permalink: 'https://www.instagram.com/p/two/', caption: 'Second' },
+    { id: '1', imageUrl: 'https://cdn.example/1.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/one/', caption: 'First' },
+    { id: '2', imageUrl: 'https://cdn.example/2.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/two/', caption: 'Second' },
   ]
   const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/two/')
   assert.deepEqual(highlighted.map((p) => p.size), ['regular', 'large'])
@@ -134,27 +145,27 @@ test('applyHighlight marks only the matching post large, everything else regular
 
 test('applyHighlight preserves pool order and membership -- it never reorders or drops posts', () => {
   const pool = [
-    { id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' },
-    { id: '2', imageUrl: 'https://cdn.example/2.jpg', permalink: 'https://www.instagram.com/p/two/', caption: '' },
+    { id: '1', imageUrl: 'https://cdn.example/1.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/one/', caption: '' },
+    { id: '2', imageUrl: 'https://cdn.example/2.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/two/', caption: '' },
   ]
   const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/two/')
   assert.deepEqual(highlighted.map((p) => p.id), ['1', '2'])
 })
 
 test('applyHighlight matches permalinks loosely (trailing slash, query string)', () => {
-  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
+  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/one/', caption: '' }]
   const highlighted = applyHighlight(pool, 'instagram.com/p/one?igsh=xyz')
   assert.equal(highlighted[0].size, 'large')
 })
 
 test('applyHighlight highlights nothing when the permalink has aged out of the pool', () => {
-  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
+  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/one/', caption: '' }]
   const highlighted = applyHighlight(pool, 'https://www.instagram.com/p/aged-out/')
   assert.equal(highlighted[0].size, 'regular')
 })
 
 test('applyHighlight highlights nothing when no permalink is set', () => {
-  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', permalink: 'https://www.instagram.com/p/one/', caption: '' }]
+  const pool = [{ id: '1', imageUrl: 'https://cdn.example/1.jpg', mediaType: 'IMAGE' as const, permalink: 'https://www.instagram.com/p/one/', caption: '' }]
   assert.equal(applyHighlight(pool, null)[0].size, 'regular')
   assert.equal(applyHighlight(pool, undefined)[0].size, 'regular')
   assert.equal(applyHighlight(pool, '   ')[0].size, 'regular')

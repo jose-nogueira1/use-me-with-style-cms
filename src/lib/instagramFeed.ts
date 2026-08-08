@@ -22,6 +22,18 @@ export type GraphMediaItem = {
 export type InstagramPost = {
   id: string
   imageUrl: string
+  // 2026-08-08 (Jay-P: "I think right now we're only pushing the pictures,
+  // not videos"): the Graph API item already carried media_type, but this
+  // mapper used to collapse VIDEO posts down to a still frame and discard
+  // everything else. `mediaType` + `videoUrl` let the storefront actually
+  // render a video post as a video instead of a lifeless thumbnail.
+  mediaType: 'IMAGE' | 'VIDEO'
+  /** Only set when mediaType is 'VIDEO' -- the real playable file, per the
+   * Graph API's `media_url` for VIDEO items (thumbnail_url is the poster
+   * frame, not the video). CAROUSEL_ALBUM items are intentionally left as
+   * 'IMAGE' (see mapGraphMediaToPosts) -- their per-slide media needs a
+   * separate `/{id}/children` call this endpoint doesn't make yet. */
+  videoUrl?: string
   permalink: string
   caption: string
 }
@@ -252,18 +264,27 @@ export function isInstagramFeedConfigured(env: Record<string, string | undefined
  */
 export function mapGraphMediaToPosts(items: GraphMediaItem[]): InstagramPost[] {
   return items
-    .map((item) => {
-      const imageUrl = item.media_type === 'VIDEO'
+    // Explicit return type here (rather than a `post is InstagramPost` type
+    // predicate on the filter below) because `videoUrl` is optional on
+    // InstagramPost -- TS's type-predicate assignability check wants exact
+    // key-optionality parity with the predicate's parameter type, which an
+    // inferred `videoUrl: string | undefined` (always-present key) doesn't
+    // satisfy even though every value it could hold is valid.
+    .map((item): InstagramPost => {
+      const isVideo = item.media_type === 'VIDEO'
+      const imageUrl = isVideo
         ? item.thumbnail_url || item.media_url || ''
         : item.media_url || item.thumbnail_url || '';
       return {
         id: item.id,
         imageUrl,
+        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+        videoUrl: isVideo && item.media_url ? item.media_url : undefined,
         permalink: item.permalink,
         caption: (item.caption ?? '').trim(),
       };
     })
-    .filter((post): post is InstagramPost => Boolean(post.imageUrl && post.permalink));
+    .filter((post) => Boolean(post.imageUrl && post.permalink));
 }
 
 export const INSTAGRAM_GRAPH_FIELDS = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp'
