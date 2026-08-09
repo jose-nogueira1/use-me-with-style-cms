@@ -22,6 +22,7 @@ const legalContentColumns = await columns('legal_content')
 const messageColumns = await columns('messages')
 const productVariantColumns = await columns('products_variants')
 const orderItemColumns = await columns('orders_items')
+const productImagesColumns = await columns('products_images')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -119,6 +120,15 @@ if (!invoiceSettingsColumns.has('vat_rate_portugal_azores'))
   statements.push('ALTER TABLE invoice_settings ADD COLUMN vat_rate_portugal_azores REAL DEFAULT 16')
 // Missing since 20260804_160000_invoice_vat_region.ts.
 if (!invoicesColumns.has('vat_region')) statements.push('ALTER TABLE invoices ADD COLUMN vat_region TEXT')
+// Missing since 20260807_200000_product_image_colors.ts (Postgres-only,
+// never mirrored here -- found 2026-08-09 in the local devsafe log:
+// GET /api/products?...&depth=2 failed on every request with "no such
+// column: color_id" because Payload's config (Products.ts images[].color)
+// expects this column but push:false means dev.db never picked it up.
+// Index added separately below (after the batched ALTER TABLE runs),
+// matching the CREATE INDEX IF NOT EXISTS pattern used for the other
+// post-batch indexes in this file.
+if (!productImagesColumns.has('color_id')) statements.push('ALTER TABLE products_images ADD COLUMN color_id INTEGER REFERENCES colors(id)')
 // Messaging/AI fields were introduced through Postgres migrations while the
 // checked-in SQLite dev database retained the original Phase 1 table. Keep
 // local browser QA on the same schema instead of allowing every inbox query
@@ -247,6 +257,7 @@ await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_orde
 await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_parent_id_idx ON products_bundle_components (_parent_id)')
 await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_product_idx ON products_bundle_components (product_id)')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
+await client.execute('CREATE INDEX IF NOT EXISTS products_images_color_idx ON products_images(color_id)')
 
 if (statements.length > 0) {
   console.log(`Updated local SQLite schema (${statements.length} column${statements.length === 1 ? '' : 's'} added).`)
