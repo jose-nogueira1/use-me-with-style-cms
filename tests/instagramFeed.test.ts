@@ -202,7 +202,7 @@ test('shop-the-look products resolve current market price, stock, image and sele
       priceAOKz: 42000,
       pricePTEur: 79,
       saleAOKz: 39000,
-      images: [{ image: { url: '/media/dress.jpg' } }],
+      images: [{ image: { url: '/media/dress.jpg', alt: 'Vestido Vermelho Vermelho Vestidos — Use Me With Style' } }],
       variants: [
         { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'S', stockAO: 2, stockPT: 0 },
         { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'M', stockAO: 1, stockPT: 3 },
@@ -219,6 +219,7 @@ test('shop-the-look products resolve current market price, stock, image and sele
     namePT: 'Vestido Vermelho',
     nameEN: 'Red Dress',
     imageUrl: '/media/dress.jpg',
+    imageAlt: 'Vestido Vermelho Vermelho Vestidos — Use Me With Style',
     price: 39000,
     regularPrice: 42000,
     currency: 'AOA',

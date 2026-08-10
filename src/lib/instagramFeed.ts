@@ -45,6 +45,7 @@ export type ShopTheLookProduct = {
   namePT: string
   nameEN: string
   imageUrl: string | null
+  imageAlt: string | null
   price: number
   regularPrice: number
   currency: 'AOA' | 'EUR'
@@ -121,6 +122,11 @@ function selectedColours(value: unknown): Record<string, string> {
 function productImageUrl(product: CatalogueProduct): string | null {
   const image = relationshipDoc(product.images?.[0]?.image)
   return typeof image?.url === 'string' && image.url ? image.url : null
+}
+
+function productImageAlt(product: CatalogueProduct): string | null {
+  const image = relationshipDoc(product.images?.[0]?.image)
+  return typeof image?.alt === 'string' && image.alt.trim() ? image.alt.trim() : null
 }
 
 function colourNames(value: unknown): { pt: string | null; en: string | null } {
@@ -222,6 +228,7 @@ export function resolveShopTheLookProducts(
       namePT,
       nameEN,
       imageUrl: productImageUrl(product),
+      imageAlt: productImageAlt(product),
       price,
       regularPrice,
       currency: market === 'AO' ? 'AOA' : 'EUR',
