@@ -368,6 +368,14 @@ export interface Category {
    */
   nameEN?: string | null;
   /**
+   * Shown below the category filters when this is the only active category. Keep it concise and useful to shoppers.
+   */
+  introPT?: string | null;
+  /**
+   * English version of the catalogue introduction. Falls back to Portuguese if empty.
+   */
+  introEN?: string | null;
+  /**
    * Auto-generated from the Portuguese name; used in storefront URLs (/catalogo?cat=...). Not editable.
    */
   slug?: string | null;
@@ -1068,6 +1076,8 @@ export interface ProductsSelect<T extends boolean = true> {
 export interface CategoriesSelect<T extends boolean = true> {
   namePT?: T;
   nameEN?: T;
+  introPT?: T;
+  introEN?: T;
   slug?: T;
   image?: T;
   updatedAt?: T;

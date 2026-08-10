@@ -64,6 +64,22 @@ export const Categories: CollectionConfig = {
       admin: { description: 'Shown when the shopper switches the storefront to English. Falls back to the Portuguese name if empty.' },
     },
     {
+      name: 'introPT',
+      type: 'textarea',
+      label: 'Catalogue introduction — Portuguese',
+      admin: {
+        description: 'Shown below the category filters when this is the only active category. Keep it concise and useful to shoppers.',
+      },
+    },
+    {
+      name: 'introEN',
+      type: 'textarea',
+      label: 'Catalogue introduction — English',
+      admin: {
+        description: 'English version of the catalogue introduction. Falls back to Portuguese if empty.',
+      },
+    },
+    {
       name: 'slug',
       type: 'text',
       unique: true,

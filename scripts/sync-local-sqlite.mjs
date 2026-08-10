@@ -23,6 +23,7 @@ const messageColumns = await columns('messages')
 const productVariantColumns = await columns('products_variants')
 const orderItemColumns = await columns('orders_items')
 const productImagesColumns = await columns('products_images')
+const categoryColumns = await columns('categories')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -129,6 +130,11 @@ if (!invoicesColumns.has('vat_region')) statements.push('ALTER TABLE invoices AD
 // matching the CREATE INDEX IF NOT EXISTS pattern used for the other
 // post-batch indexes in this file.
 if (!productImagesColumns.has('color_id')) statements.push('ALTER TABLE products_images ADD COLUMN color_id INTEGER REFERENCES colors(id)')
+// SEO audit task 8. Production receives these fields and their initial copy
+// through the Postgres migration; mirror the schema in the checked-in local
+// SQLite database so category reads keep working during local CMS QA.
+if (!categoryColumns.has('intro_p_t')) statements.push('ALTER TABLE categories ADD COLUMN intro_p_t TEXT')
+if (!categoryColumns.has('intro_e_n')) statements.push('ALTER TABLE categories ADD COLUMN intro_e_n TEXT')
 // Messaging/AI fields were introduced through Postgres migrations while the
 // checked-in SQLite dev database retained the original Phase 1 table. Keep
 // local browser QA on the same schema instead of allowing every inbox query
@@ -176,6 +182,23 @@ for (const [column, definition] of Object.entries(localMessageColumns)) {
 }
 
 if (statements.length > 0) await client.batch(statements, 'write')
+
+await client.execute(`UPDATE categories SET intro_p_t = CASE slug
+  WHEN 'vestidos' THEN 'Descubra vestidos desportivos femininos que combinam conforto, movimento e estilo, ideais para treinar ou acompanhar o seu dia em Angola e Portugal.'
+  WHEN 'tops' THEN 'Explore tops desportivos femininos com suporte confortável e cortes versáteis, pensados para treinos, caminhadas e looks ativos do dia a dia.'
+  WHEN 'leggings' THEN 'Encontre leggings femininas confortáveis e flexíveis, com modelos pensados para acompanhar cada movimento no treino e na rotina diária.'
+  WHEN 'conjuntos' THEN 'Descubra conjuntos fitness femininos coordenados que unem conforto e estilo, para um look completo no treino e fora dele.'
+  WHEN 'acessorios' THEN 'Complete o seu look ativo com acessórios práticos e elegantes, escolhidos para acompanhar o treino e facilitar a sua rotina.'
+  ELSE intro_p_t END
+  WHERE (intro_p_t IS NULL OR trim(intro_p_t) = '') AND slug IN ('vestidos', 'tops', 'leggings', 'conjuntos', 'acessorios')`)
+await client.execute(`UPDATE categories SET intro_e_n = CASE slug
+  WHEN 'vestidos' THEN 'Discover women’s sports dresses that combine comfort, movement and style, ideal for training or everyday wear in Angola and Portugal.'
+  WHEN 'tops' THEN 'Explore women’s sports tops with comfortable support and versatile cuts, designed for workouts, walks and everyday active looks.'
+  WHEN 'leggings' THEN 'Find comfortable, flexible women’s leggings designed to move with you through every workout and daily routine.'
+  WHEN 'conjuntos' THEN 'Discover coordinated women’s fitness sets that bring comfort and style together for a complete look in and out of the gym.'
+  WHEN 'acessorios' THEN 'Complete your active look with practical, elegant accessories selected to support your workouts and simplify your routine.'
+  ELSE intro_e_n END
+  WHERE (intro_e_n IS NULL OR trim(intro_e_n) = '') AND slug IN ('vestidos', 'tops', 'leggings', 'conjuntos', 'acessorios')`)
 
 // Flexible catalogue variants (2026-08-06). SQLite cannot DROP NOT NULL
 // from colour/size in place, so rebuild the two array tables once. The row
