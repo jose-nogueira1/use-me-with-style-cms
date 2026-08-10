@@ -66,6 +66,7 @@ test('sitemap endpoint includes only active market products and their admin-crea
   assert.match(response.headers.get('cache-control') ?? '', /s-maxage=900/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/produto\/legging-azul/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/catalogo\?cat=leggings/)
+  assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/perguntas-frequentes/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/catalogo\?cat=tops/)
   assert.doesNotMatch(xml, /categoria-vazia/)
   assert.doesNotMatch(xml, /pt\.usemewithstyle\.shop/)
