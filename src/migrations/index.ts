@@ -72,6 +72,7 @@ import * as migration_20260810_170000_storefront_content from './20260810_170000
 import * as migration_20260810_180000_home_market_seo from './20260810_180000_home_market_seo';
 import * as migration_20260810_190000_about_brand_story from './20260810_190000_about_brand_story';
 import * as migration_20260810_200000_style_guide_posts from './20260810_200000_style_guide_posts';
+import * as migration_20260810_210000_storefront_tiktok from './20260810_210000_storefront_tiktok';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -442,5 +443,10 @@ export const migrations = [
     up: migration_20260810_200000_style_guide_posts.up,
     down: migration_20260810_200000_style_guide_posts.down,
     name: '20260810_200000_style_guide_posts',
+  },
+  {
+    up: migration_20260810_210000_storefront_tiktok.up,
+    down: migration_20260810_210000_storefront_tiktok.down,
+    name: '20260810_210000_storefront_tiktok',
   },
 ];

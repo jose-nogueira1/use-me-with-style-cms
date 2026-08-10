@@ -1,5 +1,19 @@
 import type { GlobalConfig } from 'payload'
 
+const validateOptionalTikTokUrl = (value: unknown) => {
+  if (value == null || String(value).trim() === '') return true
+
+  try {
+    const url = new URL(String(value).trim())
+    const host = url.hostname.toLowerCase().replace(/^www\./, '')
+    if (url.protocol === 'https:' && host === 'tiktok.com' && /^\/@[A-Za-z0-9._]+\/?$/.test(url.pathname)) return true
+  } catch {
+    // Return the same useful validation message for malformed and unsupported URLs.
+  }
+
+  return 'Enter a full TikTok profile URL, for example https://www.tiktok.com/@usemewithstyle.'
+}
+
 const faqDefaults = [
   {
     enabled: true,
@@ -97,6 +111,16 @@ export const StorefrontContent: GlobalConfig = {
     description: 'Homepage SEO, About, FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.',
   },
   fields: [
+    {
+      name: 'tiktokUrl',
+      type: 'text',
+      label: 'TikTok profile URL',
+      validate: validateOptionalTikTokUrl,
+      admin: {
+        description: 'Optional. Leave blank until the official profile exists; the storefront only publishes a valid profile URL.',
+        placeholder: 'https://www.tiktok.com/@usemewithstyle',
+      },
+    },
     { name: 'homeSeoTitleAngolaPT', type: 'text', defaultValue: 'Moda desportiva feminina em Luanda | Use Me With Style' },
     { name: 'homeSeoTitleAngolaEN', type: 'text', defaultValue: "Women's activewear in Luanda | Use Me With Style" },
     { name: 'homeSeoDescriptionAngolaPT', type: 'textarea', defaultValue: 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.' },

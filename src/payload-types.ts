@@ -1886,6 +1886,10 @@ export interface AiMessagingSetting {
  */
 export interface StorefrontContent {
   id: number;
+  /**
+   * Optional. Leave blank until the official profile exists; the storefront only publishes a valid profile URL.
+   */
+  tiktokUrl?: string | null;
   homeSeoTitleAngolaPT?: string | null;
   homeSeoTitleAngolaEN?: string | null;
   homeSeoDescriptionAngolaPT?: string | null;
@@ -2187,6 +2191,7 @@ export interface AiMessagingSettingsSelect<T extends boolean = true> {
  * via the `definition` "storefront-content_select".
  */
 export interface StorefrontContentSelect<T extends boolean = true> {
+  tiktokUrl?: T;
   homeSeoTitleAngolaPT?: T;
   homeSeoTitleAngolaEN?: T;
   homeSeoDescriptionAngolaPT?: T;

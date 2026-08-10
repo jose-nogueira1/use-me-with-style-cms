@@ -38,6 +38,7 @@ if (orderColumns.size === 0 || marketColumns.size === 0) {
 const statements = []
 if (storefrontContentColumns.size === 0) statements.push(`CREATE TABLE storefront_content (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  tiktok_url TEXT,
   home_seo_title_angola_p_t TEXT DEFAULT 'Moda desportiva feminina em Luanda | Use Me With Style',
   home_seo_title_angola_e_n TEXT DEFAULT 'Women''s activewear in Luanda | Use Me With Style',
   home_seo_description_angola_p_t TEXT, home_seo_description_angola_e_n TEXT,
@@ -58,6 +59,7 @@ if (storefrontContentColumns.size === 0) statements.push(`CREATE TABLE storefron
   size_guide_seo_description_p_t TEXT, size_guide_seo_description_e_n TEXT,
   updated_at TEXT DEFAULT (datetime('now')), created_at TEXT DEFAULT (datetime('now'))
 )`)
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('tiktok_url')) statements.push('ALTER TABLE storefront_content ADD COLUMN tiktok_url TEXT')
 if (storefrontFaqColumns.size === 0) statements.push(`CREATE TABLE storefront_content_faq_entries (
   _order INTEGER NOT NULL, _parent_id INTEGER NOT NULL, id TEXT PRIMARY KEY NOT NULL,
   enabled INTEGER DEFAULT true, question_p_t TEXT NOT NULL, question_e_n TEXT NOT NULL,
