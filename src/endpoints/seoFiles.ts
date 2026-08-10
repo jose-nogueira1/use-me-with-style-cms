@@ -19,7 +19,7 @@ function relationshipId(value: unknown): string | number | null {
   return null
 }
 
-async function findEveryPage(req: PayloadRequest, collection: 'products' | 'categories', where?: Where) {
+async function findEveryPage(req: PayloadRequest, collection: 'products' | 'categories' | 'posts', where?: Where) {
   const docs: Record<string, unknown>[] = []
   let page = 1
   let totalPages: number
@@ -53,6 +53,12 @@ async function sitemapEntries(req: PayloadRequest, market: SeoMarket): Promise<S
     products.map((product) => relationshipId(product.category)).filter((id): id is string | number => id !== null).map(String),
   )
   const categories = referencedCategoryIds.size > 0 ? await findEveryPage(req, 'categories') : []
+  const posts = await findEveryPage(req, 'posts', {
+    and: [
+      { status: { equals: 'published' } },
+      { [availability]: { equals: true } },
+    ],
+  })
 
   const productEntries = products.flatMap((product): SitemapEntry[] => {
     const slug = typeof product.slug === 'string' ? product.slug.trim() : ''
@@ -63,11 +69,16 @@ async function sitemapEntries(req: PayloadRequest, market: SeoMarket): Promise<S
     const slug = typeof category.slug === 'string' ? category.slug.trim() : ''
     return slug ? [{ path: `/catalogo?cat=${encodeURIComponent(slug)}`, updatedAt: typeof category.updatedAt === 'string' ? category.updatedAt : null }] : []
   })
+  const postEntries = posts.flatMap((post): SitemapEntry[] => {
+    const slug = typeof post.slug === 'string' ? post.slug.trim() : ''
+    return slug ? [{ path: `/estilo/${encodeURIComponent(slug)}`, updatedAt: typeof post.updatedAt === 'string' ? post.updatedAt : null }] : []
+  })
 
   return [
     ...STATIC_SITEMAP_PATHS.map((path) => ({ path })),
     ...categoryEntries,
     ...productEntries,
+    ...postEntries,
   ]
 }
 

@@ -74,6 +74,7 @@ export interface Config {
     'merch-tags': MerchTag;
     colors: Color;
     'size-guides': SizeGuide;
+    posts: Post;
     orders: Order;
     customers: Customer;
     messages: Message;
@@ -93,6 +94,7 @@ export interface Config {
     'merch-tags': MerchTagsSelect<false> | MerchTagsSelect<true>;
     colors: ColorsSelect<false> | ColorsSelect<true>;
     'size-guides': SizeGuidesSelect<false> | SizeGuidesSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
@@ -462,6 +464,44 @@ export interface Color {
    * Optional. For patterns/multicolour fabrics where a single hex value is not representative. Takes precedence over the hex value.
    */
   swatch?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Bilingual editorial articles. Day-to-day editing is also available in the custom storefront admin.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  titlePT: string;
+  titleEN: string;
+  /**
+   * Generated from the Portuguese title and kept stable after publication.
+   */
+  slug: string;
+  excerptPT: string;
+  excerptEN: string;
+  /**
+   * Structured rich content. Blocks can be reordered and edited bilingually in the storefront admin.
+   */
+  body: {
+    kind: 'section' | 'paragraph' | 'bullets';
+    headingPT?: string | null;
+    headingEN?: string | null;
+    textPT: string;
+    textEN: string;
+    id?: string | null;
+  }[];
+  seoTitlePT: string;
+  seoTitleEN: string;
+  seoDescriptionPT: string;
+  seoDescriptionEN: string;
+  status: 'draft' | 'published';
+  publishedAt?: string | null;
+  availableAO: boolean;
+  availablePT: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -877,6 +917,10 @@ export interface PayloadLockedDocument {
         value: number | SizeGuide;
       } | null)
     | ({
+        relationTo: 'posts';
+        value: number | Post;
+      } | null)
+    | ({
         relationTo: 'orders';
         value: number | Order;
       } | null)
@@ -1128,6 +1172,37 @@ export interface SizeGuidesSelect<T extends boolean = true> {
         length?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  titlePT?: T;
+  titleEN?: T;
+  slug?: T;
+  excerptPT?: T;
+  excerptEN?: T;
+  body?:
+    | T
+    | {
+        kind?: T;
+        headingPT?: T;
+        headingEN?: T;
+        textPT?: T;
+        textEN?: T;
+        id?: T;
+      };
+  seoTitlePT?: T;
+  seoTitleEN?: T;
+  seoDescriptionPT?: T;
+  seoDescriptionEN?: T;
+  status?: T;
+  publishedAt?: T;
+  availableAO?: T;
+  availablePT?: T;
   updatedAt?: T;
   createdAt?: T;
 }

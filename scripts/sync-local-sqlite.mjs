@@ -27,6 +27,9 @@ const categoryColumns = await columns('categories')
 const storefrontContentColumns = await columns('storefront_content')
 const storefrontFaqColumns = await columns('storefront_content_faq_entries')
 const storefrontAboutValueColumns = await columns('storefront_content_about_values')
+const postColumns = await columns('posts')
+const postBodyColumns = await columns('posts_body')
+const lockedDocumentRelationColumns = await columns('payload_locked_documents_rels')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -111,6 +114,29 @@ statements.push(`INSERT OR IGNORE INTO storefront_content_about_values
   UNION ALL
   SELECT 2, id, 'close-' || id, 1, 'Perto de si', 'Close to you', 'Duas lojas, uma só marca: Angola e Portugal, cada uma com o seu atendimento.', 'Two storefronts, one brand: Angola and Portugal, each with its own local service.'
   FROM storefront_content WHERE NOT EXISTS (SELECT 1 FROM storefront_content_about_values WHERE _parent_id = storefront_content.id)`)
+if (postColumns.size === 0) statements.push(`CREATE TABLE posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  title_p_t TEXT NOT NULL, title_e_n TEXT NOT NULL, slug TEXT NOT NULL,
+  excerpt_p_t TEXT NOT NULL, excerpt_e_n TEXT NOT NULL,
+  seo_title_p_t TEXT NOT NULL, seo_title_e_n TEXT NOT NULL,
+  seo_description_p_t TEXT NOT NULL, seo_description_e_n TEXT NOT NULL,
+  status TEXT DEFAULT 'draft' NOT NULL, published_at TEXT,
+  available_a_o INTEGER DEFAULT true NOT NULL, available_p_t INTEGER DEFAULT true NOT NULL,
+  updated_at TEXT DEFAULT (datetime('now')) NOT NULL, created_at TEXT DEFAULT (datetime('now')) NOT NULL
+)`)
+if (postColumns.size === 0) statements.push('CREATE UNIQUE INDEX posts_slug_idx ON posts (slug)')
+if (postColumns.size === 0) statements.push('CREATE INDEX posts_published_at_idx ON posts (published_at)')
+if (postColumns.size === 0) statements.push('CREATE INDEX posts_updated_at_idx ON posts (updated_at)')
+if (postColumns.size === 0) statements.push('CREATE INDEX posts_created_at_idx ON posts (created_at)')
+if (postBodyColumns.size === 0) statements.push(`CREATE TABLE posts_body (
+  _order INTEGER NOT NULL, _parent_id INTEGER NOT NULL, id TEXT PRIMARY KEY NOT NULL,
+  kind TEXT DEFAULT 'paragraph' NOT NULL, heading_p_t TEXT, heading_e_n TEXT,
+  text_p_t TEXT NOT NULL, text_e_n TEXT NOT NULL,
+  FOREIGN KEY (_parent_id) REFERENCES posts(id) ON DELETE CASCADE
+)`)
+if (postBodyColumns.size === 0) statements.push('CREATE INDEX posts_body_order_idx ON posts_body (_order)')
+if (postBodyColumns.size === 0) statements.push('CREATE INDEX posts_body_parent_id_idx ON posts_body (_parent_id)')
+if (!lockedDocumentRelationColumns.has('posts_id')) statements.push('ALTER TABLE payload_locked_documents_rels ADD COLUMN posts_id INTEGER REFERENCES posts(id)')
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_p_t TEXT DEFAULT 'Moda desportiva feminina em Luanda | Use Me With Style'")
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_e_n TEXT DEFAULT 'Women''s activewear in Luanda | Use Me With Style'")
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_angola_p_t TEXT DEFAULT 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.'")
@@ -272,6 +298,77 @@ for (const [column, definition] of Object.entries(localMessageColumns)) {
 
 if (statements.length > 0) await client.batch(statements, 'write')
 
+const initialStyleGuidePosts = [
+  {
+    slug: 'como-escolher-leggings',
+    titlePT: 'Como escolher leggings para treino e dia a dia',
+    titleEN: 'How to choose leggings for workouts and everyday wear',
+    excerptPT: 'Compressão, tecido, cintura e ajuste: um guia prático para escolher leggings confortáveis para treinar e usar ao longo do dia.',
+    excerptEN: 'Compression, fabric, waistband and fit: a practical guide to choosing comfortable leggings for training and everyday wear.',
+    seoTitlePT: 'Como escolher leggings: guia de tecido e ajuste | Use Me With Style',
+    seoTitleEN: 'How to choose leggings: fabric and fit guide | Use Me With Style',
+    seoDescriptionPT: 'Saiba como escolher leggings para treino e dia a dia, comparando compressão, tecido, cintura, tamanho e transparência.',
+    seoDescriptionEN: 'Learn how to choose leggings for workouts and everyday wear by comparing compression, fabric, waistband, sizing and coverage.',
+    publishedAt: '2026-08-10T09:00:00.000Z',
+    blocks: [
+      ['section', 'Comece pelo tipo de treino', 'Start with your workout', 'Para musculação e treinos funcionais, procure um tecido firme que acompanhe agachamentos e movimentos amplos. Para caminhada, mobilidade ou uso diário, uma construção mais leve pode oferecer conforto sem compressão excessiva.', 'For strength and functional training, look for a supportive fabric that moves through squats and wide ranges of motion. For walking, mobility or everyday wear, a lighter construction can provide comfort without excessive compression.'],
+      ['section', 'Observe tecido, elasticidade e cobertura', 'Check fabric, stretch and coverage', 'O tecido deve recuperar a forma depois de esticado e manter cobertura durante o movimento. Faça um teste de agachamento num local bem iluminado e confirme se a peça não enrola, prende ou fica transparente.', 'The fabric should recover after stretching and maintain coverage while you move. Try a squat test in good light and confirm that the garment does not roll, dig in or become sheer.'],
+      ['bullets', 'Uma verificação rápida', 'A quick checklist', 'A cintura mantém-se no lugar sem apertar\nAs costuras não limitam o movimento\nO tecido seca com facilidade\nO tamanho acompanha cintura e anca', 'The waistband stays in place without digging in\nThe seams do not restrict movement\nThe fabric dries easily\nThe size follows your waist and hips'],
+    ],
+  },
+  {
+    slug: 'o-que-vestir-no-ginasio',
+    titlePT: 'O que vestir para o ginásio: guia prático',
+    titleEN: 'What to wear to the gym: a practical guide',
+    excerptPT: 'Monte um conjunto de treino funcional e confortável, adequado ao tipo de exercício, à temperatura e à sua rotina.',
+    excerptEN: 'Build a functional, comfortable workout outfit suited to your exercise, the temperature and your routine.',
+    seoTitlePT: 'O que vestir para o ginásio: guia prático | Use Me With Style',
+    seoTitleEN: 'What to wear to the gym: practical outfit guide | Use Me With Style',
+    seoDescriptionPT: 'Descubra o que vestir para o ginásio: tops, leggings, camadas, calçado e acessórios para diferentes tipos de treino.',
+    seoDescriptionEN: 'Discover what to wear to the gym, from tops and leggings to layers, footwear and accessories for different workouts.',
+    publishedAt: '2026-08-10T10:00:00.000Z',
+    blocks: [
+      ['section', 'Vista-se para o movimento', 'Dress for movement', 'O melhor conjunto de ginásio permite mover-se com segurança e sem distrações. Exercícios de força pedem estabilidade e cobertura; cardio beneficia de peças leves; mobilidade exige elasticidade.', 'The best gym outfit lets you move safely without distractions. Strength sessions need stability and coverage, cardio benefits from light pieces, and mobility work calls for stretch.'],
+      ['section', 'A base do conjunto', 'Build the base layer', 'Combine leggings, calções ou calças de treino com um top que dê apoio adequado à intensidade. Verifique o ajuste levantando os braços, dobrando o corpo e fazendo um agachamento.', 'Pair leggings, shorts or training trousers with a top that provides suitable support. Check the fit by raising your arms, bending and trying a squat.'],
+      ['bullets', 'Leve apenas o essencial', 'Pack the essentials', 'Calçado adequado ao treino\nUma camada leve\nGarrafa de água reutilizável\nToalha pequena quando necessário', 'Footwear suited to your workout\nA light layer\nA reusable water bottle\nA small towel when needed'],
+    ],
+  },
+  {
+    slug: 'guia-tecidos-roupa-desportiva',
+    titlePT: 'Guia de tecidos para roupa desportiva',
+    titleEN: 'Fabric guide for activewear',
+    excerptPT: 'Entenda elasticidade, respirabilidade, secagem e cuidados para escolher roupa desportiva adequada ao seu treino.',
+    excerptEN: 'Understand stretch, breathability, drying and care so you can choose activewear suited to your workout.',
+    seoTitlePT: 'Tecidos para roupa desportiva: guia completo | Use Me With Style',
+    seoTitleEN: 'Activewear fabrics: a practical guide | Use Me With Style',
+    seoDescriptionPT: 'Compare os principais tecidos da roupa desportiva e saiba avaliar respirabilidade, elasticidade, secagem e durabilidade.',
+    seoDescriptionEN: 'Compare common activewear fabrics and learn how to assess breathability, stretch, drying and durability.',
+    publishedAt: '2026-08-10T11:00:00.000Z',
+    blocks: [
+      ['section', 'O tecido muda a experiência da peça', 'Fabric changes how a garment performs', 'Na roupa desportiva, o tecido influencia elasticidade, toque, cobertura, gestão de humidade e tempo de secagem. A composição é útil, mas a construção e a espessura também contam.', 'In activewear, fabric affects stretch, feel, coverage, moisture management and drying time. Composition is useful, but construction and weight matter too.'],
+      ['section', 'Poliéster, poliamida e elastano', 'Polyester, polyamide and elastane', 'Poliéster e poliamida são comuns por serem resistentes e de secagem rápida. O elastano acrescenta elasticidade. A percentagem, sozinha, não garante compressão ou qualidade.', 'Polyester and polyamide are common because they are durable and quick drying. Elastane adds stretch. Percentage alone does not guarantee compression or quality.'],
+      ['bullets', 'O que avaliar antes de comprar', 'What to assess before buying', 'Respirabilidade para o clima\nElasticidade em várias direções\nCobertura quando esticado\nCosturas confortáveis\nInstruções de lavagem práticas', 'Breathability for the climate\nStretch in more than one direction\nCoverage when extended\nComfortable seams\nPractical care instructions'],
+    ],
+  },
+]
+
+for (const post of initialStyleGuidePosts) {
+  await client.execute({
+    sql: `INSERT OR IGNORE INTO posts
+      (title_p_t, title_e_n, slug, excerpt_p_t, excerpt_e_n, seo_title_p_t, seo_title_e_n, seo_description_p_t, seo_description_e_n, status, published_at, available_a_o, available_p_t)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, 1, 1)`,
+    args: [post.titlePT, post.titleEN, post.slug, post.excerptPT, post.excerptEN, post.seoTitlePT, post.seoTitleEN, post.seoDescriptionPT, post.seoDescriptionEN, post.publishedAt],
+  })
+  const parent = (await client.execute({ sql: 'SELECT id FROM posts WHERE slug = ? LIMIT 1', args: [post.slug] })).rows[0]
+  if (!parent) continue
+  const existingBody = Number((await client.execute({ sql: 'SELECT count(*) AS count FROM posts_body WHERE _parent_id = ?', args: [parent.id] })).rows[0]?.count || 0)
+  if (existingBody > 0) continue
+  await client.batch(post.blocks.map((block, index) => ({
+    sql: 'INSERT INTO posts_body (_order, _parent_id, id, kind, heading_p_t, heading_e_n, text_p_t, text_e_n) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [index, parent.id, `${post.slug}-${index}`, ...block],
+  })), 'write')
+}
+
 await client.execute(`UPDATE categories SET intro_p_t = CASE slug
   WHEN 'vestidos' THEN 'Descubra vestidos desportivos femininos que combinam conforto, movimento e estilo, ideais para treinar ou acompanhar o seu dia em Angola e Portugal.'
   WHEN 'tops' THEN 'Explore tops desportivos femininos com suporte confortável e cortes versáteis, pensados para treinos, caminhadas e looks ativos do dia a dia.'
@@ -370,6 +467,7 @@ await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_pare
 await client.execute('CREATE INDEX IF NOT EXISTS products_bundle_components_product_idx ON products_bundle_components (product_id)')
 await client.execute('CREATE INDEX IF NOT EXISTS orders_ctt_tracking_code_idx ON orders(ctt_tracking_code)')
 await client.execute('CREATE INDEX IF NOT EXISTS products_images_color_idx ON products_images(color_id)')
+await client.execute('CREATE INDEX IF NOT EXISTS payload_locked_documents_rels_posts_id_idx ON payload_locked_documents_rels(posts_id)')
 
 if (statements.length > 0) {
   console.log(`Updated local SQLite schema (${statements.length} column${statements.length === 1 ? '' : 's'} added).`)

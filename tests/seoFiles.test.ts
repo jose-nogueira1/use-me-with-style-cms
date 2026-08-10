@@ -44,6 +44,12 @@ test('sitemap endpoint includes only active market products and their admin-crea
           totalPages: 1,
         }
       }
+      if (args.collection === 'posts') {
+        return {
+          docs: [{ id: 20, slug: 'como-escolher-leggings', updatedAt: '2026-08-10T09:00:00Z' }],
+          totalPages: 1,
+        }
+      }
       return {
         docs: [
           { id: 10, slug: 'leggings', updatedAt: '2026-08-07T10:00:00Z' },
@@ -68,10 +74,12 @@ test('sitemap endpoint includes only active market products and their admin-crea
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/catalogo\?cat=leggings/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/perguntas-frequentes/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/guia-de-tamanhos/)
+  assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/estilo\/como-escolher-leggings/)
   assert.match(xml, /https:\/\/ao\.usemewithstyle\.shop\/catalogo\?cat=tops/)
   assert.doesNotMatch(xml, /categoria-vazia/)
   assert.doesNotMatch(xml, /pt\.usemewithstyle\.shop/)
   assert.deepEqual(calls[0].where, { and: [{ active: { equals: true } }, { availableAO: { equals: true } }] })
+  assert.deepEqual(calls[2].where, { and: [{ status: { equals: 'published' } }, { availableAO: { equals: true } }] })
 })
 
 test('SEO endpoints reject a missing or unknown market', async () => {

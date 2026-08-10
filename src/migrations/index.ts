@@ -71,6 +71,7 @@ import * as migration_20260810_153000_product_image_alt_backfill from './2026081
 import * as migration_20260810_170000_storefront_content from './20260810_170000_storefront_content';
 import * as migration_20260810_180000_home_market_seo from './20260810_180000_home_market_seo';
 import * as migration_20260810_190000_about_brand_story from './20260810_190000_about_brand_story';
+import * as migration_20260810_200000_style_guide_posts from './20260810_200000_style_guide_posts';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -436,5 +437,10 @@ export const migrations = [
     up: migration_20260810_190000_about_brand_story.up,
     down: migration_20260810_190000_about_brand_story.down,
     name: '20260810_190000_about_brand_story',
+  },
+  {
+    up: migration_20260810_200000_style_guide_posts.up,
+    down: migration_20260810_200000_style_guide_posts.down,
+    name: '20260810_200000_style_guide_posts',
   },
 ];
