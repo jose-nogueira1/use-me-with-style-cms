@@ -26,6 +26,7 @@ const productImagesColumns = await columns('products_images')
 const categoryColumns = await columns('categories')
 const storefrontContentColumns = await columns('storefront_content')
 const storefrontFaqColumns = await columns('storefront_content_faq_entries')
+const storefrontAboutValueColumns = await columns('storefront_content_about_values')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
@@ -61,6 +62,55 @@ if (storefrontFaqColumns.size === 0) statements.push(`CREATE TABLE storefront_co
   link_path TEXT, link_label_p_t TEXT, link_label_e_n TEXT,
   FOREIGN KEY (_parent_id) REFERENCES storefront_content(id) ON DELETE CASCADE
 )`)
+const storefrontAboutColumnDefinitions = [
+  ['about_eyebrow_p_t', "TEXT DEFAULT 'Use Me With Style'"],
+  ['about_eyebrow_e_n', "TEXT DEFAULT 'Use Me With Style'"],
+  ['about_title_p_t', "TEXT DEFAULT 'A nossa história'"],
+  ['about_title_e_n', "TEXT DEFAULT 'Our story'"],
+  ['about_intro_p_t', "TEXT DEFAULT 'A USE ME WITH STYLE é uma marca de activewear, moda feminina e lifestyle, criada para mulheres que valorizam conforto, confiança, elegância e versatilidade.'"],
+  ['about_intro_e_n', "TEXT DEFAULT 'USE ME WITH STYLE is an activewear, women’s fashion, and lifestyle brand created for women who value comfort, confidence, elegance, and versatility.'"],
+  ['about_story_title_p_t', "TEXT DEFAULT 'Missão'"],
+  ['about_story_title_e_n', "TEXT DEFAULT 'Mission'"],
+  ['about_story_body_p_t', "TEXT DEFAULT 'A marca disponibiliza peças pensadas para diferentes momentos da rotina feminina, desde o treino e o dia a dia até ocasiões que pedem um visual mais elegante. O nosso catálogo inclui conjuntos desportivos, peças casuais, vestidos e outros artigos selecionados para proporcionar conforto sem perder o estilo.\n\nCom atuação em Angola e Portugal e possibilidade de envios internacionais, a USE ME WITH STYLE procura aproximar mulheres de diferentes lugares através de coleções cuidadosamente selecionadas e disponibilizadas em quantidades limitadas.\n\nMais do que roupa, a USE ME WITH STYLE representa uma forma de vestir com confiança, personalidade e liberdade.'"],
+  ['about_story_body_e_n', "TEXT DEFAULT 'The brand offers pieces designed for different moments in a woman''s routine, from workouts and everyday life to occasions that call for a more elegant look. Our catalogue includes activewear sets, casual pieces, dresses, and other selected items designed to deliver comfort without compromising on style.\n\nWith a presence in Angola and Portugal and international shipping available, USE ME WITH STYLE brings women from different places closer together through carefully curated collections released in limited quantities.\n\nMore than just clothing, USE ME WITH STYLE represents a way of dressing with confidence, personality, and freedom.'"],
+  ['about_values_title_p_t', "TEXT DEFAULT 'O que nos guia'"],
+  ['about_values_title_e_n', "TEXT DEFAULT 'What guides us'"],
+  ['about_presence_title_p_t', "TEXT DEFAULT 'Angola e Portugal, perto de si'"],
+  ['about_presence_title_e_n', "TEXT DEFAULT 'Angola and Portugal, close to you'"],
+  ['about_angola_title_p_t', "TEXT DEFAULT 'Loja Angola'"],
+  ['about_angola_title_e_n', "TEXT DEFAULT 'Angola store'"],
+  ['about_angola_body_p_t', "TEXT DEFAULT 'Na loja Angola, encontra preços em Kz, entrega por estafeta nos 16 municípios de Luanda e pagamento por Multicaixa Express ou Referência. Para outros destinos, o apoio confirma as opções disponíveis.'"],
+  ['about_angola_body_e_n', "TEXT DEFAULT 'In the Angola store, prices are shown in Kz, with courier delivery across Luanda’s 16 municipalities and payment by Multicaixa Express or Reference. For other destinations, support confirms the available options.'"],
+  ['about_portugal_title_p_t', "TEXT DEFAULT 'Loja Portugal'"],
+  ['about_portugal_title_e_n', "TEXT DEFAULT 'Portugal store'"],
+  ['about_portugal_body_p_t', "TEXT DEFAULT 'Na loja Portugal, compra em euros e recebe via CTT, com opções Standard ou Registado quando disponíveis para o peso da encomenda. Madeira e Açores podem ter prazos diferentes.'"],
+  ['about_portugal_body_e_n', "TEXT DEFAULT 'In the Portugal store, you shop in euros and receive orders through CTT, with Standard or Registered options when available for the parcel weight. Madeira and the Azores may have different delivery times.'"],
+  ['about_cta_label_p_t', "TEXT DEFAULT 'Ver a coleção'"],
+  ['about_cta_label_e_n', "TEXT DEFAULT 'Shop the collection'"],
+  ['about_seo_title_p_t', "TEXT DEFAULT 'Moda desportiva em Angola e Portugal | Use Me With Style'"],
+  ['about_seo_title_e_n', "TEXT DEFAULT 'Activewear in Angola and Portugal | Use Me With Style'"],
+  ['about_seo_description_p_t', "TEXT DEFAULT 'Conheça a história e os valores da Use Me With Style, marca de activewear e moda feminina com presença em Angola e Portugal.'"],
+  ['about_seo_description_e_n', "TEXT DEFAULT 'Discover the story and values of Use Me With Style, an activewear and women’s fashion brand serving Angola and Portugal.'"],
+]
+for (const [name, definition] of storefrontAboutColumnDefinitions) {
+  if (!storefrontContentColumns.has(name)) statements.push(`ALTER TABLE storefront_content ADD COLUMN ${name} ${definition}`)
+}
+if (storefrontAboutValueColumns.size === 0) statements.push(`CREATE TABLE storefront_content_about_values (
+  _order INTEGER NOT NULL, _parent_id INTEGER NOT NULL, id TEXT PRIMARY KEY NOT NULL,
+  enabled INTEGER DEFAULT true, title_p_t TEXT NOT NULL, title_e_n TEXT NOT NULL,
+  body_p_t TEXT NOT NULL, body_e_n TEXT NOT NULL,
+  FOREIGN KEY (_parent_id) REFERENCES storefront_content(id) ON DELETE CASCADE
+)`)
+statements.push(`INSERT OR IGNORE INTO storefront_content_about_values
+  (_order, _parent_id, id, enabled, title_p_t, title_e_n, body_p_t, body_e_n)
+  SELECT 0, id, 'quality-' || id, 1, 'Qualidade em primeiro lugar', 'Quality first', 'Cada peça é escolhida para durar mais do que uma estação.', 'Every piece is chosen to outlast a single season.'
+  FROM storefront_content WHERE NOT EXISTS (SELECT 1 FROM storefront_content_about_values WHERE _parent_id = storefront_content.id)
+  UNION ALL
+  SELECT 1, id, 'pricing-' || id, 1, 'Preços diretos', 'Honest pricing', 'Sem letras pequenas — o preço que vê é o preço que paga.', 'No fine print — the price you see is the price you pay.'
+  FROM storefront_content WHERE NOT EXISTS (SELECT 1 FROM storefront_content_about_values WHERE _parent_id = storefront_content.id)
+  UNION ALL
+  SELECT 2, id, 'close-' || id, 1, 'Perto de si', 'Close to you', 'Duas lojas, uma só marca: Angola e Portugal, cada uma com o seu atendimento.', 'Two storefronts, one brand: Angola and Portugal, each with its own local service.'
+  FROM storefront_content WHERE NOT EXISTS (SELECT 1 FROM storefront_content_about_values WHERE _parent_id = storefront_content.id)`)
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_p_t TEXT DEFAULT 'Moda desportiva feminina em Luanda | Use Me With Style'")
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_e_n TEXT DEFAULT 'Women''s activewear in Luanda | Use Me With Style'")
 if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_angola_p_t TEXT DEFAULT 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.'")

@@ -1804,7 +1804,7 @@ export interface AiMessagingSetting {
   createdAt?: string | null;
 }
 /**
- * Homepage SEO, FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.
+ * Homepage SEO, About, FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "storefront-content".
@@ -1819,6 +1819,44 @@ export interface StorefrontContent {
   homeSeoTitlePortugalEN?: string | null;
   homeSeoDescriptionPortugalPT?: string | null;
   homeSeoDescriptionPortugalEN?: string | null;
+  aboutEyebrowPT?: string | null;
+  aboutEyebrowEN?: string | null;
+  aboutTitlePT?: string | null;
+  aboutTitleEN?: string | null;
+  aboutIntroPT?: string | null;
+  aboutIntroEN?: string | null;
+  aboutStoryTitlePT?: string | null;
+  aboutStoryTitleEN?: string | null;
+  aboutStoryBodyPT?: string | null;
+  aboutStoryBodyEN?: string | null;
+  aboutValuesTitlePT?: string | null;
+  aboutValuesTitleEN?: string | null;
+  aboutValues?:
+    | {
+        enabled?: boolean | null;
+        titlePT: string;
+        titleEN: string;
+        bodyPT: string;
+        bodyEN: string;
+        id?: string | null;
+      }[]
+    | null;
+  aboutPresenceTitlePT?: string | null;
+  aboutPresenceTitleEN?: string | null;
+  aboutAngolaTitlePT?: string | null;
+  aboutAngolaTitleEN?: string | null;
+  aboutAngolaBodyPT?: string | null;
+  aboutAngolaBodyEN?: string | null;
+  aboutPortugalTitlePT?: string | null;
+  aboutPortugalTitleEN?: string | null;
+  aboutPortugalBodyPT?: string | null;
+  aboutPortugalBodyEN?: string | null;
+  aboutCtaLabelPT?: string | null;
+  aboutCtaLabelEN?: string | null;
+  aboutSeoTitlePT?: string | null;
+  aboutSeoTitleEN?: string | null;
+  aboutSeoDescriptionPT?: string | null;
+  aboutSeoDescriptionEN?: string | null;
   faqTitlePT?: string | null;
   faqTitleEN?: string | null;
   faqIntroPT?: string | null;
@@ -2082,6 +2120,44 @@ export interface StorefrontContentSelect<T extends boolean = true> {
   homeSeoTitlePortugalEN?: T;
   homeSeoDescriptionPortugalPT?: T;
   homeSeoDescriptionPortugalEN?: T;
+  aboutEyebrowPT?: T;
+  aboutEyebrowEN?: T;
+  aboutTitlePT?: T;
+  aboutTitleEN?: T;
+  aboutIntroPT?: T;
+  aboutIntroEN?: T;
+  aboutStoryTitlePT?: T;
+  aboutStoryTitleEN?: T;
+  aboutStoryBodyPT?: T;
+  aboutStoryBodyEN?: T;
+  aboutValuesTitlePT?: T;
+  aboutValuesTitleEN?: T;
+  aboutValues?:
+    | T
+    | {
+        enabled?: T;
+        titlePT?: T;
+        titleEN?: T;
+        bodyPT?: T;
+        bodyEN?: T;
+        id?: T;
+      };
+  aboutPresenceTitlePT?: T;
+  aboutPresenceTitleEN?: T;
+  aboutAngolaTitlePT?: T;
+  aboutAngolaTitleEN?: T;
+  aboutAngolaBodyPT?: T;
+  aboutAngolaBodyEN?: T;
+  aboutPortugalTitlePT?: T;
+  aboutPortugalTitleEN?: T;
+  aboutPortugalBodyPT?: T;
+  aboutPortugalBodyEN?: T;
+  aboutCtaLabelPT?: T;
+  aboutCtaLabelEN?: T;
+  aboutSeoTitlePT?: T;
+  aboutSeoTitleEN?: T;
+  aboutSeoDescriptionPT?: T;
+  aboutSeoDescriptionEN?: T;
   faqTitlePT?: T;
   faqTitleEN?: T;
   faqIntroPT?: T;

@@ -70,6 +70,7 @@ import * as migration_20260810_140000_category_intro_copy from './20260810_14000
 import * as migration_20260810_153000_product_image_alt_backfill from './20260810_153000_product_image_alt_backfill';
 import * as migration_20260810_170000_storefront_content from './20260810_170000_storefront_content';
 import * as migration_20260810_180000_home_market_seo from './20260810_180000_home_market_seo';
+import * as migration_20260810_190000_about_brand_story from './20260810_190000_about_brand_story';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -430,5 +431,10 @@ export const migrations = [
     up: migration_20260810_180000_home_market_seo.up,
     down: migration_20260810_180000_home_market_seo.down,
     name: '20260810_180000_home_market_seo',
+  },
+  {
+    up: migration_20260810_190000_about_brand_story.up,
+    down: migration_20260810_190000_about_brand_story.down,
+    name: '20260810_190000_about_brand_story',
   },
 ];
