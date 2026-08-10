@@ -70,9 +70,17 @@ export const StorefrontContent: GlobalConfig = {
   access: { read: () => true },
   admin: {
     group: 'Settings',
-    description: 'FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.',
+    description: 'Homepage SEO, FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.',
   },
   fields: [
+    { name: 'homeSeoTitleAngolaPT', type: 'text', defaultValue: 'Moda desportiva feminina em Luanda | Use Me With Style' },
+    { name: 'homeSeoTitleAngolaEN', type: 'text', defaultValue: "Women's activewear in Luanda | Use Me With Style" },
+    { name: 'homeSeoDescriptionAngolaPT', type: 'textarea', defaultValue: 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.' },
+    { name: 'homeSeoDescriptionAngolaEN', type: 'textarea', defaultValue: "Shop women's activewear with delivery across Luanda and payment by Multicaixa Express or Reference. Prices in Kz and local support." },
+    { name: 'homeSeoTitlePortugalPT', type: 'text', defaultValue: 'Moda desportiva feminina em Portugal | Use Me With Style' },
+    { name: 'homeSeoTitlePortugalEN', type: 'text', defaultValue: "Women's activewear in Portugal | Use Me With Style" },
+    { name: 'homeSeoDescriptionPortugalPT', type: 'textarea', defaultValue: 'Compre leggings, conjuntos, tops e vestidos com entrega em Portugal. Peças versáteis para treino e para o dia a dia.' },
+    { name: 'homeSeoDescriptionPortugalEN', type: 'textarea', defaultValue: 'Shop leggings, sets, tops and dresses with delivery across Portugal. Versatile pieces for training and everyday wear.' },
     { name: 'faqTitlePT', type: 'text', defaultValue: 'Perguntas frequentes' },
     { name: 'faqTitleEN', type: 'text', defaultValue: 'Frequently asked questions' },
     { name: 'faqIntroPT', type: 'textarea', defaultValue: 'Encontre informação prática antes de encomendar. As condições apresentadas acompanham a loja e o mercado que está a visitar.' },

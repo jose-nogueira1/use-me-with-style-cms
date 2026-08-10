@@ -34,6 +34,11 @@ if (orderColumns.size === 0 || marketColumns.size === 0) {
 const statements = []
 if (storefrontContentColumns.size === 0) statements.push(`CREATE TABLE storefront_content (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  home_seo_title_angola_p_t TEXT DEFAULT 'Moda desportiva feminina em Luanda | Use Me With Style',
+  home_seo_title_angola_e_n TEXT DEFAULT 'Women''s activewear in Luanda | Use Me With Style',
+  home_seo_description_angola_p_t TEXT, home_seo_description_angola_e_n TEXT,
+  home_seo_title_portugal_p_t TEXT, home_seo_title_portugal_e_n TEXT,
+  home_seo_description_portugal_p_t TEXT, home_seo_description_portugal_e_n TEXT,
   faq_title_p_t TEXT DEFAULT 'Perguntas frequentes', faq_title_e_n TEXT DEFAULT 'Frequently asked questions',
   faq_intro_p_t TEXT, faq_intro_e_n TEXT, faq_support_prompt_p_t TEXT, faq_support_prompt_e_n TEXT,
   faq_support_label_p_t TEXT, faq_support_label_e_n TEXT, faq_seo_title_p_t TEXT, faq_seo_title_e_n TEXT,
@@ -56,6 +61,14 @@ if (storefrontFaqColumns.size === 0) statements.push(`CREATE TABLE storefront_co
   link_path TEXT, link_label_p_t TEXT, link_label_e_n TEXT,
   FOREIGN KEY (_parent_id) REFERENCES storefront_content(id) ON DELETE CASCADE
 )`)
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_p_t TEXT DEFAULT 'Moda desportiva feminina em Luanda | Use Me With Style'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_angola_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_angola_e_n TEXT DEFAULT 'Women''s activewear in Luanda | Use Me With Style'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_angola_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_angola_p_t TEXT DEFAULT 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_angola_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_angola_e_n TEXT DEFAULT 'Shop women''s activewear with delivery across Luanda and payment by Multicaixa Express or Reference. Prices in Kz and local support.'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_portugal_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_portugal_p_t TEXT DEFAULT 'Moda desportiva feminina em Portugal | Use Me With Style'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_title_portugal_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_title_portugal_e_n TEXT DEFAULT 'Women''s activewear in Portugal | Use Me With Style'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_portugal_p_t')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_portugal_p_t TEXT DEFAULT 'Compre leggings, conjuntos, tops e vestidos com entrega em Portugal. Peças versáteis para treino e para o dia a dia.'")
+if (storefrontContentColumns.size > 0 && !storefrontContentColumns.has('home_seo_description_portugal_e_n')) statements.push("ALTER TABLE storefront_content ADD COLUMN home_seo_description_portugal_e_n TEXT DEFAULT 'Shop leggings, sets, tops and dresses with delivery across Portugal. Versatile pieces for training and everyday wear.'")
 if (!orderColumns.has('delivery_region')) statements.push('ALTER TABLE orders ADD COLUMN delivery_region TEXT')
 if (!orderColumns.has('ctt_tracking_code')) statements.push('ALTER TABLE orders ADD COLUMN ctt_tracking_code TEXT')
 if (!marketColumns.has('portugal_standard_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_standard_shipping_price REAL NOT NULL DEFAULT 4.9')

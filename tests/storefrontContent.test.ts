@@ -13,6 +13,18 @@ test('storefront content is publicly readable and seeds the existing six FAQs', 
   assert.equal(faqField.defaultValue.length, 6)
 })
 
+test('homepage SEO defaults localize delivery and payment positioning by market', () => {
+  const fieldDefault = (name: string) => {
+    const field = StorefrontContent.fields.find((candidate) => 'name' in candidate && candidate.name === name)
+    assert.ok(field && 'defaultValue' in field)
+    return String(field.defaultValue)
+  }
+  assert.match(fieldDefault('homeSeoTitleAngolaPT'), /Luanda/)
+  assert.match(fieldDefault('homeSeoDescriptionAngolaPT'), /Multicaixa Express/)
+  assert.match(fieldDefault('homeSeoTitlePortugalPT'), /Portugal/)
+  assert.doesNotMatch(fieldDefault('homeSeoDescriptionPortugalPT'), /Multicaixa|AppyPay/)
+})
+
 test('Payload config, Postgres migration and local SQLite sync include the content global', () => {
   assert.match(projectFile('src/payload.config.ts'), /StorefrontContent/)
   const migration = projectFile('src/migrations/20260810_170000_storefront_content.ts')
@@ -21,4 +33,6 @@ test('Payload config, Postgres migration and local SQLite sync include the conte
   assert.match(migration, /answer_p_t_p_t/)
   assert.match(projectFile('src/migrations/index.ts'), /20260810_170000_storefront_content/)
   assert.match(projectFile('scripts/sync-local-sqlite.mjs'), /CREATE TABLE storefront_content/)
+  assert.match(projectFile('src/migrations/20260810_180000_home_market_seo.ts'), /home_seo_description_angola_p_t/)
+  assert.match(projectFile('src/migrations/index.ts'), /20260810_180000_home_market_seo/)
 })

@@ -1804,13 +1804,21 @@ export interface AiMessagingSetting {
   createdAt?: string | null;
 }
 /**
- * FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.
+ * Homepage SEO, FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "storefront-content".
  */
 export interface StorefrontContent {
   id: number;
+  homeSeoTitleAngolaPT?: string | null;
+  homeSeoTitleAngolaEN?: string | null;
+  homeSeoDescriptionAngolaPT?: string | null;
+  homeSeoDescriptionAngolaEN?: string | null;
+  homeSeoTitlePortugalPT?: string | null;
+  homeSeoTitlePortugalEN?: string | null;
+  homeSeoDescriptionPortugalPT?: string | null;
+  homeSeoDescriptionPortugalEN?: string | null;
   faqTitlePT?: string | null;
   faqTitleEN?: string | null;
   faqIntroPT?: string | null;
@@ -2066,6 +2074,14 @@ export interface AiMessagingSettingsSelect<T extends boolean = true> {
  * via the `definition` "storefront-content_select".
  */
 export interface StorefrontContentSelect<T extends boolean = true> {
+  homeSeoTitleAngolaPT?: T;
+  homeSeoTitleAngolaEN?: T;
+  homeSeoDescriptionAngolaPT?: T;
+  homeSeoDescriptionAngolaEN?: T;
+  homeSeoTitlePortugalPT?: T;
+  homeSeoTitlePortugalEN?: T;
+  homeSeoDescriptionPortugalPT?: T;
+  homeSeoDescriptionPortugalEN?: T;
   faqTitlePT?: T;
   faqTitleEN?: T;
   faqIntroPT?: T;
