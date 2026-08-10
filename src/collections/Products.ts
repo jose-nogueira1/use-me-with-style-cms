@@ -116,7 +116,9 @@ export const Products: CollectionConfig = {
       name: 'sizeGuide',
       type: 'relationship',
       relationTo: 'size-guides',
-      admin: { description: 'Optional. Shared measurement chart shown in the product page size-guide modal.' },
+      admin: {
+        description: 'Product checklist: assign a shared measurement chart to every standard apparel product with clothing sizes. Leave blank only for accessories or products where measurements do not apply. Used on product pages and the public size-guide page.',
+      },
     },
     {
       name: 'fitNotePT',

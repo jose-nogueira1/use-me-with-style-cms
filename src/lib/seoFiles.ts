@@ -15,6 +15,7 @@ export const STATIC_SITEMAP_PATHS = [
   '/catalogo',
   '/ajuda',
   '/perguntas-frequentes',
+  '/guia-de-tamanhos',
   '/sobre',
   '/shop-instagram',
   '/politica-privacidade',

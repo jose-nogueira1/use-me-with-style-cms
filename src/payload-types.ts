@@ -249,7 +249,7 @@ export interface Product {
   descriptionPT?: string | null;
   descriptionEN?: string | null;
   /**
-   * Optional. Shared measurement chart shown in the product page size-guide modal.
+   * Product checklist: assign a shared measurement chart to every standard apparel product with clothing sizes. Leave blank only for accessories or products where measurements do not apply. Used on product pages and the public size-guide page.
    */
   sizeGuide?: (number | null) | SizeGuide;
   /**
