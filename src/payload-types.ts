@@ -116,6 +116,7 @@ export interface Config {
     'home-collections': HomeCollection;
     'instagram-spotlight': InstagramSpotlight;
     'ai-messaging-settings': AiMessagingSetting;
+    'storefront-content': StorefrontContent;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
@@ -126,6 +127,7 @@ export interface Config {
     'home-collections': HomeCollectionsSelect<false> | HomeCollectionsSelect<true>;
     'instagram-spotlight': InstagramSpotlightSelect<false> | InstagramSpotlightSelect<true>;
     'ai-messaging-settings': AiMessagingSettingsSelect<false> | AiMessagingSettingsSelect<true>;
+    'storefront-content': StorefrontContentSelect<false> | StorefrontContentSelect<true>;
   };
   locale: null;
   widgets: {
@@ -1802,6 +1804,71 @@ export interface AiMessagingSetting {
   createdAt?: string | null;
 }
 /**
+ * FAQ and standalone size-guide page copy. Day-to-day editing is available in the custom storefront admin.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "storefront-content".
+ */
+export interface StorefrontContent {
+  id: number;
+  faqTitlePT?: string | null;
+  faqTitleEN?: string | null;
+  faqIntroPT?: string | null;
+  faqIntroEN?: string | null;
+  faqSupportPromptPT?: string | null;
+  faqSupportPromptEN?: string | null;
+  faqSupportLabelPT?: string | null;
+  faqSupportLabelEN?: string | null;
+  faqSeoTitlePT?: string | null;
+  faqSeoTitleEN?: string | null;
+  faqSeoDescriptionPT?: string | null;
+  faqSeoDescriptionEN?: string | null;
+  faqEntries?:
+    | {
+        enabled?: boolean | null;
+        questionPT: string;
+        questionEN: string;
+        answerPT: string;
+        answerEN: string;
+        answerPTPT?: string | null;
+        answerENPT?: string | null;
+        /**
+         * Optional internal path, e.g. /ajuda#devolucoes.
+         */
+        linkPath?: string | null;
+        linkLabelPT?: string | null;
+        linkLabelEN?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  sizeGuideTitlePT?: string | null;
+  sizeGuideTitleEN?: string | null;
+  sizeGuideIntroPT?: string | null;
+  sizeGuideIntroEN?: string | null;
+  sizeGuideHowToTitlePT?: string | null;
+  sizeGuideHowToTitleEN?: string | null;
+  sizeGuideBustPT?: string | null;
+  sizeGuideBustEN?: string | null;
+  sizeGuideWaistPT?: string | null;
+  sizeGuideWaistEN?: string | null;
+  sizeGuideHipPT?: string | null;
+  sizeGuideHipEN?: string | null;
+  sizeGuideLengthPT?: string | null;
+  sizeGuideLengthEN?: string | null;
+  sizeGuideClosingPT?: string | null;
+  sizeGuideClosingEN?: string | null;
+  sizeGuideSupportLabelPT?: string | null;
+  sizeGuideSupportLabelEN?: string | null;
+  sizeGuideCatalogLabelPT?: string | null;
+  sizeGuideCatalogLabelEN?: string | null;
+  sizeGuideSeoTitlePT?: string | null;
+  sizeGuideSeoTitleEN?: string | null;
+  sizeGuideSeoDescriptionPT?: string | null;
+  sizeGuideSeoDescriptionEN?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings_select".
  */
@@ -1990,6 +2057,66 @@ export interface AiMessagingSettingsSelect<T extends boolean = true> {
   outOfStockPriceTolerancePercent?: T;
   outOfStockCategoryWeight?: T;
   outOfStockTagWeight?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "storefront-content_select".
+ */
+export interface StorefrontContentSelect<T extends boolean = true> {
+  faqTitlePT?: T;
+  faqTitleEN?: T;
+  faqIntroPT?: T;
+  faqIntroEN?: T;
+  faqSupportPromptPT?: T;
+  faqSupportPromptEN?: T;
+  faqSupportLabelPT?: T;
+  faqSupportLabelEN?: T;
+  faqSeoTitlePT?: T;
+  faqSeoTitleEN?: T;
+  faqSeoDescriptionPT?: T;
+  faqSeoDescriptionEN?: T;
+  faqEntries?:
+    | T
+    | {
+        enabled?: T;
+        questionPT?: T;
+        questionEN?: T;
+        answerPT?: T;
+        answerEN?: T;
+        answerPTPT?: T;
+        answerENPT?: T;
+        linkPath?: T;
+        linkLabelPT?: T;
+        linkLabelEN?: T;
+        id?: T;
+      };
+  sizeGuideTitlePT?: T;
+  sizeGuideTitleEN?: T;
+  sizeGuideIntroPT?: T;
+  sizeGuideIntroEN?: T;
+  sizeGuideHowToTitlePT?: T;
+  sizeGuideHowToTitleEN?: T;
+  sizeGuideBustPT?: T;
+  sizeGuideBustEN?: T;
+  sizeGuideWaistPT?: T;
+  sizeGuideWaistEN?: T;
+  sizeGuideHipPT?: T;
+  sizeGuideHipEN?: T;
+  sizeGuideLengthPT?: T;
+  sizeGuideLengthEN?: T;
+  sizeGuideClosingPT?: T;
+  sizeGuideClosingEN?: T;
+  sizeGuideSupportLabelPT?: T;
+  sizeGuideSupportLabelEN?: T;
+  sizeGuideCatalogLabelPT?: T;
+  sizeGuideCatalogLabelEN?: T;
+  sizeGuideSeoTitlePT?: T;
+  sizeGuideSeoTitleEN?: T;
+  sizeGuideSeoDescriptionPT?: T;
+  sizeGuideSeoDescriptionEN?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

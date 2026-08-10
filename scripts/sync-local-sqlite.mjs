@@ -24,12 +24,38 @@ const productVariantColumns = await columns('products_variants')
 const orderItemColumns = await columns('orders_items')
 const productImagesColumns = await columns('products_images')
 const categoryColumns = await columns('categories')
+const storefrontContentColumns = await columns('storefront_content')
+const storefrontFaqColumns = await columns('storefront_content_faq_entries')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
 }
 
 const statements = []
+if (storefrontContentColumns.size === 0) statements.push(`CREATE TABLE storefront_content (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  faq_title_p_t TEXT DEFAULT 'Perguntas frequentes', faq_title_e_n TEXT DEFAULT 'Frequently asked questions',
+  faq_intro_p_t TEXT, faq_intro_e_n TEXT, faq_support_prompt_p_t TEXT, faq_support_prompt_e_n TEXT,
+  faq_support_label_p_t TEXT, faq_support_label_e_n TEXT, faq_seo_title_p_t TEXT, faq_seo_title_e_n TEXT,
+  faq_seo_description_p_t TEXT, faq_seo_description_e_n TEXT,
+  size_guide_title_p_t TEXT, size_guide_title_e_n TEXT, size_guide_intro_p_t TEXT, size_guide_intro_e_n TEXT,
+  size_guide_how_to_title_p_t TEXT, size_guide_how_to_title_e_n TEXT,
+  size_guide_bust_p_t TEXT, size_guide_bust_e_n TEXT, size_guide_waist_p_t TEXT, size_guide_waist_e_n TEXT,
+  size_guide_hip_p_t TEXT, size_guide_hip_e_n TEXT, size_guide_length_p_t TEXT, size_guide_length_e_n TEXT,
+  size_guide_closing_p_t TEXT, size_guide_closing_e_n TEXT,
+  size_guide_support_label_p_t TEXT, size_guide_support_label_e_n TEXT,
+  size_guide_catalog_label_p_t TEXT, size_guide_catalog_label_e_n TEXT,
+  size_guide_seo_title_p_t TEXT, size_guide_seo_title_e_n TEXT,
+  size_guide_seo_description_p_t TEXT, size_guide_seo_description_e_n TEXT,
+  updated_at TEXT DEFAULT (datetime('now')), created_at TEXT DEFAULT (datetime('now'))
+)`)
+if (storefrontFaqColumns.size === 0) statements.push(`CREATE TABLE storefront_content_faq_entries (
+  _order INTEGER NOT NULL, _parent_id INTEGER NOT NULL, id TEXT PRIMARY KEY NOT NULL,
+  enabled INTEGER DEFAULT true, question_p_t TEXT NOT NULL, question_e_n TEXT NOT NULL,
+  answer_p_t TEXT NOT NULL, answer_e_n TEXT NOT NULL, answer_p_t_p_t TEXT, answer_e_n_p_t TEXT,
+  link_path TEXT, link_label_p_t TEXT, link_label_e_n TEXT,
+  FOREIGN KEY (_parent_id) REFERENCES storefront_content(id) ON DELETE CASCADE
+)`)
 if (!orderColumns.has('delivery_region')) statements.push('ALTER TABLE orders ADD COLUMN delivery_region TEXT')
 if (!orderColumns.has('ctt_tracking_code')) statements.push('ALTER TABLE orders ADD COLUMN ctt_tracking_code TEXT')
 if (!marketColumns.has('portugal_standard_shipping_price')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_standard_shipping_price REAL NOT NULL DEFAULT 4.9')
