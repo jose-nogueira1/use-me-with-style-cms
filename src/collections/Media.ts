@@ -18,6 +18,11 @@ export const Media: CollectionConfig = {
       name: 'alt',
       type: 'text',
       required: true,
+      admin: {
+        description: 'Required: describe what is visible. For product photos include the product, colour/view and product type; do not use the filename.',
+      },
+      validate: (value: string | null | undefined) =>
+        (typeof value === 'string' && value.trim().length > 0) || 'Image alt text must contain a meaningful description.',
     },
   ],
   upload: {

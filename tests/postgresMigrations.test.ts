@@ -13,6 +13,7 @@ import { up as homeContentCurationUp, down as homeContentCurationDown } from '..
 import { up as fixColorsLegacyNameUp } from '../src/migrations/20260806_160000_fix_colors_legacy_name.ts'
 import { up as flexibleProductsUp } from '../src/migrations/20260806_190000_flexible_products_and_kits.ts'
 import { up as productImageColorsUp, down as productImageColorsDown } from '../src/migrations/20260807_200000_product_image_colors.ts'
+import { up as productImageAltBackfillUp } from '../src/migrations/20260810_153000_product_image_alt_backfill.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
 
@@ -579,5 +580,39 @@ test('product image colours migration is idempotent and down() removes the colum
       await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'products_images' AND column_name = 'color_id'`)
     ).rows
     assert.equal(columns.length, 0)
+  })
+})
+
+test('product image alt backfill adds product, colour, category and brand without overwriting authored text', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE media (id serial PRIMARY KEY, alt varchar, updated_at timestamptz DEFAULT now());
+      CREATE TABLE categories (id serial PRIMARY KEY, name_p_t varchar);
+      CREATE TABLE colors (id serial PRIMARY KEY, name_p_t varchar);
+      CREATE TABLE products (id serial PRIMARY KEY, name varchar NOT NULL, name_p_t varchar, category_id integer);
+      CREATE TABLE products_images (
+        _order integer NOT NULL, _parent_id integer NOT NULL, id varchar PRIMARY KEY,
+        image_id integer NOT NULL, color_id integer
+      );
+      INSERT INTO media (alt) VALUES ('Vestido Teste'), ('Vista traseira detalhada'), ('   ');
+      INSERT INTO categories (name_p_t) VALUES ('Vestidos');
+      INSERT INTO colors (name_p_t) VALUES ('Preto'), ('Mostarda');
+      INSERT INTO products (name, name_p_t, category_id) VALUES ('Vestido Teste', 'Vestido Teste', 1);
+      INSERT INTO products_images VALUES
+        (1, 1, 'photo-1', 1, 1),
+        (2, 1, 'photo-2', 2, 2),
+        (3, 1, 'photo-3', 3, 2);
+    `)
+
+    const db = drizzle(pool)
+    await productImageAltBackfillUp({ db } as never)
+    await productImageAltBackfillUp({ db } as never)
+
+    const rows = (await pool.query('SELECT alt FROM media ORDER BY id')).rows
+    assert.deepEqual(rows.map((row) => row.alt), [
+      'Vestido Teste Preto Vestidos — Use Me With Style',
+      'Vista traseira detalhada',
+      'Vestido Teste Mostarda Vestidos — Use Me With Style',
+    ])
   })
 })

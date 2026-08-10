@@ -187,6 +187,9 @@ export interface User {
  */
 export interface Media {
   id: number;
+  /**
+   * Required: describe what is visible. For product photos include the product, colour/view and product type; do not use the filename.
+   */
   alt: string;
   updatedAt: string;
   createdAt: string;
