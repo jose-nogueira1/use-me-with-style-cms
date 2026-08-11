@@ -123,6 +123,13 @@ const plugins = [
             secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
           },
           region: process.env.S3_REGION || 'auto',
+          // Cloudflare R2 occasionally responds with the S3-compatible
+          // transient `InternalError` even though the object and request are
+          // valid. Media saves should absorb those brief storage incidents
+          // instead of immediately surfacing a generic Payload 500 to the
+          // storefront admin.
+          maxAttempts: 5,
+          retryMode: 'adaptive',
           // Only S3-compatible providers (R2, B2, Spaces) need an explicit
           // endpoint + path-style URLs -- real AWS S3 leaves both unset.
           ...(process.env.S3_ENDPOINT
