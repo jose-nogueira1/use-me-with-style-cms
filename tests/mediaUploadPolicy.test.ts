@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
 
 import sharp from 'sharp'
 
@@ -50,4 +51,16 @@ test('brand uploads enforce the 500 KB policy', async () => {
     enforceMediaUploadPolicy(args({ data, size: MEDIA_UPLOAD_POLICIES.brand.maxBytes + 1 }, 'brand')),
     (error: unknown) => error instanceof Error && error.message.includes('Logos and icons'),
   )
+})
+
+test('responsive media schema migration is registered and local SQLite is kept in sync', async () => {
+  const [migrationIndex, migration, sqliteSync] = await Promise.all([
+    readFile(new URL('../src/migrations/index.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/migrations/20260811_180000_responsive_media_sizes.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../scripts/sync-local-sqlite.mjs', import.meta.url), 'utf8'),
+  ])
+  assert.match(migrationIndex, /20260811_180000_responsive_media_sizes/)
+  assert.match(migration, /sizeNames = \['small', 'medium', 'large', 'hero'\]/)
+  assert.match(migration, /sizes_\$\{name\}_filename/)
+  assert.match(sqliteSync, /\['small', 'medium', 'large', 'hero'\]/)
 })

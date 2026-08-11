@@ -24,6 +24,7 @@ const productVariantColumns = await columns('products_variants')
 const orderItemColumns = await columns('orders_items')
 const productImagesColumns = await columns('products_images')
 const categoryColumns = await columns('categories')
+const mediaColumns = await columns('media')
 const storefrontContentColumns = await columns('storefront_content')
 const storefrontFaqColumns = await columns('storefront_content_faq_entries')
 const storefrontAboutValueColumns = await columns('storefront_content_about_values')
@@ -36,6 +37,19 @@ if (orderColumns.size === 0 || marketColumns.size === 0) {
 }
 
 const statements = []
+for (const size of ['small', 'medium', 'large', 'hero']) {
+  for (const [suffix, type] of [
+    ['url', 'TEXT'],
+    ['width', 'REAL'],
+    ['height', 'REAL'],
+    ['mime_type', 'TEXT'],
+    ['filesize', 'REAL'],
+    ['filename', 'TEXT'],
+  ]) {
+    const column = `sizes_${size}_${suffix}`
+    if (!mediaColumns.has(column)) statements.push(`ALTER TABLE media ADD COLUMN ${column} ${type}`)
+  }
+}
 if (storefrontContentColumns.size === 0) statements.push(`CREATE TABLE storefront_content (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   tiktok_url TEXT,
