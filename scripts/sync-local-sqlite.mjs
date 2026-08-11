@@ -898,6 +898,17 @@ if (homeColumns.size > 0 && !homeHeroExists) {
   console.log('Created local SQLite home_hero/_home_hero_v tables and backfilled from home_content/_home_content_v.')
 }
 
+// Responsive hero art direction (2026-08-11): the production migration
+// adds an optional 4:5 mobile relationship. SQLite cannot add a foreign-key
+// constraint to an existing table in-place, but Payload only needs the
+// nullable relationship id columns for local admin/storefront QA.
+const homeHeroColumns = await columns('home_hero')
+if (homeHeroColumns.size > 0 && !homeHeroColumns.has('hero_image_mobile_id'))
+  await client.execute('ALTER TABLE home_hero ADD COLUMN hero_image_mobile_id INTEGER')
+const homeHeroVersionColumns = await columns('_home_hero_v')
+if (homeHeroVersionColumns.size > 0 && !homeHeroVersionColumns.has('version_hero_image_mobile_id'))
+  await client.execute('ALTER TABLE _home_hero_v ADD COLUMN version_hero_image_mobile_id INTEGER')
+
 const homeCategoriesExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_categories'`)).rows.length > 0
 if (homeColumns.size > 0 && !homeCategoriesExists) {

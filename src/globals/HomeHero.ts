@@ -132,8 +132,15 @@ export const HomeHero: GlobalConfig = {
       name: 'heroImage',
       type: 'upload',
       relationTo: 'media',
-      label: 'Hero image',
-      admin: { description: 'Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.' },
+      label: 'Hero image — desktop (16:9)',
+      admin: { description: 'Desktop composition. Replaces the decorative placeholder graphic when set.' },
+    },
+    {
+      name: 'heroImageMobile',
+      type: 'upload',
+      relationTo: 'media',
+      label: 'Hero image — mobile (4:5)',
+      admin: { description: 'Optional mobile composition. The desktop image is used as a safe fallback when this is empty.' },
     },
   ],
 }

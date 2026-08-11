@@ -1798,9 +1798,13 @@ export interface HomeHero {
    */
   heroCtaTagSlug?: string | null;
   /**
-   * Optional. Replaces the decorative placeholder graphic on the right of the hero banner when set.
+   * Desktop composition. Replaces the decorative placeholder graphic when set.
    */
   heroImage?: (number | null) | Media;
+  /**
+   * Optional mobile composition. The desktop image is used as a safe fallback when this is empty.
+   */
+  heroImageMobile?: (number | null) | Media;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2177,6 +2181,7 @@ export interface HomeHeroSelect<T extends boolean = true> {
   heroCtaCategorySlug?: T;
   heroCtaTagSlug?: T;
   heroImage?: T;
+  heroImageMobile?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
