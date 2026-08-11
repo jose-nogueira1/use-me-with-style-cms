@@ -132,7 +132,7 @@ export const HomeHero: GlobalConfig = {
       name: 'heroImage',
       type: 'upload',
       relationTo: 'media',
-      label: 'Hero image — desktop (16:9)',
+      label: 'Hero image — desktop (3:2)',
       admin: { description: 'Desktop composition. Replaces the decorative placeholder graphic when set.' },
     },
     {
