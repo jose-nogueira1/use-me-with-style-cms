@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { enforceMediaUploadPolicy } from '../lib/mediaUploadPolicy'
+import { blockDeleteMediaWhileInUse } from '../lib/mediaUsageGuard'
 
 // Product photography. Phase 1 scope: placeholders are fine until the client
 // provides final assets (confirmed in JOS-16 / JOS-52) -- this collection
@@ -18,6 +19,7 @@ export const Media: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [enforceMediaUploadPolicy],
+    beforeDelete: [blockDeleteMediaWhileInUse],
   },
   fields: [
     {
