@@ -92,6 +92,7 @@ const PDF_LABELS = {
     description: 'DESCRIÇÃO',
     quantity: 'QTD.',
     price: 'PREÇO',
+    vatColumn: 'IVA',
     total: 'TOTAL',
     summary: 'RESUMO',
     productSubtotalExVat: 'Subtotal de produtos (sem IVA)',
@@ -130,6 +131,7 @@ const PDF_LABELS = {
     description: 'DESCRIPTION',
     quantity: 'QTY',
     price: 'PRICE',
+    vatColumn: 'VAT',
     total: 'TOTAL',
     summary: 'SUMMARY',
     productSubtotalExVat: 'Product subtotal (excl. VAT)',
@@ -538,14 +540,15 @@ export async function renderInvoicePdf(input: {
   y -= 24
   page.drawRectangle({ x: margin, y: y - 8, width: width - margin * 2, height: 24, color: near0 })
   page.drawText(labels.description, { x: margin + 12, y: y - 1, size: 7.2, font: bold, color: onDarkText })
-  page.drawText(labels.quantity, { x: 358, y: y - 1, size: 7.2, font: bold, color: onDarkText })
-  page.drawText(labels.price, { x: 408, y: y - 1, size: 7.2, font: bold, color: onDarkText })
+  page.drawText(labels.quantity, { x: 310, y: y - 1, size: 7.2, font: bold, color: onDarkText })
+  page.drawText(labels.price, { x: 346, y: y - 1, size: 7.2, font: bold, color: onDarkText })
+  page.drawText(labels.vatColumn, { x: 416, y: y - 1, size: 7.2, font: bold, color: onDarkText })
   drawRight(labels.total, width - margin - 12, y - 1, 7.2, bold, champagne)
   y -= 26
 
   input.calculation.lines.forEach((line, idx) => {
     ensureSpace(30)
-    const descLines = wrapText(line.description, regular, 8.5, 280)
+    const descLines = wrapText(line.description, regular, 8.5, 220)
     const rowTop = y
     const hasSale = Boolean(line.regularUnitPrice && line.saleDiscountAmount)
     const saleDetail = hasSale
@@ -563,8 +566,9 @@ export async function renderInvoicePdf(input: {
       page.drawText(labels.salePrice, { x: margin + 12, y: saleY, size: 6.5, font: bold, color: goldDeep })
       page.drawText(safePdfText(saleDetail!), { x: margin + 12, y: saleY - 10, size: 6.8, font: regular, color: muted })
     }
-    page.drawText(String(line.quantity), { x: 358, y: rowTop, size: 8.5, font: regular, color: muted })
-    drawRight(formatMoney(line.unitPrice, input.order.currency, input.lang), 475, rowTop, 8.5, regular, muted)
+    page.drawText(String(line.quantity), { x: 310, y: rowTop, size: 8.5, font: regular, color: muted })
+    drawRight(formatMoney(line.unitPrice, input.order.currency, input.lang), 400, rowTop, 7.4, regular, muted)
+    drawRight(formatMoney(line.taxAmount, input.order.currency, input.lang), 465, rowTop, 7.4, regular, muted)
     drawRight(formatMoney(line.grossAmount, input.order.currency, input.lang), width - margin - 12, rowTop, 9, bold)
     y -= rowHeight
   })

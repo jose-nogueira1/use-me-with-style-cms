@@ -580,6 +580,23 @@ test('invoice snapshots sale evidence and uses customer-facing payment labels', 
   assert.equal(customerPaymentMethodLabel('unknown_gateway', 'en'), 'unknown gateway')
 })
 
+test('invoice table exposes VAT for products, shipping and coupon adjustments', () => {
+  const result = calculateIncludedVatInvoice({
+    items: [{ productName: 'Dress', qty: 1, unitPrice: 100 }],
+    shippingCost: 10,
+    discountAmount: 20,
+    discountLabel: 'SAVE20 (20%)',
+    total: 90,
+  }, 25, 'en')
+  assert.equal(result.lines[0]?.taxAmount, 20)
+  assert.equal(result.lines.find((line) => line.description === 'Shipping')?.taxAmount, 0)
+  assert.equal(result.lines.find((line) => line.description.startsWith('SAVE20'))?.taxAmount, -4)
+  const source = readFileSync(new URL('../src/lib/internalInvoice.ts', import.meta.url), 'utf8')
+  assert.match(source, /vatColumn: 'IVA'/)
+  assert.match(source, /vatColumn: 'VAT'/)
+  assert.match(source, /formatMoney\(line\.taxAmount/)
+})
+
 test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s delivery region', () => {
   const global = {
     vatRateAO: 14,
