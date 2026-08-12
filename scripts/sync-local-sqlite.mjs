@@ -231,6 +231,11 @@ if (!marketColumns.has('portugal_manual_checkout_instructions_p_t'))
   statements.push('ALTER TABLE market_settings ADD COLUMN portugal_manual_checkout_instructions_p_t TEXT')
 if (!marketColumns.has('portugal_manual_checkout_instructions_e_n'))
   statements.push('ALTER TABLE market_settings ADD COLUMN portugal_manual_checkout_instructions_e_n TEXT')
+if (!marketColumns.has('manual_whatsapp_number')) statements.push('ALTER TABLE market_settings ADD COLUMN manual_whatsapp_number TEXT')
+if (!marketColumns.has('angola_whatsapp_number')) statements.push('ALTER TABLE market_settings ADD COLUMN angola_whatsapp_number TEXT')
+if (!marketColumns.has('portugal_whatsapp_number')) statements.push('ALTER TABLE market_settings ADD COLUMN portugal_whatsapp_number TEXT')
+if (!marketColumns.has('manual_whatsapp_message_p_t')) statements.push('ALTER TABLE market_settings ADD COLUMN manual_whatsapp_message_p_t TEXT')
+if (!marketColumns.has('manual_whatsapp_message_e_n')) statements.push('ALTER TABLE market_settings ADD COLUMN manual_whatsapp_message_e_n TEXT')
 // 20260804_140000_order_manual_whatsapp_payment_method.ts needs no SQLite
 // equivalent -- payment_method is unconstrained TEXT here (SQLite has no
 // real enum type), same reasoning as the free_shipping coupon type note

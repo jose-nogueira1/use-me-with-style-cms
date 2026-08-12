@@ -1567,11 +1567,25 @@ export interface MarketSetting {
    */
   angolaPaymentLive?: boolean | null;
   /**
-   * Shown at checkout while angolaPaymentLive is off. Direct customers to the support email for any additional instructions.
+   * Digits only or +country code. Used by both markets unless a market-specific number is set below.
+   */
+  manualWhatsappNumber?: string | null;
+  angolaWhatsappNumber?: string | null;
+  portugalWhatsappNumber?: string | null;
+  /**
+   * Optional. Placeholders: {orderNumber}, {market}, {customerName}, {total}, {delivery}, {items}.
+   */
+  manualWhatsappMessagePT?: string | null;
+  /**
+   * Optional English template using the same placeholders.
+   */
+  manualWhatsappMessageEN?: string | null;
+  /**
+   * Shown at checkout while angolaPaymentLive is off. Explain that the order will be coordinated through WhatsApp.
    */
   angolaBankTransferInstructionsPT?: string | null;
   /**
-   * English translation of the field above. Direct customers to the support email for any additional instructions.
+   * English translation of the field above.
    */
   angolaBankTransferInstructionsEN?: string | null;
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
@@ -1597,11 +1611,11 @@ export interface MarketSetting {
    */
   portugalPaymentsEnabled?: boolean | null;
   /**
-   * Shown at checkout while portugalPaymentsEnabled is off. Email is the official support channel.
+   * Shown at checkout while portugalPaymentsEnabled is off.
    */
   portugalManualCheckoutInstructionsPT?: string | null;
   /**
-   * English translation of the field above. Email is the official support channel.
+   * English translation of the field above.
    */
   portugalManualCheckoutInstructionsEN?: string | null;
   portugalPaymentMethods?: ('paypal' | 'stripe' | 'mbway')[] | null;
@@ -2077,6 +2091,11 @@ export interface StorefrontContent {
  */
 export interface MarketSettingsSelect<T extends boolean = true> {
   angolaPaymentLive?: T;
+  manualWhatsappNumber?: T;
+  angolaWhatsappNumber?: T;
+  portugalWhatsappNumber?: T;
+  manualWhatsappMessagePT?: T;
+  manualWhatsappMessageEN?: T;
   angolaBankTransferInstructionsPT?: T;
   angolaBankTransferInstructionsEN?: T;
   angolaPaymentMethods?: T;

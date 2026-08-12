@@ -33,6 +33,26 @@ export const MarketSettings: GlobalConfig = {
           'Turn ON only after the AppyPay application and webhook are operational. Stripe/PayPal for Angola are unaffected because they use the separate EUR settlement path.',
       },
     },
+    {
+      name: 'manualWhatsappNumber',
+      type: 'text',
+      label: 'WhatsApp: default Use Me number (international format)',
+      admin: { description: 'Digits only or +country code. Used by both markets unless a market-specific number is set below.' },
+    },
+    { name: 'angolaWhatsappNumber', type: 'text', label: 'WhatsApp: Angola number (optional override)' },
+    { name: 'portugalWhatsappNumber', type: 'text', label: 'WhatsApp: Portugal number (optional override)' },
+    {
+      name: 'manualWhatsappMessagePT',
+      type: 'textarea',
+      label: 'WhatsApp: prepared order message — Portuguese',
+      admin: { description: 'Optional. Placeholders: {orderNumber}, {market}, {customerName}, {total}, {delivery}, {items}.' },
+    },
+    {
+      name: 'manualWhatsappMessageEN',
+      type: 'textarea',
+      label: 'WhatsApp: prepared order message — English',
+      admin: { description: 'Optional English template using the same placeholders.' },
+    },
     // Split into PT/EN (2026-07-26 bilingual audit): this used to be a single
     // field whose English fallback in the storefront (Checkout.tsx's
     // DEFAULT_MARKET_SETTINGS) was hardcoded English-only text, so English-
@@ -45,7 +65,7 @@ export const MarketSettings: GlobalConfig = {
       type: 'textarea',
       label: 'Angola: manual Multicaixa Express instructions shown at checkout — Portuguese',
       admin: {
-        description: 'Shown at checkout while angolaPaymentLive is off. Direct customers to the support email for any additional instructions.',
+        description: 'Shown at checkout while angolaPaymentLive is off. Explain that the order will be coordinated through WhatsApp.',
       },
     },
     {
@@ -53,7 +73,7 @@ export const MarketSettings: GlobalConfig = {
       type: 'textarea',
       label: 'Angola: manual Multicaixa Express instructions shown at checkout — English',
       admin: {
-        description: 'English translation of the field above. Direct customers to the support email for any additional instructions.',
+        description: 'English translation of the field above.',
       },
     },
     {
@@ -110,17 +130,17 @@ export const MarketSettings: GlobalConfig = {
     {
       name: 'portugalManualCheckoutInstructionsPT',
       type: 'textarea',
-      label: 'Portugal: manual email coordination instructions shown at checkout — Portuguese',
+      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — Portuguese',
       admin: {
-        description: 'Shown at checkout while portugalPaymentsEnabled is off. Email is the official support channel.',
+        description: 'Shown at checkout while portugalPaymentsEnabled is off.',
       },
     },
     {
       name: 'portugalManualCheckoutInstructionsEN',
       type: 'textarea',
-      label: 'Portugal: manual email coordination instructions shown at checkout — English',
+      label: 'Portugal: manual WhatsApp coordination instructions shown at checkout — English',
       admin: {
-        description: 'English translation of the field above. Email is the official support channel.',
+        description: 'English translation of the field above.',
       },
     },
     {

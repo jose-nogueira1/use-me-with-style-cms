@@ -71,7 +71,7 @@ export function authoritativeShippingCost(
 // enforced separately below, right next to the deferred-checkout block it
 // replaces.
 const ALLOWED_PAYMENT_METHODS: Record<Market, string[]> = {
-  AO: ['multicaixa_express'],
+  AO: ['multicaixa_express', 'manual_whatsapp'],
   PT: ['paypal', 'stripe', 'mbway', 'manual_whatsapp'],
 }
 
@@ -118,13 +118,13 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   const market = data.market as Market
   if (market !== 'AO' && market !== 'PT') badRequest('Invalid market.')
 
-  let shippingSettings: (PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean }) | null = null
+  let shippingSettings: (PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean; angolaPaymentLive?: boolean }) | null = null
   if (typeof req.payload.findGlobal === 'function') {
     shippingSettings = (await req.payload.findGlobal({
       slug: 'market-settings',
       depth: 0,
       overrideAccess: true,
-    })) as PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean }
+    })) as PortugalShippingSettings & AngolaShippingSettings & { portugalPaymentsEnabled?: boolean; angolaPaymentLive?: boolean }
   }
   const paymentMethod = String(data.paymentMethod ?? '')
   const deliveryMethod = String(data.deliveryMethod ?? '')
@@ -143,6 +143,13 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     if (portugalLive && paymentMethod === 'manual_whatsapp') {
       badRequest('Portugal checkout is live -- please choose a payment method.')
     }
+  }
+  if (market === 'AO') {
+    // Missing on an older fixture/deployment means legacy AppyPay behaviour;
+    // only an explicit false activates the WhatsApp-only launch gate.
+    const angolaLive = shippingSettings?.angolaPaymentLive !== false
+    if (!angolaLive && paymentMethod !== 'manual_whatsapp') badRequest('Angola checkout is temporarily available through WhatsApp only.')
+    if (angolaLive && paymentMethod === 'manual_whatsapp') badRequest('Angola checkout is live -- please choose a payment method.')
   }
   if (!ALLOWED_PAYMENT_METHODS[market].includes(paymentMethod)) {
     badRequest('Payment method is not available for this market.')

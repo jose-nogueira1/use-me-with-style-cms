@@ -34,7 +34,7 @@ export const PAYMENT_METHODS = [
   { label: 'Stripe', value: 'stripe' },
   { label: 'MB WAY (PT)', value: 'mbway' },
   { label: 'Multicaixa Express -- via AppyPay (AO)', value: 'multicaixa_express' },
-  { label: 'Manual email coordination (PT, while payments are deferred)', value: 'manual_whatsapp' },
+  { label: 'Manual WhatsApp coordination (AO/PT while payments are deferred)', value: 'manual_whatsapp' },
   { label: 'Bank transfer -- manual review (AO, legacy)', value: 'bank_transfer_ao' },
   { label: 'SWEG / AppyPay (AO, legacy) -- not implemented', value: 'sweg_appypay' },
 ] as const
@@ -71,7 +71,10 @@ export const Orders: CollectionConfig = {
           data.orderNumber = `${prefix}-${Date.now().toString().slice(-6)}`
         }
         if (operation === 'create' && !data.status) {
-          data.status = 'new'
+          data.status = data.paymentMethod === 'manual_whatsapp' ? 'payment_review' : 'new'
+        }
+        if (operation === 'create' && data.paymentMethod === 'manual_whatsapp' && !data.paymentStatus) {
+          data.paymentStatus = 'awaiting_manual_review'
         }
         // Status-change audit trail (2026-08-01) -- appended here so it's
         // part of the same write as the status change it's describing, not
