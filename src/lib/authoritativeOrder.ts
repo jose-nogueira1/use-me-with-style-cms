@@ -294,7 +294,13 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     }
 
     const usesEurSettlement = market === 'PT' || paymentMethod === 'stripe' || paymentMethod === 'paypal'
-    const unitPrice = effectiveUnitPrice(product, usesEurSettlement ? 'PT' : 'AO')
+    const pricingMarket = usesEurSettlement ? 'PT' : 'AO'
+    const regularUnitPrice = pricingMarket === 'PT' ? product.pricePTEur : product.priceAOKz
+    const unitPrice = effectiveUnitPrice(product, pricingMarket)
+    const saleDiscountAmount = Math.max(0, regularUnitPrice - unitPrice)
+    const saleDiscountPercentage = regularUnitPrice > 0
+      ? Math.round((saleDiscountAmount / regularUnitPrice) * 10_000) / 100
+      : 0
     totalWeightGrams += Math.max(1, Number(product.shippingWeightGrams ?? 500)) * qty
 
     authoritativeItems.push({
@@ -310,6 +316,9 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       inventoryComponents,
       qty,
       unitPrice,
+      regularUnitPrice,
+      saleDiscountAmount,
+      saleDiscountPercentage,
       // Sale-price exclusion (2026-08-04) -- not persisted on the order
       // (Orders.ts's items field doesn't carry it), only used below to
       // build eligibleSubtotal for the coupon check. A line already priced
@@ -373,9 +382,9 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   return {
     ...data,
     customerEmail,
-    // `onSale` was only ever needed above (eligibleSubtotal) -- Orders.ts's
-    // items field has no such field, so it's dropped here rather than left
-    // for Payload to silently ignore.
+    // `onSale` is only needed above for coupon eligibility. The actual sale
+    // evidence is persisted through regularUnitPrice/saleDiscount* so the
+    // customer invoice remains historically accurate after catalogue edits.
     items: authoritativeItems.map(({ onSale: _onSale, ...item }) => item),
     currency,
     subtotal,

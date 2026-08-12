@@ -14,6 +14,9 @@ type InvoiceLineInput = {
   color?: string | null
   qty: number
   unitPrice: number
+  regularUnitPrice?: number | null
+  saleDiscountAmount?: number | null
+  saleDiscountPercentage?: number | null
 }
 
 export type OrderForInternalInvoice = {
@@ -82,6 +85,9 @@ const PDF_LABELS = {
     reference: 'Referência',
     date: 'Data',
     paidBadge: 'PAGO',
+    salePrice: 'PREÇO PROMOCIONAL',
+    regularPrice: 'Preço original',
+    saving: 'Poupança',
     orderDetails: 'DETALHES DA ENCOMENDA',
     description: 'DESCRIÇÃO',
     quantity: 'QTD.',
@@ -117,6 +123,9 @@ const PDF_LABELS = {
     reference: 'Reference',
     date: 'Date',
     paidBadge: 'PAID',
+    salePrice: 'SALE PRICE',
+    regularPrice: 'Regular price',
+    saving: 'You save',
     orderDetails: 'ORDER DETAILS',
     description: 'DESCRIPTION',
     quantity: 'QTY',
@@ -153,6 +162,9 @@ export type CalculatedInvoiceLine = {
   netAmount: number
   taxAmount: number
   grossAmount: number
+  regularUnitPrice?: number
+  saleDiscountAmount?: number
+  saleDiscountPercentage?: number
 }
 
 export type InvoiceCalculation = {
@@ -168,6 +180,22 @@ const DEFAULT_DISCLAIMER: Record<PdfLang, string> = {
 }
 
 const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
+
+export function customerPaymentMethodLabel(method: string | undefined, lang: PdfLang): string | undefined {
+  if (!method) return undefined
+  const labels: Record<string, Record<PdfLang, string>> = {
+    manual_whatsapp: { pt: 'Pagamento acordado via WhatsApp', en: 'Payment arranged via WhatsApp' },
+    appypay: { pt: 'AppyPay - Multicaixa', en: 'AppyPay - Multicaixa' },
+    appy_pay: { pt: 'AppyPay - Multicaixa', en: 'AppyPay - Multicaixa' },
+    multicaixa_express: { pt: 'Multicaixa Express', en: 'Multicaixa Express' },
+    bank_transfer: { pt: 'Transferência bancária', en: 'Bank transfer' },
+    stripe: { pt: 'Cartão / pagamento online', en: 'Card / online payment' },
+    paypal: { pt: 'PayPal', en: 'PayPal' },
+    mbway: { pt: 'MB WAY', en: 'MB WAY' },
+    paybyrd: { pt: 'Pagamento online seguro', en: 'Secure online payment' },
+  }
+  return labels[method]?.[lang] ?? method.replaceAll('_', ' ')
+}
 
 export function calculateIncludedVatInvoice(
   order: Pick<OrderForInternalInvoice, 'items' | 'shippingCost' | 'total' | 'discountAmount' | 'discountLabel'>,
@@ -187,6 +215,9 @@ export function calculateIncludedVatInvoice(
       netAmount,
       taxAmount: roundMoney(grossAmount - netAmount),
       grossAmount,
+      regularUnitPrice: item.regularUnitPrice && item.regularUnitPrice > item.unitPrice ? roundMoney(item.regularUnitPrice) : undefined,
+      saleDiscountAmount: item.saleDiscountAmount && item.saleDiscountAmount > 0 ? roundMoney(item.saleDiscountAmount) : undefined,
+      saleDiscountPercentage: item.saleDiscountPercentage && item.saleDiscountPercentage > 0 ? item.saleDiscountPercentage : undefined,
     }
   })
 
@@ -493,7 +524,7 @@ export async function renderInvoicePdf(input: {
       input.order.customerAddress,
     ]),
     drawColumn(cols[2], labels.payment, [
-      input.order.paymentMethod ? `${labels.method}: ${input.order.paymentMethod}` : undefined,
+      input.order.paymentMethod ? `${labels.method}: ${customerPaymentMethodLabel(input.order.paymentMethod, input.lang)}` : undefined,
       input.order.paymentReference ? `${labels.reference}: ${input.order.paymentReference}` : undefined,
       `${labels.date}: ${input.issuedAt.toLocaleDateString(labels.dateLocale)}`,
     ]),
@@ -516,13 +547,22 @@ export async function renderInvoicePdf(input: {
     ensureSpace(30)
     const descLines = wrapText(line.description, regular, 8.5, 280)
     const rowTop = y
-    const rowHeight = Math.max(24, descLines.length * 11 + 10)
+    const hasSale = Boolean(line.regularUnitPrice && line.saleDiscountAmount)
+    const saleDetail = hasSale
+      ? `${labels.regularPrice}: ${formatMoney(line.regularUnitPrice!, input.order.currency, input.lang)}  |  ${labels.saving}: ${formatMoney(line.saleDiscountAmount!, input.order.currency, input.lang)}${line.saleDiscountPercentage ? ` (${line.saleDiscountPercentage}%)` : ''}`
+      : undefined
+    const rowHeight = Math.max(24, descLines.length * 11 + 10 + (hasSale ? 24 : 0))
     if (idx % 2 === 0) {
       page.drawRectangle({ x: margin, y: rowTop - rowHeight + 12, width: width - margin * 2, height: rowHeight, color: rowTint })
     }
     descLines.forEach((d, i) => {
       page.drawText(safePdfText(d), { x: margin + 12, y: rowTop - i * 11.5, size: 8.5, font: regular, color: ink })
     })
+    if (hasSale) {
+      const saleY = rowTop - descLines.length * 11.5 - 1
+      page.drawText(labels.salePrice, { x: margin + 12, y: saleY, size: 6.5, font: bold, color: goldDeep })
+      page.drawText(safePdfText(saleDetail!), { x: margin + 12, y: saleY - 10, size: 6.8, font: regular, color: muted })
+    }
     page.drawText(String(line.quantity), { x: 358, y: rowTop, size: 8.5, font: regular, color: muted })
     drawRight(formatMoney(line.unitPrice, input.order.currency, input.lang), 475, rowTop, 8.5, regular, muted)
     drawRight(formatMoney(line.grossAmount, input.order.currency, input.lang), width - margin - 12, rowTop, 9, bold)

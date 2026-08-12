@@ -57,7 +57,10 @@ const samples: Array<{ filename: string; invoiceNumber: string; order: OrderForI
       orderNumber: 'AO-SALEPRICE',
       subtotal: 12000,
       total: 14500,
-      items: [{ productName: 'Mochila desportiva compacta', color: 'Preto', qty: 1, unitPrice: 12000 }],
+      items: [{
+        productName: 'Mochila desportiva compacta', color: 'Preto', qty: 1, unitPrice: 12000,
+        regularUnitPrice: 15000, saleDiscountAmount: 3000, saleDiscountPercentage: 20,
+      }],
     },
   },
 ]

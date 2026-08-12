@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import { applyAuthoritativeOrderValues, authoritativeShippingCost } from '../src/lib/authoritativeOrder.ts'
 import { claimCouponRedemption, releaseCouponRedemption, resolveCoupon } from '../src/lib/couponPricing.ts'
-import { calculateIncludedVatInvoice, resolveVatRate } from '../src/lib/internalInvoice.ts'
+import { calculateIncludedVatInvoice, customerPaymentMethodLabel, resolveVatRate } from '../src/lib/internalInvoice.ts'
 import { inventoryDeltasForOrder, manageInventoryReservation } from '../src/lib/inventoryReservation.ts'
 import { effectiveUnitPrice, isProductOnSale } from '../src/lib/salePricing.ts'
 import { portugalDeliveryRegion } from '../src/lib/portugalShipping.ts'
@@ -287,6 +287,9 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
     req: { payload, url: 'http://localhost/api/orders' },
   } as never)
   assert.equal(data?.items?.[0]?.unitPrice, 40)
+  assert.equal(data?.items?.[0]?.regularUnitPrice, 50)
+  assert.equal(data?.items?.[0]?.saleDiscountAmount, 10)
+  assert.equal(data?.items?.[0]?.saleDiscountPercentage, 20)
   assert.equal(data?.subtotal, 80)
   assert.equal(data?.discountAmount, 0)
   // Without the (now-rejected) coupon, merchandise-after-discount is the
@@ -558,6 +561,23 @@ test('invoice summary explicitly separates product VAT from VAT-exempt shipping'
   ]) assert.match(source, new RegExp(label.replace(/[().]/g, '\\$&')))
   assert.match(source, /calculation\.netTotal - input\.order\.shippingCost/)
   assert.match(source, /calculation\.total - input\.order\.shippingCost/)
+})
+
+test('invoice snapshots sale evidence and uses customer-facing payment labels', () => {
+  const result = calculateIncludedVatInvoice({
+    items: [{
+      productName: 'Dress', qty: 1, unitPrice: 80,
+      regularUnitPrice: 100, saleDiscountAmount: 20, saleDiscountPercentage: 20,
+    }],
+    shippingCost: 0,
+    total: 80,
+  }, 23, 'en')
+  assert.equal(result.lines[0]?.regularUnitPrice, 100)
+  assert.equal(result.lines[0]?.saleDiscountAmount, 20)
+  assert.equal(result.lines[0]?.saleDiscountPercentage, 20)
+  assert.equal(customerPaymentMethodLabel('manual_whatsapp', 'pt'), 'Pagamento acordado via WhatsApp')
+  assert.equal(customerPaymentMethodLabel('manual_whatsapp', 'en'), 'Payment arranged via WhatsApp')
+  assert.equal(customerPaymentMethodLabel('unknown_gateway', 'en'), 'unknown gateway')
 })
 
 test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s delivery region', () => {

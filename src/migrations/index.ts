@@ -76,6 +76,7 @@ import * as migration_20260810_210000_storefront_tiktok from './20260810_210000_
 import * as migration_20260811_180000_responsive_media_sizes from './20260811_180000_responsive_media_sizes';
 import * as migration_20260811_200000_mobile_hero_image from './20260811_200000_mobile_hero_image';
 import * as migration_20260812_120000_manual_whatsapp_settings from './20260812_120000_manual_whatsapp_settings';
+import * as migration_20260812_233000_order_item_sale_snapshot from './20260812_233000_order_item_sale_snapshot';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -466,5 +467,10 @@ export const migrations = [
     up: migration_20260812_120000_manual_whatsapp_settings.up,
     down: migration_20260812_120000_manual_whatsapp_settings.down,
     name: '20260812_120000_manual_whatsapp_settings',
+  },
+  {
+    up: migration_20260812_233000_order_item_sale_snapshot.up,
+    down: migration_20260812_233000_order_item_sale_snapshot.down,
+    name: '20260812_233000_order_item_sale_snapshot',
   },
 ];

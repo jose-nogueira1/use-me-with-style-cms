@@ -602,6 +602,9 @@ export interface Order {
       | null;
     qty: number;
     unitPrice: number;
+    regularUnitPrice?: number | null;
+    saleDiscountAmount?: number | null;
+    saleDiscountPercentage?: number | null;
     id?: string | null;
   }[];
   currency: 'Kz' | 'EUR';
@@ -1321,6 +1324,9 @@ export interface OrdersSelect<T extends boolean = true> {
         inventoryComponents?: T;
         qty?: T;
         unitPrice?: T;
+        regularUnitPrice?: T;
+        saleDiscountAmount?: T;
+        saleDiscountPercentage?: T;
         id?: T;
       };
   currency?: T;
