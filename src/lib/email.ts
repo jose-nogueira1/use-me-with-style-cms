@@ -471,7 +471,7 @@ export function buildOrderConfirmationEmail(input: OrderConfirmationInput): {
   // localized (checkout/carrinho/conta stay the same PT slugs regardless of
   // UI language; only the on-page copy changes), so this must NOT vary by
   // lang or the English email would link to a 404.
-  const trackingUrl = `${siteUrl}/conta`
+  const trackingUrl = `${siteUrl}/conta?order=${encodeURIComponent(input.orderNumber)}&email=${encodeURIComponent(input.to)}`
 
   const firstName = resolveFirstName(input.customerName, input.customerFirstName)
   const orderDate = formatOrderDate(input.orderDate, lang)
@@ -773,7 +773,7 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
   const confirmationCopy = CONFIRMATION_COPY[lang]
   const stageCopy = STATUS_STAGE_COPY[input.stage][lang]
   const siteUrl = (process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop').replace(/\/$/, '')
-  const trackingUrl = `${siteUrl}/conta`
+  const trackingUrl = `${siteUrl}/conta?order=${encodeURIComponent(input.orderNumber)}&email=${encodeURIComponent(input.to)}`
 
   const firstName = resolveFirstName(input.customerName, input.customerFirstName) || input.customerName
   const subject = stageCopy.subject(input.orderNumber)

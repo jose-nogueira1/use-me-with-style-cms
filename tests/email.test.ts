@@ -444,11 +444,11 @@ test('status email HTML-escapes every customer- and order-controlled value', () 
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; &quot;quoted&quot;/)
 })
 
-test('status email CTA always links to /conta regardless of language or stage', () => {
+test('status email CTA links to /conta with the order lookup fields prefilled', () => {
   const shipped = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'shipped' })
   const delivered = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'delivered' })
-  assert.match(shipped.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
-  assert.match(delivered.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
+  assert.match(shipped.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=AO-778899&amp;email=customer%40example\.com"/)
+  assert.match(delivered.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=AO-778899&amp;email=customer%40example\.com"/)
 })
 
 test('status email reuses the exact support/footer copy from the confirmation email (single source of truth)', () => {
