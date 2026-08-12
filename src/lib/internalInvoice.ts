@@ -88,8 +88,10 @@ const PDF_LABELS = {
     price: 'PREÇO',
     total: 'TOTAL',
     summary: 'RESUMO',
-    net: 'Líquido',
-    vatIncluded: (rate: number) => `IVA incluído (${rate}%)`,
+    productSubtotalExVat: 'Subtotal de produtos (sem IVA)',
+    vat: (rate: number) => `IVA (${rate}%)`,
+    productTotalInclVat: 'Total de produtos (com IVA)',
+    shippingVatExempt: 'Portes (isentos de IVA)',
     totalPaid: 'TOTAL PAGO',
     shippingLine: 'Portes de envio',
     discountLine: 'Desconto',
@@ -121,8 +123,10 @@ const PDF_LABELS = {
     price: 'PRICE',
     total: 'TOTAL',
     summary: 'SUMMARY',
-    net: 'Net',
-    vatIncluded: (rate: number) => `VAT included (${rate}%)`,
+    productSubtotalExVat: 'Product subtotal (excl. VAT)',
+    vat: (rate: number) => `VAT (${rate}%)`,
+    productTotalInclVat: 'Product total (incl. VAT)',
+    shippingVatExempt: 'Shipping (VAT exempt)',
     totalPaid: 'TOTAL PAID',
     shippingLine: 'Shipping',
     discountLine: 'Discount',
@@ -561,16 +565,23 @@ export async function renderInvoicePdf(input: {
   const totalsWidth = 220
   const totalsX = width - margin - totalsWidth
   const totalsTop = y
-  page.drawRectangle({ x: totalsX, y: totalsTop - 112, width: totalsWidth, height: 112, color: near0 })
-  page.drawRectangle({ x: totalsX, y: totalsTop - 112, width: totalsWidth, height: 3, color: gold })
+  const merchandiseNet = roundMoney(input.calculation.netTotal - input.order.shippingCost)
+  const merchandiseGross = roundMoney(input.calculation.total - input.order.shippingCost)
+  const totalsHeight = 150
+  page.drawRectangle({ x: totalsX, y: totalsTop - totalsHeight, width: totalsWidth, height: totalsHeight, color: near0 })
+  page.drawRectangle({ x: totalsX, y: totalsTop - totalsHeight, width: totalsWidth, height: 3, color: gold })
   page.drawText(labels.summary, { x: totalsX + 18, y: totalsTop - 22, size: 7.2, font: bold, color: champagne })
-  page.drawText(labels.net, { x: totalsX + 18, y: totalsTop - 44, size: 8.5, font: regular, color: onDarkMuted })
-  drawRight(formatMoney(input.calculation.netTotal, input.order.currency, input.lang), width - margin - 18, totalsTop - 44, 8.5, regular, onDarkText)
-  page.drawText(labels.vatIncluded(input.settings.vatRate), { x: totalsX + 18, y: totalsTop - 62, size: 8.5, font: regular, color: onDarkMuted })
-  drawRight(formatMoney(input.calculation.taxTotal, input.order.currency, input.lang), width - margin - 18, totalsTop - 62, 8.5, regular, onDarkText)
-  page.drawLine({ start: { x: totalsX + 18, y: totalsTop - 74 }, end: { x: width - margin - 18, y: totalsTop - 74 }, thickness: 1, color: gold })
-  page.drawText(labels.totalPaid, { x: totalsX + 18, y: totalsTop - 97, size: 9, font: bold, color: onDarkMuted })
-  drawRight(formatMoney(input.calculation.total, input.order.currency, input.lang), width - margin - 18, totalsTop - 101, 16, bold, champagne)
+  page.drawText(labels.productSubtotalExVat, { x: totalsX + 18, y: totalsTop - 44, size: 7.5, font: regular, color: onDarkMuted })
+  drawRight(formatMoney(merchandiseNet, input.order.currency, input.lang), width - margin - 18, totalsTop - 44, 7.8, regular, onDarkText)
+  page.drawText(labels.vat(input.settings.vatRate), { x: totalsX + 18, y: totalsTop - 62, size: 7.5, font: regular, color: onDarkMuted })
+  drawRight(formatMoney(input.calculation.taxTotal, input.order.currency, input.lang), width - margin - 18, totalsTop - 62, 7.8, regular, onDarkText)
+  page.drawText(labels.productTotalInclVat, { x: totalsX + 18, y: totalsTop - 80, size: 7.5, font: regular, color: onDarkMuted })
+  drawRight(formatMoney(merchandiseGross, input.order.currency, input.lang), width - margin - 18, totalsTop - 80, 7.8, regular, onDarkText)
+  page.drawText(labels.shippingVatExempt, { x: totalsX + 18, y: totalsTop - 98, size: 7.5, font: regular, color: onDarkMuted })
+  drawRight(formatMoney(input.order.shippingCost, input.order.currency, input.lang), width - margin - 18, totalsTop - 98, 7.8, regular, onDarkText)
+  page.drawLine({ start: { x: totalsX + 18, y: totalsTop - 110 }, end: { x: width - margin - 18, y: totalsTop - 110 }, thickness: 1, color: gold })
+  page.drawText(labels.totalPaid, { x: totalsX + 18, y: totalsTop - 133, size: 9, font: bold, color: onDarkMuted })
+  drawRight(formatMoney(input.calculation.total, input.order.currency, input.lang), width - margin - 18, totalsTop - 137, 15, bold, champagne)
 
   const pages = pdf.getPages()
   pages.forEach((currentPage, index) => {

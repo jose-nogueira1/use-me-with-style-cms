@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import { applyAuthoritativeOrderValues, authoritativeShippingCost } from '../src/lib/authoritativeOrder.ts'
@@ -543,6 +544,20 @@ test('invoice VAT uses the back-calculation formula, not rate times the VAT-incl
   }, 23, 'en')
   assert.equal(result.netTotal, 26.83)
   assert.equal(result.taxTotal, 6.17)
+})
+
+test('invoice summary explicitly separates product VAT from VAT-exempt shipping', () => {
+  const source = readFileSync(new URL('../src/lib/internalInvoice.ts', import.meta.url), 'utf8')
+  for (const label of [
+    'Product subtotal (excl. VAT)',
+    'Product total (incl. VAT)',
+    'Shipping (VAT exempt)',
+    'Subtotal de produtos (sem IVA)',
+    'Total de produtos (com IVA)',
+    'Portes (isentos de IVA)',
+  ]) assert.match(source, new RegExp(label.replace(/[().]/g, '\\$&')))
+  assert.match(source, /calculation\.netTotal - input\.order\.shippingCost/)
+  assert.match(source, /calculation\.total - input\.order\.shippingCost/)
 })
 
 test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s delivery region', () => {
