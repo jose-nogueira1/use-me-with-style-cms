@@ -9,12 +9,13 @@ export const Returns: CollectionConfig = {
   admin: { useAsTitle: 'returnNumber', defaultColumns: ['returnNumber', 'orderNumber', 'market', 'status', 'resolution', 'requestedAmount', 'createdAt'], group: 'Sales' },
   access: { read: ({ req }) => Boolean(req.user), create: ({ req }) => Boolean(req.user), update: ({ req }) => Boolean(req.user), delete: () => false },
   hooks: {
-    beforeValidate: [async ({ data, operation, req }) => {
+    beforeValidate: [async ({ data, operation, req, context }) => {
       if (!data) return data
       if (operation === 'create') {
         const orderId = typeof data.order === 'object' ? data.order.id : data.order
         const order = await req.payload.findByID({ collection: 'orders', id: orderId, depth: 0, overrideAccess: true, req })
-        if (!['paid'].includes(String(order.paymentStatus)) || !['processing', 'shipped', 'delivered'].includes(String(order.status))) {
+        const customerInitiated = context.customerInitiated === true
+        if (!['paid'].includes(String(order.paymentStatus)) || !(customerInitiated ? ['delivered'] : ['processing', 'shipped', 'delivered']).includes(String(order.status))) {
           throw new APIError('Returns can only be created for paid, fulfilled orders.', 400, null, true)
         }
         data.returnNumber ||= `RET-${order.market}-${Date.now().toString().slice(-8)}`
@@ -42,8 +43,8 @@ export const Returns: CollectionConfig = {
           item.inspection ||= 'pending'; item.restockQuantity ||= 0
         }
         data.requestedAmount = requestedRefund(data.items as ReturnItem[])
-        data.approvedAmount ??= data.requestedAmount
-        data.statusHistory = [{ status: data.status || 'requested', changedAt: new Date().toISOString(), changedBy: req.user?.email || 'system' }]
+        if (!customerInitiated) data.approvedAmount ??= data.requestedAmount
+        data.statusHistory = [{ status: data.status || 'requested', changedAt: new Date().toISOString(), changedBy: customerInitiated ? 'customer' : req.user?.email || 'system' }]
       }
       return data
     }],
@@ -77,7 +78,7 @@ export const Returns: CollectionConfig = {
           } as never })
           data.replacementOrder = replacement.id
         }
-        data.statusHistory = [...(originalDoc?.statusHistory || []), { status: data.status, changedAt: new Date().toISOString(), changedBy: req.user?.email || 'system' }]
+        data.statusHistory = [...(originalDoc?.statusHistory || []), { status: data.status, changedAt: new Date().toISOString(), changedBy: context.customerInitiated ? 'customer' : req.user?.email || 'system' }]
       }
       return data
     }],
@@ -85,6 +86,7 @@ export const Returns: CollectionConfig = {
   },
   fields: [
     { name: 'returnNumber', type: 'text', required: true, unique: true, admin: { readOnly: true } },
+    { name: 'origin', type: 'select', options: ['admin', 'customer'], defaultValue: 'admin', admin: { readOnly: true } },
     { name: 'order', type: 'relationship', relationTo: 'orders', required: true },
     { name: 'orderNumber', type: 'text', required: true, admin: { readOnly: true } },
     { name: 'market', type: 'select', required: true, options: ['AO', 'PT'], admin: { readOnly: true } },
@@ -100,6 +102,7 @@ export const Returns: CollectionConfig = {
     { name: 'internalNote', type: 'textarea' },
     { name: 'returnShippingPayer', type: 'select', defaultValue: 'customer', options: ['customer', 'use_me'] },
     { name: 'items', type: 'json', required: true, admin: { description: 'Item-level quantities, original paid allocation, inspection result and controlled restocking.' } },
+    { name: 'evidence', type: 'json', admin: { description: 'Customer evidence images, base64 encoded and private to authenticated admin reads.' } },
     { name: 'requestedAmount', type: 'number', required: true, min: 0, admin: { readOnly: true } },
     { name: 'approvedAmount', type: 'number', min: 0 },
     { name: 'refundStatus', type: 'select', defaultValue: 'not_required', options: ['not_required', 'pending', 'completed', 'failed'] },
@@ -110,6 +113,6 @@ export const Returns: CollectionConfig = {
     { name: 'resolvedAt', type: 'date', admin: { readOnly: true } },
     { name: 'statusHistory', type: 'json', admin: { readOnly: true } },
     { name: 'customerLastNotifiedStatus', type: 'text', admin: { readOnly: true } },
-    { name: 'phase2SelfServiceNote', type: 'text', defaultValue: 'Phase 2: customer self-service return request form with secure identity verification and photo upload.', admin: { readOnly: true } },
+    { name: 'phase2SelfServiceNote', type: 'text', defaultValue: 'Phase 2: automated gateway refunds, return labels, carrier tracking, SLA automation and richer evidence storage.', admin: { readOnly: true } },
   ],
 }

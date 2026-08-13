@@ -45,6 +45,7 @@ import { taxRatesEndpoint } from './endpoints/taxRates'
 import { aiAssistantEndpoint, aiAssistantStatusEndpoint } from './endpoints/aiAssistant'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { robotsEndpoint, sitemapEndpoint } from './endpoints/seoFiles'
+import { customerReturnEndpoints } from './endpoints/customerReturns'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -177,6 +178,7 @@ export default buildConfig({
   globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight, AiMessagingSettings, StorefrontContent],
   endpoints: [
     orderLookupEndpoint,
+    ...customerReturnEndpoints,
     contactEndpoint,
     ...inventoryReservationEndpoints,
     ...messagingWebhookEndpoints,

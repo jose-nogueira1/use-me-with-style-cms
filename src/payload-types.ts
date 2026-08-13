@@ -677,6 +677,7 @@ export interface Order {
 export interface Return {
   id: number;
   returnNumber: string;
+  origin?: ('admin' | 'customer') | null;
   order: number | Order;
   orderNumber: string;
   market: 'AO' | 'PT';
@@ -703,6 +704,18 @@ export interface Return {
    * Item-level quantities, original paid allocation, inspection result and controlled restocking.
    */
   items:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Customer evidence images, base64 encoded and private to authenticated admin reads.
+   */
+  evidence?:
     | {
         [k: string]: unknown;
       }
@@ -1440,6 +1453,7 @@ export interface OrdersSelect<T extends boolean = true> {
  */
 export interface ReturnsSelect<T extends boolean = true> {
   returnNumber?: T;
+  origin?: T;
   order?: T;
   orderNumber?: T;
   market?: T;
@@ -1455,6 +1469,7 @@ export interface ReturnsSelect<T extends boolean = true> {
   internalNote?: T;
   returnShippingPayer?: T;
   items?: T;
+  evidence?: T;
   requestedAmount?: T;
   approvedAmount?: T;
   refundStatus?: T;

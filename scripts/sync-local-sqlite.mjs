@@ -40,10 +40,11 @@ if (orderColumns.size === 0 || marketColumns.size === 0) {
 const statements = []
 if (returnColumns.size === 0) statements.push(`CREATE TABLE returns (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, return_number TEXT NOT NULL, order_id INTEGER NOT NULL,
+  origin TEXT DEFAULT 'admin',
   order_number TEXT NOT NULL, market TEXT NOT NULL, currency TEXT NOT NULL, customer_name TEXT NOT NULL,
   customer_email TEXT NOT NULL, customer_phone TEXT, lang TEXT DEFAULT 'pt', status TEXT DEFAULT 'requested' NOT NULL,
   resolution TEXT NOT NULL, reason TEXT NOT NULL, customer_note TEXT, internal_note TEXT, return_shipping_payer TEXT DEFAULT 'customer',
-  items TEXT NOT NULL, requested_amount REAL NOT NULL, approved_amount REAL, refund_status TEXT DEFAULT 'not_required',
+  items TEXT NOT NULL, evidence TEXT, requested_amount REAL NOT NULL, approved_amount REAL, refund_status TEXT DEFAULT 'not_required',
   refund_reference TEXT, store_credit_code TEXT, replacement_order_id INTEGER, inventory_restocked_at TEXT, resolved_at TEXT,
   status_history TEXT, customer_last_notified_status TEXT, phase2_self_service_note TEXT,
   updated_at TEXT DEFAULT (datetime('now')) NOT NULL, created_at TEXT DEFAULT (datetime('now')) NOT NULL,
@@ -52,6 +53,8 @@ if (returnColumns.size === 0) statements.push(`CREATE TABLE returns (
 if (returnColumns.size === 0) statements.push('CREATE UNIQUE INDEX returns_return_number_idx ON returns (return_number)')
 if (returnColumns.size === 0) statements.push('CREATE INDEX returns_order_idx ON returns (order_id)')
 if (returnColumns.size === 0) statements.push('CREATE INDEX returns_status_idx ON returns (status)')
+if (returnColumns.size > 0 && !returnColumns.has('origin')) statements.push("ALTER TABLE returns ADD COLUMN origin TEXT DEFAULT 'admin'")
+if (returnColumns.size > 0 && !returnColumns.has('evidence')) statements.push('ALTER TABLE returns ADD COLUMN evidence TEXT')
 if (!lockedDocumentRelationColumns.has('returns_id')) statements.push('ALTER TABLE payload_locked_documents_rels ADD COLUMN returns_id INTEGER REFERENCES returns(id)')
 for (const size of ['small', 'medium', 'large', 'hero']) {
   for (const [suffix, type] of [
