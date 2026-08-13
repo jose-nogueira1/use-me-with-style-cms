@@ -1,3 +1,5 @@
+import { getInstagramAccessToken } from './instagramTokenVault'
+
 // Shared WhatsApp/Instagram send helpers + Phase 1 automation rules
 // (JOS-58). Deliberately simple keyword matching, NOT an AI agent -- that
 // keeps behaviour auditable and predictable, which the ticket calls for
@@ -117,8 +119,8 @@ export async function sendWhatsAppMessage(toPhone: string, message: string): Pro
 // Instagram DMs via the Instagram API with Instagram Login. The access token
 // is account-scoped, so the sender is always `me`; the recipient is the
 // Instagram-scoped ID received in the messaging webhook.
-export async function sendInstagramMessage(toIgId: string, message: string): Promise<string | undefined> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+export async function sendInstagramMessage(toIgId: string, message: string, payload?: any): Promise<string | undefined> {
+  const token = await getInstagramAccessToken(payload)
 
   if (!token) {
     throw new Error('Instagram messaging is not configured: INSTAGRAM_ACCESS_TOKEN is missing')
@@ -150,8 +152,8 @@ export async function sendInstagramMessage(toIgId: string, message: string): Pro
  * dependable while allowing accounts/API versions that support mark_seen to
  * mirror the action in Instagram.
  */
-export async function markInstagramConversationSeen(toIgId: string): Promise<boolean> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+export async function markInstagramConversationSeen(toIgId: string, payload?: any): Promise<boolean> {
+  const token = await getInstagramAccessToken(payload)
   if (!token) return false
 
   try {
@@ -186,6 +188,7 @@ export type InstagramUserProfile = {
 
 type InstagramMessageTextOptions = {
   token?: string
+  payload?: any
   fetchImpl?: typeof fetch
   timeoutMs?: number
 }
@@ -202,7 +205,7 @@ export async function getInstagramMessageText(
   messageId: string,
   options: InstagramMessageTextOptions = {},
 ): Promise<string | null> {
-  const token = options.token ?? process.env.INSTAGRAM_ACCESS_TOKEN
+  const token = options.token ?? await getInstagramAccessToken(options.payload)
   const normalizedId = messageId.trim()
   if (!token || !normalizedId) return null
 
@@ -237,8 +240,8 @@ export async function getInstagramMessageText(
   }
 }
 
-export async function getInstagramUserProfile(igScopedId: string): Promise<InstagramUserProfile | null> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN
+export async function getInstagramUserProfile(igScopedId: string, payload?: any): Promise<InstagramUserProfile | null> {
+  const token = await getInstagramAccessToken(payload)
   if (!token) return null
 
   try {

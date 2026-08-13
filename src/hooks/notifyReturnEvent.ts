@@ -11,5 +11,5 @@ export const notifyReturnEvent: CollectionAfterChangeHook = async ({ doc, previo
     amount: Number(doc.approvedAmount ?? doc.requestedAmount ?? 0), currency: doc.currency,
     lang: doc.lang === 'en' ? 'en' : 'pt',
   })
-  await req.payload.update({ collection: 'returns', id: doc.id, overrideAccess: true, req, data: { customerLastNotifiedStatus: doc.status }, context: { returnSideEffect: true } })
+  await req.payload.update({ collection: 'returns' as any, id: doc.id, overrideAccess: true, req, data: { customerLastNotifiedStatus: doc.status }, context: { returnSideEffect: true } })
 }

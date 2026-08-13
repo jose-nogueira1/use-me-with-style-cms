@@ -29,7 +29,7 @@ export const Returns: CollectionConfig = {
         data.items ||= allocateReturnAmounts(order.items as never[], Number(order.discountAmount || 0))
         const orderItems = allocateReturnAmounts(order.items as never[], Number(order.discountAmount || 0))
         const byId = new Map(orderItems.map((item) => [item.orderItemId, item]))
-        const existing = await req.payload.find({ collection: 'returns', where: { and: [{ order: { equals: orderId } }, { status: { not_in: ['rejected', 'customer_cancelled'] } }] }, limit: 100, depth: 0, overrideAccess: true, req })
+        const existing = await req.payload.find({ collection: 'returns' as any, where: { and: [{ order: { equals: orderId } }, { status: { not_in: ['rejected', 'customer_cancelled'] } }] }, limit: 100, depth: 0, overrideAccess: true, req })
         const alreadyRequested = new Map<string, number>()
         for (const prior of existing.docs) for (const item of (Array.isArray(prior.items) ? prior.items : []) as ReturnItem[]) alreadyRequested.set(item.orderItemId, (alreadyRequested.get(item.orderItemId) || 0) + Number(item.quantity || 0))
         for (const item of data.items as ReturnItem[]) {
