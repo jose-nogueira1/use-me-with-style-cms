@@ -64,6 +64,12 @@ export const Orders: CollectionConfig = {
   hooks: {
     beforeValidate: [applyAuthoritativeOrderValues],
     beforeChange: [
+      ({ data, operation, originalDoc }) => {
+        if (operation === 'update' && data.status === 'cancelled' && originalDoc?.status !== 'new') {
+          throw new APIError('Only a new order can be cancelled.', 400, null, true)
+        }
+        return data
+      },
       manageInventoryReservation,
       ({ context, data, operation, originalDoc, req }) => {
         if (operation === 'create' && !data.orderNumber) {
