@@ -61,7 +61,7 @@ export const orderLookupEndpoint: Endpoint = {
     })
     const candidate = matches.docs[0]
     const order = candidate?.customerEmail.trim().toLowerCase() === email ? candidate : null
-    const returns = order ? await req.payload.find({ collection: 'returns', where: { order: { equals: order.id } }, limit: 20, sort: '-createdAt', depth: 0, overrideAccess: true }) : null
+    // Phase 2: fetch and expose the customer's return requests here.
 
     req.payload.logger.info({
       event: 'order_lookup_completed',
@@ -81,7 +81,7 @@ export const orderLookupEndpoint: Endpoint = {
             deliveryRegion: order.deliveryRegion,
             cttTrackingCode: order.cttTrackingCode,
             updatedAt: order.updatedAt,
-            returns: returns?.docs.map((entry) => ({ returnNumber: entry.returnNumber, status: entry.status, resolution: entry.resolution, approvedAmount: entry.approvedAmount, currency: entry.currency, updatedAt: entry.updatedAt })) || [],
+            // Phase 2: returns: returns.docs.map(...)
           }
         : null,
     })

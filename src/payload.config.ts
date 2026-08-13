@@ -22,7 +22,7 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
 import { Coupons } from './collections/Coupons'
-import { Returns } from './collections/Returns'
+// Phase 2: import { Returns } from './collections/Returns'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
 import { LegalContent } from './globals/LegalContent'
@@ -45,7 +45,8 @@ import { taxRatesEndpoint } from './endpoints/taxRates'
 import { aiAssistantEndpoint, aiAssistantStatusEndpoint } from './endpoints/aiAssistant'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { robotsEndpoint, sitemapEndpoint } from './endpoints/seoFiles'
-import { customerReturnEndpoints } from './endpoints/customerReturns'
+// Phase 2: re-enable customerReturnEndpoints when the return workflow is ready for release.
+// import { customerReturnEndpoints } from './endpoints/customerReturns'
 import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -164,7 +165,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Returns, Customers, Messages, Invoices, Coupons],
+  // Phase 2: add Returns back after the workflow robustness pass.
+  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Customers, Messages, Invoices, Coupons],
   // home-content (2026-07-25..2026-08-04) was split into three independent
   // globals on 2026-08-04 -- HomeHero, HomeCategories, HomeCollections --
   // each with its own save + version history (admin feedback: a single
@@ -178,7 +180,7 @@ export default buildConfig({
   globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight, AiMessagingSettings, StorefrontContent],
   endpoints: [
     orderLookupEndpoint,
-    ...customerReturnEndpoints,
+    // Phase 2: ...customerReturnEndpoints,
     contactEndpoint,
     ...inventoryReservationEndpoints,
     ...messagingWebhookEndpoints,
