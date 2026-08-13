@@ -8,6 +8,20 @@ import type { InvoiceAttachment } from '../lib/email'
 import { sendMetaPurchase } from '../endpoints/metaConversions'
 import { absoluteMediaUrl } from '../lib/mediaUrl'
 
+// Payload relationships can be either a bare ID or a populated document,
+// depending on the operation/depth that triggered this hook. Admin updates
+// commonly give us the populated form. Always normalize before querying or
+// indexing; String({ id: '...' }) would otherwise become "[object Object]"
+// and every product image lookup would silently miss.
+export function orderItemProductId(value: unknown): string | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'object') {
+    const id = (value as { id?: unknown }).id
+    return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined
+  }
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
+}
+
 // Customer order communication is email-only. Telephone numbers remain on
 // orders for exceptional staff-initiated contact, but order events never
 // automatically send or queue WhatsApp messages.
@@ -122,7 +136,9 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     // template's own placeholder swatch (see renderItemRow in lib/email.ts)
     // instead of blocking or failing the confirmation send.
     const orderItems: Array<Record<string, unknown>> = Array.isArray(doc.items) ? doc.items : []
-    const productIds = Array.from(new Set(orderItems.map((item) => item.product).filter((id) => id != null)))
+    const productIds = Array.from(
+      new Set(orderItems.map((item) => orderItemProductId(item.product)).filter((id): id is string => Boolean(id))),
+    )
     const productImageById = new Map<string, { url?: string; alt?: string }>()
     if (productIds.length) {
       try {
@@ -154,7 +170,8 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     }
 
     const emailItems: OrderConfirmationItemInput[] = orderItems.map((item) => {
-      const image = item.product != null ? productImageById.get(String(item.product)) : undefined
+      const productId = orderItemProductId(item.product)
+      const image = productId ? productImageById.get(productId) : undefined
       return {
         productName: String(item.productName ?? ''),
         size: (item.size as string | undefined) || undefined,
