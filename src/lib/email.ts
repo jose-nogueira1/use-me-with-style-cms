@@ -1,7 +1,5 @@
 import type { Payload } from 'payload'
 
-import { LOGO_WHITE_360_BASE64 } from './emailAssets'
-
 // Order-confirmation email (JOS-61 follow-up: real transactional email,
 // backing the paid-order confirmation shown on the storefront
 // copy that was previously just UI text -- no email was actually being sent).
@@ -363,16 +361,15 @@ function renderDetailBlock(heading: string, lines: string[]): string {
 // focused on its own body content instead of re-authoring ~80 lines of
 // boilerplate <head>/MSO/media-query markup per email.
 function renderHeaderRow(): string {
-  // Inlined as a base64 data URI, NOT a hosted {siteUrl}/brand/... URL --
-  // see emailAssets.ts for why (a hosted logo URL rendered as a broken
-  // image for at least one reviewer; embedding it removes that entire
-  // class of failure). This is the one image across these templates that
-  // isn't naturally absolute-URL-only -- order items' product photos still
-  // are, correctly, since those are genuinely per-order dynamic content.
+  // Gmail strips data: images from message HTML. Use a stable public HTTPS
+  // asset so Gmail's image proxy and conventional clients render the same
+  // branded header. The AO hostname is explicit to avoid the geo redirect on
+  // the bare domain while fetching an email asset.
+  const logoUrl = 'https://ao.usemewithstyle.shop/brand/use-me-logo-white-transparent.png'
   return `
           <tr>
             <td align="center" bgcolor="${BLACK}" style="padding:28px 32px; background-color:${BLACK};">
-              <img src="data:image/png;base64,${LOGO_WHITE_360_BASE64}" alt="Use Me With Style" width="180" style="display:block; width:180px; max-width:60%; height:auto; border:0;" />
+              <img src="${logoUrl}" alt="Use Me With Style" width="180" style="display:block; width:180px; max-width:60%; height:auto; border:0;" />
             </td>
           </tr>`
 }

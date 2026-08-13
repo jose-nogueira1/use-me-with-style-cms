@@ -239,27 +239,16 @@ test('currency is localized through Intl, not raw numeric interpolation', () => 
 test('the CTA always links to /conta regardless of language', () => {
   const pt = buildOrderConfirmationEmail({ ...BASE, lang: 'pt' })
   const en = buildOrderConfirmationEmail({ ...BASE, lang: 'en' })
-  assert.match(pt.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
-  assert.match(en.html, /href="https:\/\/usemewithstyle\.shop\/conta"/)
+  assert.match(pt.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=PT-100200&amp;email=customer%40example\.com"/)
+  assert.match(en.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=PT-100200&amp;email=customer%40example\.com"/)
   assert.match(pt.html, />ACOMPANHAR A MINHA ENCOMENDA</)
   assert.match(en.html, />TRACK MY ORDER</)
 })
 
-test('the header logo is a self-contained base64 data URI, never a hosted URL', () => {
-  // A hosted {siteUrl}/brand/... <img> was reported broken in some clients
-  // (2026-08-06) -- the logo is now embedded directly in the email so it
-  // can never depend on external hosting/DNS/CORS/blocked-remote-images.
+test('the header logo uses a public HTTPS asset compatible with Gmail', () => {
   const { html } = buildOrderConfirmationEmail({ ...BASE, lang: 'en' })
-  const match = html.match(/<img src="(data:image\/png;base64,[^"]+)" alt="Use Me With Style"/)
-  assert.ok(match, 'expected a base64-embedded logo <img>')
-  const dataUri = match![1]
-  assert.doesNotMatch(html, /src="https:\/\/usemewithstyle\.shop\/brand\//) // no hosted logo URL anywhere
-  // The payload decodes as a real, reasonably small, non-empty PNG.
-  const base64 = dataUri.replace('data:image/png;base64,', '')
-  const bytes = Buffer.from(base64, 'base64')
-  assert.ok(bytes.length > 1000, 'decoded logo should be a real image, not a stub')
-  assert.ok(bytes.length < 100_000, 'decoded logo should be optimized/small, not the raw multi-hundred-KB source')
-  assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a') // PNG magic bytes
+  assert.match(html, /<img src="https:\/\/ao\.usemewithstyle\.shop\/brand\/use-me-logo-white-transparent\.png" alt="Use Me With Style"/)
+  assert.doesNotMatch(html, /src="data:image\//)
 })
 
 test('preheader text is present but visually hidden (display:none / mso-hide)', () => {
@@ -331,8 +320,7 @@ test('contact auto-reply HTML-escapes the customer name and message', () => {
 test('contact auto-reply shares the same branded shell as the order-confirmation email', () => {
   const { html } = buildContactAutoReplyEmail({ ...CONTACT_BASE, lang: 'pt' })
   assert.match(html, /^<!doctype html>/)
-  const logoMatch = html.match(/<img src="(data:image\/png;base64,[^"]+)" alt="Use Me With Style"/)
-  assert.ok(logoMatch, 'expected the same embedded logo as the order-confirmation email')
+  assert.match(html, /<img src="https:\/\/ao\.usemewithstyle\.shop\/brand\/use-me-logo-white-transparent\.png" alt="Use Me With Style"/)
   assert.match(html, />USE ME WITH STYLE</)
   assert.match(html, /Instagram/)
   assert.doesNotMatch(html, /<script/i)
@@ -447,8 +435,8 @@ test('status email HTML-escapes every customer- and order-controlled value', () 
 test('status email CTA links to /conta with the order lookup fields prefilled', () => {
   const shipped = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'shipped' })
   const delivered = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'delivered' })
-  assert.match(shipped.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=AO-778899&amp;email=customer%40example\.com"/)
-  assert.match(delivered.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=AO-778899&amp;email=customer%40example\.com"/)
+  assert.match(shipped.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=PT-100200&amp;email=customer%40example\.com"/)
+  assert.match(delivered.html, /href="https:\/\/usemewithstyle\.shop\/conta\?order=PT-100200&amp;email=customer%40example\.com"/)
 })
 
 test('status email reuses the exact support/footer copy from the confirmation email (single source of truth)', () => {
@@ -461,8 +449,7 @@ test('status email reuses the exact support/footer copy from the confirmation em
 test('status email shares the same branded shell as the order-confirmation email', () => {
   const { html } = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
   assert.match(html, /^<!doctype html>/)
-  const logoMatch = html.match(/<img src="(data:image\/png;base64,[^"]+)" alt="Use Me With Style"/)
-  assert.ok(logoMatch, 'expected the same embedded logo as the order-confirmation email')
+  assert.match(html, /<img src="https:\/\/ao\.usemewithstyle\.shop\/brand\/use-me-logo-white-transparent\.png" alt="Use Me With Style"/)
   assert.match(html, />USE ME WITH STYLE</)
   assert.match(html, /Instagram/)
   assert.doesNotMatch(html, /<script/i)

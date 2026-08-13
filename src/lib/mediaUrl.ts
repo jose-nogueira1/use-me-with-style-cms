@@ -16,8 +16,10 @@ export function absoluteMediaUrl(url?: string | null): string | undefined {
   if (!url) return undefined
   if (/^https?:\/\//i.test(url)) return url
 
-  const base = process.env.PAYLOAD_PUBLIC_SERVER_URL
-  if (!base) return undefined
+  // Production media documents use Payload's relative static route. Email
+  // clients have no page origin, so retain an explicit canonical fallback
+  // even if PAYLOAD_PUBLIC_SERVER_URL was omitted from the deployment.
+  const base = process.env.PAYLOAD_PUBLIC_SERVER_URL || 'https://cms.usemewithstyle.shop'
 
   try {
     return new URL(url, base).toString()

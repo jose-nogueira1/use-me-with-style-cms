@@ -7,20 +7,7 @@ import { generateInternalInvoiceForOrder } from '../lib/internalInvoice'
 import type { InvoiceAttachment } from '../lib/email'
 import { sendMetaPurchase } from '../endpoints/metaConversions'
 import { absoluteMediaUrl } from '../lib/mediaUrl'
-
-// Payload relationships can be either a bare ID or a populated document,
-// depending on the operation/depth that triggered this hook. Admin updates
-// commonly give us the populated form. Always normalize before querying or
-// indexing; String({ id: '...' }) would otherwise become "[object Object]"
-// and every product image lookup would silently miss.
-export function orderItemProductId(value: unknown): string | undefined {
-  if (value == null) return undefined
-  if (typeof value === 'object') {
-    const id = (value as { id?: unknown }).id
-    return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined
-  }
-  return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
-}
+import { relationshipId, selectOrderItemImage } from '../lib/orderItemImage'
 
 // Customer order communication is email-only. Telephone numbers remain on
 // orders for exceptional staff-initiated contact, but order events never
@@ -137,9 +124,9 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     // instead of blocking or failing the confirmation send.
     const orderItems: Array<Record<string, unknown>> = Array.isArray(doc.items) ? doc.items : []
     const productIds = Array.from(
-      new Set(orderItems.map((item) => orderItemProductId(item.product)).filter((id): id is string => Boolean(id))),
+      new Set(orderItems.map((item) => relationshipId(item.product)).filter((id): id is string => Boolean(id))),
     )
-    const productImageById = new Map<string, { url?: string; alt?: string }>()
+    const productById = new Map<string, Record<string, unknown>>()
     if (productIds.length) {
       try {
         const products = await req.payload.find({
@@ -150,17 +137,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
           overrideAccess: true,
         })
         for (const product of products.docs) {
-          const firstImage = Array.isArray(product.images) ? product.images[0]?.image : undefined
-          if (firstImage && typeof firstImage === 'object') {
-            const media = firstImage as { url?: string | null; alt?: string | null; sizes?: { card?: { url?: string | null } } }
-            // Prefer the pre-cropped "card" size (600x800, matches the
-            // storefront's own product-card aspect ratio) over the full
-            // original when available -- smaller download for an email.
-            productImageById.set(String(product.id), {
-              url: absoluteMediaUrl(media.sizes?.card?.url || media.url),
-              alt: media.alt || product.name,
-            })
-          }
+          productById.set(String(product.id), product as unknown as Record<string, unknown>)
         }
       } catch (err) {
         // Never let an image-lookup failure block the confirmation email.
@@ -170,8 +147,15 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     }
 
     const emailItems: OrderConfirmationItemInput[] = orderItems.map((item) => {
-      const productId = orderItemProductId(item.product)
-      const image = productId ? productImageById.get(productId) : undefined
+      const productId = relationshipId(item.product)
+      const product = productId ? productById.get(productId) : undefined
+      const selectedImage = selectOrderItemImage(
+        product?.images as Array<{ image?: unknown; color?: unknown }> | undefined,
+        item.colorId,
+      )
+      const media = selectedImage && typeof selectedImage === 'object'
+        ? selectedImage as { url?: string | null; alt?: string | null; sizes?: { card?: { url?: string | null } } }
+        : undefined
       return {
         productName: String(item.productName ?? ''),
         size: (item.size as string | undefined) || undefined,
@@ -181,8 +165,8 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
         color: (item.color as string | undefined) || undefined,
         qty: Number(item.qty) || 1,
         unitPrice: Number(item.unitPrice) || 0,
-        imageUrl: image?.url,
-        imageAlt: image?.alt || String(item.productName ?? ''),
+        imageUrl: absoluteMediaUrl(media?.sizes?.card?.url || media?.url),
+        imageAlt: media?.alt || String(item.productName ?? ''),
       }
     })
 
