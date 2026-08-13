@@ -5,7 +5,7 @@ export const instagramTokenRefreshEndpoint: Endpoint = {
   path: '/cron/refresh-instagram-token',
   method: 'post',
   handler: async (req) => {
-    const secret = process.env.INSTAGRAM_TOKEN_CRON_SECRET
+    const secret = process.env.CRON_SECRET
     if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
       return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
     }
