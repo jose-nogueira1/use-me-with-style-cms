@@ -22,6 +22,7 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
 import { Coupons } from './collections/Coupons'
+import { Returns } from './collections/Returns'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
 import { LegalContent } from './globals/LegalContent'
@@ -162,7 +163,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Customers, Messages, Invoices, Coupons],
+  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Returns, Customers, Messages, Invoices, Coupons],
   // home-content (2026-07-25..2026-08-04) was split into three independent
   // globals on 2026-08-04 -- HomeHero, HomeCategories, HomeCollections --
   // each with its own save + version history (admin feedback: a single

@@ -16,7 +16,9 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
   previousDoc,
   operation,
   req,
+  context,
 }) => {
+  if (context?.returnReplacement === true) return
   const justShipped = operation === 'update' && previousDoc?.status !== 'shipped' && doc.status === 'shipped'
   const justDelivered = operation === 'update' && previousDoc?.status !== 'delivered' && doc.status === 'delivered'
   // Order-confirmation email fires on the paid transition, not on create.

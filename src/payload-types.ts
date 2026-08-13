@@ -76,6 +76,7 @@ export interface Config {
     'size-guides': SizeGuide;
     posts: Post;
     orders: Order;
+    returns: Return;
     customers: Customer;
     messages: Message;
     invoices: Invoice;
@@ -96,6 +97,7 @@ export interface Config {
     'size-guides': SizeGuidesSelect<false> | SizeGuidesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    returns: ReturnsSelect<false> | ReturnsSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
     invoices: InvoicesSelect<false> | InvoicesSelect<true>;
@@ -670,6 +672,69 @@ export interface Order {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns".
+ */
+export interface Return {
+  id: number;
+  returnNumber: string;
+  order: number | Order;
+  orderNumber: string;
+  market: 'AO' | 'PT';
+  currency: 'Kz' | 'EUR';
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string | null;
+  lang?: ('pt' | 'en') | null;
+  status:
+    | 'requested'
+    | 'approved'
+    | 'awaiting_item'
+    | 'received'
+    | 'inspected'
+    | 'resolved'
+    | 'rejected'
+    | 'customer_cancelled';
+  resolution: 'refund' | 'exchange' | 'store_credit';
+  reason: 'wrong_size' | 'wrong_colour' | 'changed_mind' | 'defective' | 'incorrect_item' | 'other';
+  customerNote?: string | null;
+  internalNote?: string | null;
+  returnShippingPayer?: ('customer' | 'use_me') | null;
+  /**
+   * Item-level quantities, original paid allocation, inspection result and controlled restocking.
+   */
+  items:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  requestedAmount: number;
+  approvedAmount?: number | null;
+  refundStatus?: ('not_required' | 'pending' | 'completed' | 'failed') | null;
+  refundReference?: string | null;
+  storeCreditCode?: string | null;
+  replacementOrder?: (number | null) | Order;
+  inventoryRestockedAt?: string | null;
+  resolvedAt?: string | null;
+  statusHistory?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  customerLastNotifiedStatus?: string | null;
+  phase2SelfServiceNote?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers".
  */
 export interface Customer {
@@ -960,6 +1025,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'orders';
         value: number | Order;
+      } | null)
+    | ({
+        relationTo: 'returns';
+        value: number | Return;
       } | null)
     | ({
         relationTo: 'customers';
@@ -1362,6 +1431,41 @@ export interface OrdersSelect<T extends boolean = true> {
         changedBy?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns_select".
+ */
+export interface ReturnsSelect<T extends boolean = true> {
+  returnNumber?: T;
+  order?: T;
+  orderNumber?: T;
+  market?: T;
+  currency?: T;
+  customerName?: T;
+  customerEmail?: T;
+  customerPhone?: T;
+  lang?: T;
+  status?: T;
+  resolution?: T;
+  reason?: T;
+  customerNote?: T;
+  internalNote?: T;
+  returnShippingPayer?: T;
+  items?: T;
+  requestedAmount?: T;
+  approvedAmount?: T;
+  refundStatus?: T;
+  refundReference?: T;
+  storeCreditCode?: T;
+  replacementOrder?: T;
+  inventoryRestockedAt?: T;
+  resolvedAt?: T;
+  statusHistory?: T;
+  customerLastNotifiedStatus?: T;
+  phase2SelfServiceNote?: T;
   updatedAt?: T;
   createdAt?: T;
 }

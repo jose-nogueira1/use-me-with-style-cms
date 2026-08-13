@@ -209,6 +209,21 @@ async function applyStockDelta(req: PayloadRequest, order: ReservationOrder, dir
   }
 }
 
+export async function restockAcceptedReturnItems(req: PayloadRequest, market: string, items: Array<{
+  product?: string | number
+  variantId?: string | null
+  colorId?: string | null
+  size?: string | null
+  color?: string | null
+  inventoryComponents?: Array<{ product?: string | number | { id?: string | number }; variantId?: string | null; qty?: number }> | null
+  restockQuantity?: number
+}>) {
+  const selected = items.filter((item) => Number(item.restockQuantity || 0) > 0).map((item) => ({
+    ...item, qty: Number(item.restockQuantity),
+  }))
+  if (selected.length) await applyStockDelta(req, { market, items: selected as ReservationOrder['items'] }, 'release')
+}
+
 function reservationExpiry(paymentMethod: string | undefined) {
   return new Date(Date.now() + reservationTtlMs(paymentMethod)).toISOString()
 }

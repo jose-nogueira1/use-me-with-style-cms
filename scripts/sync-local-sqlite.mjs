@@ -31,12 +31,28 @@ const storefrontAboutValueColumns = await columns('storefront_content_about_valu
 const postColumns = await columns('posts')
 const postBodyColumns = await columns('posts_body')
 const lockedDocumentRelationColumns = await columns('payload_locked_documents_rels')
+const returnColumns = await columns('returns')
 
 if (orderColumns.size === 0 || marketColumns.size === 0) {
   throw new Error('The local SQLite schema is missing. Restore or initialize dev.db before starting the CMS.')
 }
 
 const statements = []
+if (returnColumns.size === 0) statements.push(`CREATE TABLE returns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, return_number TEXT NOT NULL, order_id INTEGER NOT NULL,
+  order_number TEXT NOT NULL, market TEXT NOT NULL, currency TEXT NOT NULL, customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL, customer_phone TEXT, lang TEXT DEFAULT 'pt', status TEXT DEFAULT 'requested' NOT NULL,
+  resolution TEXT NOT NULL, reason TEXT NOT NULL, customer_note TEXT, internal_note TEXT, return_shipping_payer TEXT DEFAULT 'customer',
+  items TEXT NOT NULL, requested_amount REAL NOT NULL, approved_amount REAL, refund_status TEXT DEFAULT 'not_required',
+  refund_reference TEXT, store_credit_code TEXT, replacement_order_id INTEGER, inventory_restocked_at TEXT, resolved_at TEXT,
+  status_history TEXT, customer_last_notified_status TEXT, phase2_self_service_note TEXT,
+  updated_at TEXT DEFAULT (datetime('now')) NOT NULL, created_at TEXT DEFAULT (datetime('now')) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id), FOREIGN KEY (replacement_order_id) REFERENCES orders(id)
+)`)
+if (returnColumns.size === 0) statements.push('CREATE UNIQUE INDEX returns_return_number_idx ON returns (return_number)')
+if (returnColumns.size === 0) statements.push('CREATE INDEX returns_order_idx ON returns (order_id)')
+if (returnColumns.size === 0) statements.push('CREATE INDEX returns_status_idx ON returns (status)')
+if (!lockedDocumentRelationColumns.has('returns_id')) statements.push('ALTER TABLE payload_locked_documents_rels ADD COLUMN returns_id INTEGER REFERENCES returns(id)')
 for (const size of ['small', 'medium', 'large', 'hero']) {
   for (const [suffix, type] of [
     ['url', 'TEXT'],

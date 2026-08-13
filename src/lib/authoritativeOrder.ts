@@ -99,8 +99,10 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   data,
   operation,
   req,
+  context,
 }) => {
   if (!data) return data
+  if (context?.returnReplacement === true) return data
   if (operation !== 'create') {
     if (data.market === 'PT' && data.postalCode) {
       const deliveryRegion = portugalDeliveryRegion(data.postalCode)
