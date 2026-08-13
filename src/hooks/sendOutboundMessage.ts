@@ -29,7 +29,7 @@ export const sendOutboundMessage: CollectionAfterChangeHook = async ({ doc, oper
   // document from inside afterChange. Payload can return 404 before the new
   // row is visible to that second operation, turning a successful Meta send
   // into a failed admin request.
-  await sendInstagramMessage(doc.contactHandle, doc.body, req.payload)
+  await sendInstagramMessage(doc.contactHandle, doc.body)
 
   // Dormant WhatsApp delivery path (future reactivation):
   // if (doc.channel === 'whatsapp') {

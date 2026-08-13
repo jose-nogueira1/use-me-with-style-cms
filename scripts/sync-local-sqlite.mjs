@@ -1061,28 +1061,6 @@ if (homeColumns.size > 0 && !homeCollectionsExists) {
   console.log('Created local SQLite home_collections/_home_collections_v tables and backfilled from home_content/_home_content_v.')
 }
 
-const instagramTokenVaultExists =
-  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'instagram_token_vault'`)).rows.length > 0
-if (!instagramTokenVaultExists) {
-  await client.execute(`
-    CREATE TABLE "instagram_token_vault" (
-      id integer PRIMARY KEY NOT NULL,
-      ciphertext text NOT NULL,
-      expires_at text NOT NULL,
-      last_refreshed_at text,
-      last_attempt_at text,
-      last_error text,
-      last_alert_at text,
-      last_alert_threshold numeric,
-      updated_at text NOT NULL,
-      created_at text NOT NULL
-    )
-  `)
-  await client.execute(`CREATE INDEX "instagram_token_vault_updated_at_idx" ON "instagram_token_vault" (updated_at)`)
-  await client.execute(`CREATE INDEX "instagram_token_vault_created_at_idx" ON "instagram_token_vault" (created_at)`)
-  console.log('Created local SQLite encrypted Instagram token vault table.')
-}
-
 client.close()
 
 if (tagMigrated) {

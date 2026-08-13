@@ -1,11 +1,10 @@
 import type { Endpoint } from 'payload'
-import { getInstagramAccessToken } from '../lib/instagramTokenVault'
 
 export const instagramProfileEndpoint: Endpoint = {
   path: '/instagram-profile', method: 'get',
   handler: async (req) => {
     const handle = new URL(req.url ?? '', 'http://localhost').searchParams.get('contactHandle')?.trim()
-    const token = await getInstagramAccessToken(req.payload as any)
+    const token = process.env.INSTAGRAM_ACCESS_TOKEN?.trim()
     if (!handle || !token) return Response.json({ username: handle || '', name: handle || '' })
     const loginToken = token.startsWith('IGAA')
     const host = loginToken ? 'graph.instagram.com' : 'graph.facebook.com'

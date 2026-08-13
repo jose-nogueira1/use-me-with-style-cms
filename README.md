@@ -48,9 +48,6 @@ reached over REST/GraphQL.
     an Instagram Login `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_PAGE_ID` (feed), `META_WEBHOOK_VERIFY_TOKEN`,
     `META_APP_SECRET`, and `INSTAGRAM_APP_SECRET` (validate signed inbound
     deliveries from both Meta login modes).
-    `INSTAGRAM_TOKEN_ENCRYPTION_KEY` enables the private encrypted token vault.
-    Schedule `npm run cron:refresh-instagram` daily; it refreshes after 30 days,
-    validates before promotion, and alerts support on failures/escalating expiry.
     A failed or unconfigured admin reply is rejected so the UI cannot record a
     message as sent when Instagram did not accept it.
   - Admin view: "Mensagens" in the SPA admin (`use-me-with-style-platform`).

@@ -16,7 +16,6 @@
     "db:local:sync": "node scripts/sync-local-sqlite.mjs",
     "cron:release-inventory": "node scripts/release-expired-reservations.mjs",
     "cron:process-ai": "node scripts/process-ai-messages.mjs",
-    "cron:refresh-instagram": "node scripts/refresh-instagram-token.mjs",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",

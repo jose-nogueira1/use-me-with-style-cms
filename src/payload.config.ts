@@ -22,7 +22,6 @@ import { Customers } from './collections/Customers'
 import { Messages } from './collections/Messages'
 import { Invoices } from './collections/Invoices'
 import { Coupons } from './collections/Coupons'
-import { InstagramTokenVault } from './collections/InstagramTokenVault'
 // Phase 2: import { Returns } from './collections/Returns'
 import { MarketSettings } from './globals/MarketSettings'
 import { InvoiceSettings } from './globals/InvoiceSettings'
@@ -45,7 +44,6 @@ import { couponsEndpoints } from './endpoints/coupons'
 import { taxRatesEndpoint } from './endpoints/taxRates'
 import { aiAssistantEndpoint, aiAssistantStatusEndpoint } from './endpoints/aiAssistant'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
-import { instagramTokenRefreshEndpoint } from './endpoints/instagramTokenRefresh'
 import { robotsEndpoint, sitemapEndpoint } from './endpoints/seoFiles'
 // Phase 2: re-enable customerReturnEndpoints when the return workflow is ready for release.
 // import { customerReturnEndpoints } from './endpoints/customerReturns'
@@ -168,7 +166,7 @@ export default buildConfig({
     },
   },
   // Phase 2: add Returns back after the workflow robustness pass.
-  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Customers, Messages, Invoices, Coupons, InstagramTokenVault],
+  collections: [Users, Media, Products, Categories, MerchTags, Colors, SizeGuides, Posts, Orders, Customers, Messages, Invoices, Coupons],
   // home-content (2026-07-25..2026-08-04) was split into three independent
   // globals on 2026-08-04 -- HomeHero, HomeCategories, HomeCollections --
   // each with its own save + version history (admin feedback: a single
@@ -195,7 +193,6 @@ export default buildConfig({
     aiAssistantEndpoint,
     aiAssistantStatusEndpoint,
     instagramProfileEndpoint,
-    instagramTokenRefreshEndpoint,
     sitemapEndpoint,
     robotsEndpoint,
   ],

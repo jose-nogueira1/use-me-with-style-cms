@@ -348,7 +348,7 @@ export function verifyMetaWebhookSignature(
 }
 
 async function handleInboundMessage(payloadClient: any, msg: InboundMessage) {
-  msg = await enrichInstagramStoryReply(msg, (messageId) => getInstagramMessageText(messageId, { payload: payloadClient }))
+  msg = await enrichInstagramStoryReply(msg)
   const intent = msg.direction === 'inbound' ? classifyIncomingMessage(msg.body) : 'unknown'
 
   // Meta retries deliveries; its message ID is the stable idempotency key.
@@ -562,7 +562,7 @@ const markConversationReadEndpoint: Endpoint = {
       overrideAccess: true,
     })))
 
-    const instagramSynced = await markInstagramConversationSeen(contactHandle, req.payload)
+    const instagramSynced = await markInstagramConversationSeen(contactHandle)
     return Response.json({ readAt, updatedIds: unread.docs.map((message: any) => message.id), instagramSynced })
   },
 }

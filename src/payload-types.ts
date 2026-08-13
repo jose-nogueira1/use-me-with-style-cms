@@ -76,11 +76,11 @@ export interface Config {
     'size-guides': SizeGuide;
     posts: Post;
     orders: Order;
+    returns: Return;
     customers: Customer;
     messages: Message;
     invoices: Invoice;
     coupons: Coupon;
-    'instagram-token-vault': InstagramTokenVault;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -97,11 +97,11 @@ export interface Config {
     'size-guides': SizeGuidesSelect<false> | SizeGuidesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    returns: ReturnsSelect<false> | ReturnsSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
     invoices: InvoicesSelect<false> | InvoicesSelect<true>;
     coupons: CouponsSelect<false> | CouponsSelect<true>;
-    'instagram-token-vault': InstagramTokenVaultSelect<false> | InstagramTokenVaultSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -672,6 +672,82 @@ export interface Order {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns".
+ */
+export interface Return {
+  id: number;
+  returnNumber: string;
+  origin?: ('admin' | 'customer') | null;
+  order: number | Order;
+  orderNumber: string;
+  market: 'AO' | 'PT';
+  currency: 'Kz' | 'EUR';
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string | null;
+  lang?: ('pt' | 'en') | null;
+  status:
+    | 'requested'
+    | 'approved'
+    | 'awaiting_item'
+    | 'received'
+    | 'inspected'
+    | 'resolved'
+    | 'rejected'
+    | 'customer_cancelled';
+  resolution: 'refund' | 'exchange' | 'store_credit';
+  reason: 'wrong_size' | 'wrong_colour' | 'changed_mind' | 'defective' | 'incorrect_item' | 'other';
+  customerNote?: string | null;
+  internalNote?: string | null;
+  returnShippingPayer?: ('customer' | 'use_me') | null;
+  /**
+   * Item-level quantities, original paid allocation, inspection result and controlled restocking.
+   */
+  items:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Customer evidence images, base64 encoded and private to authenticated admin reads.
+   */
+  evidence?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  requestedAmount: number;
+  approvedAmount?: number | null;
+  refundStatus?: ('not_required' | 'pending' | 'completed' | 'failed') | null;
+  refundReference?: string | null;
+  storeCreditCode?: string | null;
+  replacementOrder?: (number | null) | Order;
+  inventoryRestockedAt?: string | null;
+  resolvedAt?: string | null;
+  statusHistory?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  customerLastNotifiedStatus?: string | null;
+  phase2SelfServiceNote?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers".
  */
 export interface Customer {
@@ -905,22 +981,6 @@ export interface Coupon {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instagram-token-vault".
- */
-export interface InstagramTokenVault {
-  id: number;
-  ciphertext: string;
-  expiresAt: string;
-  lastRefreshedAt?: string | null;
-  lastAttemptAt?: string | null;
-  lastError?: string | null;
-  lastAlertAt?: string | null;
-  lastAlertThreshold?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -980,6 +1040,10 @@ export interface PayloadLockedDocument {
         value: number | Order;
       } | null)
     | ({
+        relationTo: 'returns';
+        value: number | Return;
+      } | null)
+    | ({
         relationTo: 'customers';
         value: number | Customer;
       } | null)
@@ -994,10 +1058,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'coupons';
         value: number | Coupon;
-      } | null)
-    | ({
-        relationTo: 'instagram-token-vault';
-        value: number | InstagramTokenVault;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1389,6 +1449,43 @@ export interface OrdersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "returns_select".
+ */
+export interface ReturnsSelect<T extends boolean = true> {
+  returnNumber?: T;
+  origin?: T;
+  order?: T;
+  orderNumber?: T;
+  market?: T;
+  currency?: T;
+  customerName?: T;
+  customerEmail?: T;
+  customerPhone?: T;
+  lang?: T;
+  status?: T;
+  resolution?: T;
+  reason?: T;
+  customerNote?: T;
+  internalNote?: T;
+  returnShippingPayer?: T;
+  items?: T;
+  evidence?: T;
+  requestedAmount?: T;
+  approvedAmount?: T;
+  refundStatus?: T;
+  refundReference?: T;
+  storeCreditCode?: T;
+  replacementOrder?: T;
+  inventoryRestockedAt?: T;
+  resolvedAt?: T;
+  statusHistory?: T;
+  customerLastNotifiedStatus?: T;
+  phase2SelfServiceNote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers_select".
  */
 export interface CustomersSelect<T extends boolean = true> {
@@ -1541,21 +1638,6 @@ export interface CouponsSelect<T extends boolean = true> {
   maxRedemptionsPerEmail?: T;
   availableAO?: T;
   availablePT?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instagram-token-vault_select".
- */
-export interface InstagramTokenVaultSelect<T extends boolean = true> {
-  ciphertext?: T;
-  expiresAt?: T;
-  lastRefreshedAt?: T;
-  lastAttemptAt?: T;
-  lastError?: T;
-  lastAlertAt?: T;
-  lastAlertThreshold?: T;
   updatedAt?: T;
   createdAt?: T;
 }

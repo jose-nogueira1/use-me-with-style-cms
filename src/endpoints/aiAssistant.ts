@@ -89,7 +89,7 @@ async function tryAutomaticReply(input: {
       collection: 'messages', id: input.message.id, overrideAccess: true,
       data: { aiOutcome: 'automatic_sending', aiAutomationDecision: decision.reason },
     })
-    externalId = await sendInstagramMessage(String(input.message.contactHandle), input.reply, input.payload)
+    externalId = await sendInstagramMessage(String(input.message.contactHandle), input.reply)
   } catch (error) {
     const detail = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500)
     await input.payload.update({

@@ -15,7 +15,6 @@ import {
   type InstagramProductTagEntry,
   type InstagramPost,
 } from '../lib/instagramFeed'
-import { getInstagramAccessToken } from '../lib/instagramTokenVault'
 
 const MAX_LIMIT = 12
 const DEFAULT_LIMIT = 6
@@ -30,8 +29,8 @@ const DEFAULT_LIMIT = 6
 const CACHE_TTL_MS = 15 * 60 * 1000
 let cache: { posts: InstagramPost[]; fetchedAt: number } | null = null
 
-async function fetchFromGraphApi(limit: number, payload: any): Promise<InstagramPost[]> {
-  const token = await getInstagramAccessToken(payload)
+async function fetchFromGraphApi(limit: number): Promise<InstagramPost[]> {
+  const token = process.env.INSTAGRAM_ACCESS_TOKEN
   const igId = process.env.INSTAGRAM_PAGE_ID
   // Instagram Login tokens (IGAA...) use the Instagram Graph host and /me;
   // Page/Facebook tokens use graph.facebook.com with the configured account ID.
@@ -120,7 +119,7 @@ export const instagramFeedEndpoints: Endpoint[] = [
 
       if (!pool) {
         try {
-          pool = await fetchFromGraphApi(MAX_LIMIT, req.payload)
+          pool = await fetchFromGraphApi(MAX_LIMIT)
           cache = { posts: pool, fetchedAt: now }
         } catch (err) {
           req.payload.logger.error(

@@ -70,7 +70,7 @@ async function verifiedOrder(req: PayloadRequest, orderNumber: string, email: st
 
 async function existingReturns(req: PayloadRequest, orderId: string | number) {
   return req.payload.find({
-    collection: 'returns' as any,
+    collection: 'returns',
     where: { and: [{ order: { equals: orderId } }, { status: { not_in: ['rejected', 'customer_cancelled'] } }] },
     limit: 100,
     depth: 0,
@@ -199,7 +199,7 @@ export const customerReturnEndpoints: Endpoint[] = [
       }
 
       const doc = await req.payload.create({
-        collection: 'returns' as any,
+        collection: 'returns',
         overrideAccess: true,
         context: { customerInitiated: true },
         data: {
@@ -225,7 +225,7 @@ export const customerReturnEndpoints: Endpoint[] = [
       const order = await verifiedOrder(req, body.orderNumber, body.email)
       if (!order || String(order.id) !== orderId) return Response.json({ error: 'Invalid request.' }, { status: 401 })
       const rows = await req.payload.find({
-        collection: 'returns' as any,
+        collection: 'returns',
         where: { and: [{ returnNumber: { equals: body.returnNumber } }, { order: { equals: order.id } }] },
         limit: 1,
         depth: 0,
@@ -236,7 +236,7 @@ export const customerReturnEndpoints: Endpoint[] = [
         return Response.json({ error: 'This request can no longer be cancelled.' }, { status: 400 })
       }
       await req.payload.update({
-        collection: 'returns' as any,
+        collection: 'returns',
         id: row.id,
         overrideAccess: true,
         context: { customerInitiated: true },
