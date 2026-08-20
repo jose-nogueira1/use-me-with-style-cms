@@ -23,18 +23,18 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@payloadcms/db-postgres": "3.86.0",
-    "@payloadcms/db-sqlite": "3.86.0",
-    "@payloadcms/email-resend": "3.86.0",
-    "@payloadcms/next": "3.86.0",
-    "@payloadcms/richtext-lexical": "3.86.0",
-    "@payloadcms/storage-s3": "3.86.0",
-    "@payloadcms/ui": "3.86.0",
+    "@payloadcms/db-postgres": "3.88.0",
+    "@payloadcms/db-sqlite": "3.88.0",
+    "@payloadcms/email-resend": "3.88.0",
+    "@payloadcms/next": "3.88.0",
+    "@payloadcms/richtext-lexical": "3.88.0",
+    "@payloadcms/storage-s3": "3.88.0",
+    "@payloadcms/ui": "3.88.0",
     "cross-env": "^10.1.0",
     "dotenv": "^16.4.7",
     "graphql": "^16.8.1",
     "next": "16.2.12",
-    "payload": "3.86.0",
+    "payload": "3.88.0",
     "pdf-lib": "^1.17.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -56,8 +56,11 @@
     "node": ">=20.9.0"
   },
   "overrides": {
-    "fast-uri": "^3.1.4",
+    "fast-uri": "3.1.5",
     "postcss": "^8.5.18",
-    "sharp": "$sharp"
+    "sharp": "$sharp",
+    "js-yaml": "4.3.1",
+    "nanoid": "3.3.18",
+    "dompurify": "3.4.14"
   }
 }
