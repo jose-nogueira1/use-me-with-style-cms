@@ -1642,7 +1642,7 @@ export interface MarketSetting {
   portugalHeavyMainlandShippingPrice: number;
   portugalHeavyIslandsShippingPrice: number;
   /**
-   * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.
+   * Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy has separate business/legal terms from Portugal’s, so it is a separate field rather than a shared translation.
    */
   angolaReturnsPolicyTextPT?: string | null;
   /**

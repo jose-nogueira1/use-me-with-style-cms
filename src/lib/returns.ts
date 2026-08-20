@@ -1,6 +1,15 @@
 export const RETURN_STATUSES = ['requested', 'approved', 'awaiting_item', 'received', 'inspected', 'resolved', 'rejected', 'customer_cancelled'] as const
 export const RETURN_RESOLUTIONS = ['refund', 'exchange', 'store_credit'] as const
 
+export const RETURN_WINDOW_HOURS = 14 * 24
+const RETURN_WINDOW_MS = RETURN_WINDOW_HOURS * 60 * 60_000
+
+export function isWithinReturnWindow(deliveredAt?: string, now = Date.now()) {
+  if (!deliveredAt) return false
+  const deliveredAtMs = new Date(deliveredAt).getTime()
+  return Number.isFinite(deliveredAtMs) && now - deliveredAtMs <= RETURN_WINDOW_MS
+}
+
 export type ReturnItem = {
   orderItemId: string
   product: string | number

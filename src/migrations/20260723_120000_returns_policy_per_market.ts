@@ -2,10 +2,9 @@ import { sql, type MigrateUpArgs, type MigrateDownArgs } from '@payloadcms/db-po
 
 // Splits the single `returnsPolicyText` field on the MarketSettings global
 // into `angolaReturnsPolicyText` / `portugalReturnsPolicyText` (JOS-64).
-// The two markets' legal text differ materially (Angola: 48h exchange-only
-// window, no refunds; Portugal/EU: 14-day statutory withdrawal + refund) so
-// this is a genuine content split, not a translation -- storing both under
-// one field would make one market's checkout show the wrong policy.
+// The two markets' legal text have separate business/legal terms, so this is
+// a genuine content split, not a translation -- storing both under one field
+// would make one market's checkout show the wrong policy.
 //
 // `returnsPolicyText` was a `textarea` field, which Payload's Postgres
 // adapter maps to a plain `varchar` column (same pattern as

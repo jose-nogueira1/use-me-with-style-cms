@@ -13,6 +13,26 @@ test('storefront content is publicly readable and seeds the existing six FAQs', 
   assert.equal(faqField.defaultValue.length, 6)
 })
 
+test('code-controlled Angola returns copy never conflicts with the approved 14-day window', () => {
+  for (const path of [
+    'src/globals/StorefrontContent.ts',
+    'src/globals/MarketSettings.ts',
+    'src/payload-types.ts',
+    'src/migrations/20260723_120000_returns_policy_per_market.ts',
+    'src/endpoints/customerReturns.ts',
+    'scripts/seed.ts',
+  ]) {
+    const source = projectFile(path)
+    assert.doesNotMatch(source, /48 (?:horas|hours)|48h exchange|policyWindowHours:\s*(?:48|2\s*\*\s*24)/i, `${path} contains conflicting Angola returns copy`)
+  }
+
+  const faqField = StorefrontContent.fields.find((field) => 'name' in field && field.name === 'faqEntries')
+  assert.ok(faqField && 'defaultValue' in faqField && Array.isArray(faqField.defaultValue))
+  const returnsFaq = faqField.defaultValue.find((entry: { linkPath?: string }) => entry.linkPath === '/ajuda#devolucoes')
+  assert.match(returnsFaq.answerPT, /14 dias/)
+  assert.match(returnsFaq.answerEN, /14 days/)
+})
+
 test('TikTok profile is optional and only accepts an official HTTPS profile URL', () => {
   const field = StorefrontContent.fields.find((candidate) => 'name' in candidate && candidate.name === 'tiktokUrl')
   assert.ok(field && 'validate' in field && typeof field.validate === 'function')

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Endpoint, PayloadRequest } from 'payload'
-import { allocateReturnAmounts, type ReturnItem } from '../lib/returns'
+import { allocateReturnAmounts, isWithinReturnWindow, RETURN_WINDOW_HOURS, type ReturnItem } from '../lib/returns'
 
 const WINDOW_MS = 60_000
 const MAX_ATTEMPTS = 8
@@ -53,9 +53,6 @@ function verifySession(value: string, email: string) {
 const deliveredAt = (order: { statusHistory?: Array<{ status?: string; changedAt?: string }> | null; updatedAt?: string }) =>
   order.statusHistory?.filter((entry) => entry.status === 'delivered').at(-1)?.changedAt || order.updatedAt
 
-const withinWindow = (market: string, date?: string) =>
-  Boolean(date) && Date.now() - new Date(date!).getTime() <= (market === 'AO' ? 48 : 14 * 24) * 60 * 60_000
-
 async function verifiedOrder(req: PayloadRequest, orderNumber: string, email: string) {
   const found = await req.payload.find({
     collection: 'orders',
@@ -94,7 +91,7 @@ export const customerReturnEndpoints: Endpoint[] = [
         .filter((row) => row.origin === 'customer' && row.status === 'requested')
         .map((row) => ({ returnNumber: row.returnNumber, createdAt: row.createdAt }))
       const token = sessionToken(order.id, body.email)
-      const eligible = order.status === 'delivered' && order.paymentStatus === 'paid' && withinWindow(order.market, deliveredAt(order))
+      const eligible = order.status === 'delivered' && order.paymentStatus === 'paid' && isWithinReturnWindow(deliveredAt(order))
       if (!eligible) {
         return Response.json({
           eligible: false,
@@ -123,7 +120,7 @@ export const customerReturnEndpoints: Endpoint[] = [
         sessionToken: token,
         market: order.market,
         currency: order.currency,
-        policyWindowHours: order.market === 'AO' ? 48 : 336,
+        policyWindowHours: RETURN_WINDOW_HOURS,
         cancellableReturns,
         items: allocated.map((item, index) => ({
           orderItemId: item.orderItemId,
@@ -163,7 +160,7 @@ export const customerReturnEndpoints: Endpoint[] = [
       const orderId = verifySession(body.sessionToken || '', body.email || '')
       if (!orderId) return Response.json({ error: 'Return session expired.' }, { status: 401 })
       const order = await verifiedOrder(req, body.orderNumber, body.email)
-      if (!order || String(order.id) !== orderId || order.status !== 'delivered' || order.paymentStatus !== 'paid' || !withinWindow(order.market, deliveredAt(order))) {
+      if (!order || String(order.id) !== orderId || order.status !== 'delivered' || order.paymentStatus !== 'paid' || !isWithinReturnWindow(deliveredAt(order))) {
         return Response.json({ error: 'Order is not eligible.' }, { status: 400 })
       }
       if (!['refund', 'exchange', 'store_credit'].includes(body.resolution)) return Response.json({ error: 'Invalid resolution.' }, { status: 400 })

@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { allocateReturnAmounts, requestedRefund } from '../src/lib/returns.ts'
+import * as returnRules from '../src/lib/returns.ts'
 import { buildReturnStatusEmail } from '../src/lib/email.ts'
+
+const { allocateReturnAmounts, requestedRefund } = returnRules
+
+test('Angola and Portugal return requests remain eligible for 14 days', () => {
+  const returnWindowHours = (returnRules as Record<string, unknown>).RETURN_WINDOW_HOURS
+  assert.equal(returnWindowHours, 14 * 24)
+  const isWithinReturnWindow = (returnRules as Record<string, unknown>).isWithinReturnWindow
+  assert.equal(typeof isWithinReturnWindow, 'function')
+  const withinWindow = isWithinReturnWindow as (deliveredAt: string | undefined, now?: number) => boolean
+  const now = Date.UTC(2026, 7, 20, 12)
+  assert.equal(withinWindow(new Date(now - 13 * 24 * 60 * 60_000).toISOString(), now), true)
+  assert.equal(withinWindow(new Date(now - 15 * 24 * 60 * 60_000).toISOString(), now), false)
+})
 
 test('return allocation preserves original prices and allocates order coupon proportionally', () => {
   const items = allocateReturnAmounts([

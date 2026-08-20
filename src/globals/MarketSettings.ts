@@ -205,7 +205,7 @@ export const MarketSettings: GlobalConfig = {
       label: 'Angola: returns & exchanges policy — Portuguese (shown on Help page / checkout)',
       admin: {
         description:
-          'Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy differs materially from Portugal’s (48h exchange window, no refunds) so it is a separate field rather than a shared translation.',
+          'Client-provided legal copy (JOS-64, added 2026-07-23). Angola’s policy has separate business/legal terms from Portugal’s, so it is a separate field rather than a shared translation.',
       },
     },
     {
