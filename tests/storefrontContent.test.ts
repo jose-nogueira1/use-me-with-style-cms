@@ -33,6 +33,18 @@ test('code-controlled Angola returns copy never conflicts with the approved 14-d
   assert.match(returnsFaq.answerEN, /14 days/)
 })
 
+test('payment FAQ describes the approved WhatsApp launch flow without claiming AppyPay is live', () => {
+  const faqField = StorefrontContent.fields.find((field) => 'name' in field && field.name === 'faqEntries')
+  assert.ok(faqField && 'defaultValue' in faqField && Array.isArray(faqField.defaultValue))
+  const paymentFaq = faqField.defaultValue.find((entry: { questionEN?: string }) => entry.questionEN === 'Which payment methods do you accept?')
+  assert.match(paymentFaq.answerPT, /WhatsApp/)
+  assert.match(paymentFaq.answerEN, /WhatsApp/)
+  assert.match(paymentFaq.answerPTPT, /WhatsApp/)
+  assert.match(paymentFaq.answerENPT, /WhatsApp/)
+  assert.doesNotMatch(paymentFaq.answerPT, /checkout apresenta o AppyPay/)
+  assert.doesNotMatch(paymentFaq.answerEN, /checkout presents AppyPay/)
+})
+
 test('TikTok profile is optional and only accepts an official HTTPS profile URL', () => {
   const field = StorefrontContent.fields.find((candidate) => 'name' in candidate && candidate.name === 'tiktokUrl')
   assert.ok(field && 'validate' in field && typeof field.validate === 'function')
