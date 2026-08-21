@@ -12,10 +12,11 @@ Emergency escalation: José ↔ Raisa WhatsApp conversation
 
 ## Decision
 
-**Conditional GO.** Recovery rehearsals, production endpoint checks, alert simulation, monitoring code, and ownership attestation pass. Convert this to final GO after:
+**Conditional GO — automation active.** Recovery rehearsals, production endpoint checks, alert simulation, merged monitoring, and ownership attestation pass. Convert this to final GO after:
 
-1. the feature branch is merged to `main` and all four GitHub workflows are dispatched successfully; and
-2. José confirms receipt of the three Resend template tests, the shared-mailbox alert rehearsal, and the email canary.
+1. José confirms receipt of the three Resend template tests, the shared-mailbox alert rehearsal, and the email canary.
+
+The feature branch was merged through PR #35 at `d8739053aa11d22333f349c096c2ce5ddf13a17b`. All four production workflows were dispatched from `main` and completed successfully.
 
 No production customer record, inventory quantity, media object, or database was overwritten during these rehearsals.
 
@@ -26,6 +27,7 @@ No production customer record, inventory quantity, media object, or database was
 - The production API key is send-only: message creation succeeds, while email-detail lookup returns HTTP 401. This prevents the application credential from reading account email history. Inbox receipt is therefore a manual closeout confirmation.
 - Raisa will monitor `support@usemewithstyle.shop` and `orders@usemewithstyle.shop` at delivery. José monitors them until delivery. José and Raisa both own mailbox recovery.
 - Daily canary workflow: `.github/workflows/email-delivery-canary.yml`.
+- First merged canary run: GitHub Actions `32493394038`, successful at `2026-08-21T14:40:35Z`.
 
 ## 4.2 Cloudflare R2 recovery rehearsal
 
@@ -50,6 +52,8 @@ No production customer record, inventory quantity, media object, or database was
 - Local file permission: owner read/write only (`0600`); encryption key stored in José's macOS Keychain.
 - Cleanup: scratch database dropped after integrity comparison; absence verified.
 - Scheduled retention: daily encrypted GitHub artifact, 14-day retention, in `.github/workflows/database-backup.yml`.
+- First merged backup run: GitHub Actions `32493398050`, successful at `2026-08-21T14:41:05Z`.
+- Retained artifact: `useme-postgres-32493398050`, 3,683,565 bytes, expires `2026-09-04T14:41:02Z`.
 - Operational RPO: 24 hours.
 - Operational RTO: 30 minutes (measured restore is 205 seconds; allowance covers artifact retrieval, decryption, provisioning, validation, and application recovery).
 - Recovery operator: José. Raisa can escalate through the shared WhatsApp channel and has Railway control.
@@ -62,6 +66,7 @@ No production customer record, inventory quantity, media object, or database was
   - run 2: 559 ms, 0 expired reservations released;
   - run 3: 627 ms, 0 expired reservations released.
 - Independent heartbeat workflow: `.github/workflows/inventory-cleanup-heartbeat.yml`, every five minutes.
+- First merged heartbeat run: GitHub Actions `32493271155`, successful.
 - Stale-heartbeat monitor: `.github/workflows/operations-monitor.yml`, 15-minute threshold.
 - Controlled missed-heartbeat rehearsal: platform checks passed, the simulated heartbeat failed closed, and Resend accepted the alert to the shared mailbox.
 - Recovery command: `PAYLOAD_PUBLIC_SERVER_URL=https://cms.usemewithstyle.shop npm run cron:release-inventory` with the production `CRON_SECRET` supplied securely.
@@ -86,6 +91,7 @@ Controlled live check result on 2026-08-21:
 - Meta webhook handshake: passed;
 - simulated missed heartbeat: detected;
 - alert email API acceptance: passed.
+- first merged normal-monitor run: GitHub Actions `32493390308`, successful at `2026-08-21T14:40:34Z`.
 
 ## 4.6 Ownership and recovery attestation
 
