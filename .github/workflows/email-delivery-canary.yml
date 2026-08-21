@@ -1,0 +1,26 @@
+name: Email delivery canary
+
+on:
+  schedule:
+    - cron: '15 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Send canary to the shared operations mailbox
+        run: node scripts/operations-monitor.mjs --mode=email-canary
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          RESEND_FROM_NAME: Use Me With Style Operations
+          OPS_ALERT_EMAIL: ${{ vars.OPS_ALERT_EMAIL }}

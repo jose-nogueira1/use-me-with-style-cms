@@ -1,0 +1,43 @@
+name: Production operations monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      simulate_missed_heartbeat:
+        description: Send a controlled missed-heartbeat alert
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: production-operations-monitor
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check storefronts, CMS, Meta webhook, and inventory heartbeat
+        run: node scripts/operations-monitor.mjs --mode=platform
+        env:
+          OPS_CMS_URL: https://cms.usemewithstyle.shop
+          OPS_STOREFRONT_URLS: https://usemewithstyle.shop,https://ao.usemewithstyle.shop,https://pt.usemewithstyle.shop
+          OPS_HEARTBEAT_MAX_AGE_MS: '900000'
+          META_WEBHOOK_VERIFY_TOKEN: ${{ secrets.META_WEBHOOK_VERIFY_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          RESEND_FROM_NAME: Use Me With Style Operations
+          OPS_ALERT_EMAIL: ${{ vars.OPS_ALERT_EMAIL }}
+          SIMULATE_MISSED_HEARTBEAT: ${{ inputs.simulate_missed_heartbeat && '1' || '0' }}
