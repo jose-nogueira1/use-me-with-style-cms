@@ -1,0 +1,57 @@
+name: PostgreSQL encrypted backup
+
+on:
+  schedule:
+    - cron: '20 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Create and validate PostgreSQL 18 logical backup
+        env:
+          DATABASE_PUBLIC_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_PUBLIC_URL"
+          test -n "$BACKUP_ENCRYPTION_PASSPHRASE"
+          backup_dir="$RUNNER_TEMP/useme-postgres-backup"
+          mkdir -p "$backup_dir"
+          chmod 700 "$backup_dir"
+          plain="$backup_dir/useme-postgres-${GITHUB_RUN_ID}.dump"
+          encrypted="$plain.enc"
+          dump_name="$(basename "$plain")"
+
+          docker run --rm \
+            -e DATABASE_PUBLIC_URL \
+            -e DUMP_NAME="$dump_name" \
+            -v "$backup_dir:/backup" \
+            postgres:18 \
+            sh -lc 'pg_dump "$DATABASE_PUBLIC_URL" --format=custom --no-owner --no-privileges --file="/backup/$DUMP_NAME"'
+
+          docker run --rm \
+            -v "$backup_dir:/backup:ro" \
+            postgres:18 \
+            pg_restore --list "/backup/$dump_name" >/dev/null
+
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
+            -in "$plain" -out "$encrypted" -pass env:BACKUP_ENCRYPTION_PASSPHRASE
+          chmod 600 "$encrypted"
+          rm -f "$plain"
+          test -s "$encrypted"
+          echo "artifact_path=$encrypted" >> "$GITHUB_ENV"
+          echo "sha256=$(sha256sum "$encrypted" | awk '{print $1}')" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain encrypted backup for 14 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: useme-postgres-${{ github.run_id }}
+          path: ${{ env.artifact_path }}
+          if-no-files-found: error
+          retention-days: 14

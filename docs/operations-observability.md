@@ -20,6 +20,24 @@ The command terminates after every run, as required by Railway scheduled service
 
 If Railway reports that a deployment failed before initialization or build began, check the Railway status page before changing application code. After the provider incident clears, trigger a fresh deployment of the unchanged verified revision.
 
+### Independent heartbeat monitor
+
+The Railway job remains the primary five-minute cleanup scheduler. GitHub Actions provides an independent five-minute heartbeat using `.github/workflows/inventory-cleanup-heartbeat.yml`; the cleanup endpoint is idempotent, so this safely provides both a second execution path and durable success-run evidence. `.github/workflows/operations-monitor.yml` checks that a successful heartbeat exists within the last 15 minutes. A controlled missed-heartbeat alert can be rehearsed with the workflow-dispatch input without disabling production cleanup.
+
+The production monitor also checks the root, Angola, and Portugal storefronts, the CMS content endpoint, and the Meta webhook verification handshake every 15 minutes. Failures are sent to the shared operations mailbox. GitHub records the workflow failure as the fallback signal if Resend itself is unavailable. `.github/workflows/email-delivery-canary.yml` sends a daily canary to exercise Resend independently of customer orders.
+
+Required GitHub configuration:
+
+- Secrets: `CRON_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `DATABASE_PUBLIC_URL`, `BACKUP_ENCRYPTION_PASSPHRASE`.
+- Variable: `OPS_ALERT_EMAIL`.
+- Alert mailbox: `usemewithstyle.master@gmail.com`, controlled by José and Raisa.
+
+## Database backup retention
+
+`.github/workflows/database-backup.yml` creates a PostgreSQL 18 custom-format logical dump every day at 02:20 UTC, validates its restore manifest, encrypts it with AES-256-CBC/PBKDF2, removes the plaintext, and retains the encrypted artifact for 14 days. This provides a 24-hour operational RPO. The Gate 3 isolated restore rehearsal measured a 205-second database restore; allow a 30-minute operational RTO for download, decryption, provisioning, restore, validation, and DNS/application recovery steps.
+
+The backup passphrase is stored as a GitHub Actions secret and in José's macOS Keychain. Never paste it into tickets, documentation, chat, or workflow logs. A restore must target a newly created isolated database first; compare table row-count evidence before any production recovery decision.
+
 ## Recommended alerts
 
 - Any `inventory_reservation_cleanup_failed` event: page the operator.
