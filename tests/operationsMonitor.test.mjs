@@ -34,6 +34,27 @@ test('heartbeat check rejects stale successful runs', async () => {
   )
 })
 
+test('heartbeat check tolerates delayed GitHub schedules within the configured window', async () => {
+  const result = await checkInventoryHeartbeat({
+    env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_TOKEN: 'token', OPS_HEARTBEAT_MAX_AGE_MS: '2700000' },
+    now: Date.parse('2026-08-21T12:44:59Z'),
+    fetchImpl: async () => json({ workflow_runs: [{ updated_at: '2026-08-21T12:00:00Z' }] }),
+  })
+
+  assert.deepEqual(result, { check: 'inventory_heartbeat', ageSeconds: 2699 })
+})
+
+test('heartbeat check still rejects runs older than the delayed-schedule window', async () => {
+  await assert.rejects(
+    checkInventoryHeartbeat({
+      env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_TOKEN: 'token', OPS_HEARTBEAT_MAX_AGE_MS: '2700000' },
+      now: Date.parse('2026-08-21T12:45:01Z'),
+      fetchImpl: async () => json({ workflow_runs: [{ updated_at: '2026-08-21T12:00:00Z' }] }),
+    }),
+    /older than 45 minutes/,
+  )
+})
+
 test('a failed platform check sends an operations alert and fails closed', async () => {
   const env = {
     META_WEBHOOK_VERIFY_TOKEN: 'verify',
