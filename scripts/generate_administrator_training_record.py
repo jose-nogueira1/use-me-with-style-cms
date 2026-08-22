@@ -84,7 +84,7 @@ def build_story():
          P("Registo de Formação<br/>da Administradora", cover_title), Spacer(1, 4 * mm),
          P("Agenda, exercícios, evidência e validação de competências", cover_sub), Spacer(1, 12 * mm)]
     s += [table(["Campo", "Valor controlado"], [
-        ("Documento", "UMWS-P1-TR-001"), ("Versão", "1.0"), ("Data de preparação", "22 de agosto de 2026"),
+        ("Documento", "UMWS-P1-ATR-001"), ("Versão", "1.0"), ("Data de preparação", "22 de agosto de 2026"),
         ("Formador", "José"), ("Administradora / formanda", "Raisa"),
         ("Formato", "Sessão remota, única e abrangente, com gravação"),
         ("Estado", "Preparado - sessão, evidências e assinaturas pendentes"),
