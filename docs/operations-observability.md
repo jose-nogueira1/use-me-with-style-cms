@@ -16,13 +16,13 @@ Create a second Railway service from this same GitHub repository. It is a short-
 4. Generate a long random `CRON_SECRET` and set the identical value on the CMS web service and this scheduled service.
 5. Do not assign the scheduled service a public domain.
 
-The command terminates after every run, as required by Railway scheduled services. A non-2xx response, timeout, missing variable, or malformed response exits unsuccessfully so Railway records a failed deployment run. Alert when `inventory_cleanup_cron_failed` or `inventory_reservation_cleanup_failed` appears, or when the scheduled request does not produce a success event for 15 minutes.
+The command terminates after every run, as required by Railway scheduled services. A non-2xx response, timeout, missing variable, or malformed response exits unsuccessfully so Railway records a failed deployment run. Alert immediately when `inventory_cleanup_cron_failed` or `inventory_reservation_cleanup_failed` appears. For freshness monitoring, alert when the independent scheduled heartbeat has no successful run for 45 minutes; this accounts for observed GitHub Actions schedule delays while remaining fail-closed.
 
 If Railway reports that a deployment failed before initialization or build began, check the Railway status page before changing application code. After the provider incident clears, trigger a fresh deployment of the unchanged verified revision.
 
 ### Independent heartbeat monitor
 
-The Railway job remains the primary five-minute cleanup scheduler. GitHub Actions provides an independent five-minute heartbeat using `.github/workflows/inventory-cleanup-heartbeat.yml`; the cleanup endpoint is idempotent, so this safely provides both a second execution path and durable success-run evidence. `.github/workflows/operations-monitor.yml` checks that a successful heartbeat exists within the last 15 minutes. A controlled missed-heartbeat alert can be rehearsed with the workflow-dispatch input without disabling production cleanup.
+The Railway job remains the primary five-minute cleanup scheduler. GitHub Actions provides an independent nominal five-minute heartbeat using `.github/workflows/inventory-cleanup-heartbeat.yml`; the cleanup endpoint is idempotent, so this safely provides both a second execution path and durable success-run evidence. `.github/workflows/operations-monitor.yml` checks that a successful heartbeat exists within the last 45 minutes. Gate 4.5 established this threshold after GitHub scheduled runs were observed starting 25-35 minutes late. A controlled missed-heartbeat alert can be rehearsed with the workflow-dispatch input without disabling production cleanup.
 
 The production monitor also checks the root, Angola, and Portugal storefronts, the CMS content endpoint, and the Meta webhook verification handshake every 15 minutes. Failures are sent to the shared operations mailbox. GitHub records the workflow failure as the fallback signal if Resend itself is unavailable. `.github/workflows/email-delivery-canary.yml` sends a daily canary to exercise Resend independently of customer orders.
 
@@ -43,6 +43,6 @@ The backup passphrase is stored as a GitHub Actions secret and in José's macOS 
 - Any `inventory_reservation_cleanup_failed` event: page the operator.
 - Five or more payment endpoint failures in ten minutes: urgent notification.
 - Sustained `order_lookup_rate_limited` volume: investigate abusive traffic and consider a shared rate-limit store.
-- No successful cleanup heartbeat for 15 minutes: verify the scheduler and CMS availability.
+- No successful independent cleanup heartbeat for 45 minutes: verify the scheduler and CMS availability.
 
 Use `requestId` to correlate a browser/deployment request with server logs. `durationMs` supports basic latency monitoring without recording customer data.
