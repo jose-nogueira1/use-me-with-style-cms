@@ -7,7 +7,10 @@ const DEFAULT_STOREFRONTS = [
   'https://ao.usemewithstyle.shop',
   'https://pt.usemewithstyle.shop',
 ]
-const DEFAULT_HEARTBEAT_MAX_AGE_MS = 15 * 60 * 1000
+// GitHub Actions cron runs are best-effort and can start well after their
+// scheduled time. The primary Railway cleanup still runs every five minutes;
+// this independent heartbeat alerts after 45 minutes without a successful run.
+const DEFAULT_HEARTBEAT_MAX_AGE_MS = 45 * 60 * 1000
 
 function required(env, name) {
   const value = env[name]?.trim()

@@ -33,7 +33,9 @@ jobs:
         env:
           OPS_CMS_URL: https://cms.usemewithstyle.shop
           OPS_STOREFRONT_URLS: https://usemewithstyle.shop,https://ao.usemewithstyle.shop,https://pt.usemewithstyle.shop
-          OPS_HEARTBEAT_MAX_AGE_MS: '900000'
+          # GitHub scheduled workflows can be delayed significantly under load.
+          # Allow two observed delayed heartbeat intervals before alerting.
+          OPS_HEARTBEAT_MAX_AGE_MS: '2700000'
           META_WEBHOOK_VERIFY_TOKEN: ${{ secrets.META_WEBHOOK_VERIFY_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
