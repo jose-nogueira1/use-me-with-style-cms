@@ -466,7 +466,7 @@ if (!orderItemColumns.has('variant_id')) {
       _order integer NOT NULL,
       _parent_id integer NOT NULL,
       id text PRIMARY KEY NOT NULL,
-      product_id integer NOT NULL,
+      product_id integer,
       product_name text NOT NULL,
       variant_id text,
       size text,
@@ -486,6 +486,34 @@ if (!orderItemColumns.has('variant_id')) {
     SELECT _order, _parent_id, id, product_id, product_name, size, color, color_id, qty, unit_price FROM orders_items`)
   await client.execute('DROP TABLE orders_items')
   await client.execute('ALTER TABLE orders_items_flexible RENAME TO orders_items')
+  await client.execute('CREATE INDEX orders_items_order_idx ON orders_items (_order)')
+  await client.execute('CREATE INDEX orders_items_parent_id_idx ON orders_items (_parent_id)')
+  await client.execute('CREATE INDEX orders_items_product_idx ON orders_items (product_id)')
+  await client.execute('PRAGMA foreign_keys = ON')
+}
+
+// Product deletion preserves historical order snapshots by setting the
+// catalogue relationship to NULL. Rebuild older local schemas that still
+// declare this FK column NOT NULL (SQLite cannot alter nullability in place).
+const orderItemInfo = await client.execute('PRAGMA table_info(orders_items)')
+const orderProductColumn = orderItemInfo.rows.find((row) => String(row.name) === 'product_id')
+if (orderProductColumn && Number(orderProductColumn.notnull) === 1) {
+  await client.execute('PRAGMA foreign_keys = OFF')
+  await client.execute(`
+    CREATE TABLE orders_items_delete_safe (
+      _order integer NOT NULL, _parent_id integer NOT NULL, id text PRIMARY KEY NOT NULL,
+      product_id integer, product_name text NOT NULL, variant_id text, size text,
+      option_label text, option_value text, color text, color_id text,
+      product_type text DEFAULT 'standard', inventory_components text,
+      qty numeric NOT NULL, unit_price numeric NOT NULL,
+      regular_unit_price REAL, sale_discount_amount REAL, sale_discount_percentage REAL,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON UPDATE no action ON DELETE set null,
+      FOREIGN KEY (_parent_id) REFERENCES orders(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute(`INSERT INTO orders_items_delete_safe SELECT _order, _parent_id, id, product_id, product_name, variant_id, size, option_label, option_value, color, color_id, product_type, inventory_components, qty, unit_price, regular_unit_price, sale_discount_amount, sale_discount_percentage FROM orders_items`)
+  await client.execute('DROP TABLE orders_items')
+  await client.execute('ALTER TABLE orders_items_delete_safe RENAME TO orders_items')
   await client.execute('CREATE INDEX orders_items_order_idx ON orders_items (_order)')
   await client.execute('CREATE INDEX orders_items_parent_id_idx ON orders_items (_parent_id)')
   await client.execute('CREATE INDEX orders_items_product_idx ON orders_items (product_id)')

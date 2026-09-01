@@ -1,5 +1,6 @@
 import { APIError, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
 import { generateProductSlug } from '../lib/productSlug'
+import { blockDeleteProductUsedByKit } from '../lib/productDeletionGuard'
 
 const validateProductStructure: CollectionBeforeValidateHook = async ({ data, operation, originalDoc }) => {
   if (!data) return data
@@ -44,6 +45,7 @@ export const Products: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [generateProductSlug, validateProductStructure],
+    beforeDelete: [blockDeleteProductUsedByKit],
   },
   fields: [
     {

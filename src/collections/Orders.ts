@@ -232,7 +232,10 @@ export const Orders: CollectionConfig = {
       required: true,
       minRows: 1,
       fields: [
-        { name: 'product', type: 'relationship', relationTo: 'products', required: true },
+        // Historical order lines keep their product name/price snapshots. The
+        // relationship is nullable so deleting a catalogue product can use
+        // the FK's ON DELETE SET NULL without damaging order history.
+        { name: 'product', type: 'relationship', relationTo: 'products' },
         { name: 'productName', type: 'text', required: true },
         // `variantId` is the stable sellable identity introduced with
         // flexible accessory variants. `size` remains as a human-readable

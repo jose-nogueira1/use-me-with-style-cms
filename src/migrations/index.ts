@@ -79,6 +79,7 @@ import * as migration_20260812_120000_manual_whatsapp_settings from './20260812_
 import * as migration_20260812_233000_order_item_sale_snapshot from './20260812_233000_order_item_sale_snapshot';
 import * as migration_20260813_140000_returns_workflow from './20260813_140000_returns_workflow';
 import * as migration_20260813_170000_customer_return_requests from './20260813_170000_customer_return_requests';
+import * as migration_20260901_120000_product_delete_safety from './20260901_120000_product_delete_safety';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -481,4 +482,5 @@ export const migrations = [
     name: '20260813_140000_returns_workflow',
   },
   { up: migration_20260813_170000_customer_return_requests.up, down: migration_20260813_170000_customer_return_requests.down, name: '20260813_170000_customer_return_requests' },
+  { up: migration_20260901_120000_product_delete_safety.up, down: migration_20260901_120000_product_delete_safety.down, name: '20260901_120000_product_delete_safety' },
 ];
