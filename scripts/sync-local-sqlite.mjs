@@ -1089,6 +1089,27 @@ if (homeColumns.size > 0 && !homeCollectionsExists) {
   console.log('Created local SQLite home_collections/_home_collections_v tables and backfilled from home_content/_home_content_v.')
 }
 
+const marketTagsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'products_market_tags'`)).rows.length > 0
+if (productColumns.size > 0 && !marketTagsExists) {
+  await client.execute(`
+    CREATE TABLE products_market_tags (
+      _order INTEGER NOT NULL,
+      _parent_id INTEGER NOT NULL,
+      id TEXT PRIMARY KEY NOT NULL,
+      tag_id INTEGER NOT NULL,
+      market TEXT NOT NULL,
+      FOREIGN KEY (_parent_id) REFERENCES products(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES merch_tags(id) ON DELETE CASCADE
+    )
+  `)
+  await client.execute('CREATE INDEX products_market_tags_order_idx ON products_market_tags (_order)')
+  await client.execute('CREATE INDEX products_market_tags_parent_id_idx ON products_market_tags (_parent_id)')
+  await client.execute('CREATE INDEX products_market_tags_tag_idx ON products_market_tags (tag_id)')
+  await client.execute('CREATE INDEX products_market_tags_market_idx ON products_market_tags (market)')
+  console.log('Created local SQLite products_market_tags table.')
+}
+
 client.close()
 
 if (tagMigrated) {

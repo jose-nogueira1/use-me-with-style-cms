@@ -181,6 +181,16 @@ export const Products: CollectionConfig = {
       admin: { description: 'Optional merchandising badge(s) shown on the product card.' },
     },
     {
+      name: 'marketTags',
+      type: 'array',
+      labels: { singular: 'Market-specific merchandising tag', plural: 'Market-specific merchandising tags' },
+      admin: { description: 'Optional tags shown only in one storefront. Shared tags above appear in both markets.' },
+      fields: [
+        { name: 'tag', type: 'relationship', relationTo: 'merch-tags', required: true, label: 'Tag' },
+        { name: 'market', type: 'select', required: true, options: [{ label: 'Angola', value: 'AO' }, { label: 'Portugal', value: 'PT' }], label: 'Storefront' },
+      ],
+    },
+    {
       name: 'images',
       type: 'array',
       fields: [

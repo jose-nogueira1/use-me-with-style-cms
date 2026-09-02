@@ -322,6 +322,16 @@ export interface Product {
    * Optional merchandising badge(s) shown on the product card.
    */
   tag?: (number | MerchTag)[] | null;
+  /**
+   * Optional tags shown only in one storefront. Shared tags above appear in both markets.
+   */
+  marketTags?:
+    | {
+        tag: number | MerchTag;
+        market: 'AO' | 'PT';
+        id?: string | null;
+      }[]
+    | null;
   images?:
     | {
         image: number | Media;
@@ -582,7 +592,7 @@ export interface Order {
   taxId?: string | null;
   notes?: string | null;
   items: {
-    product: number | Product;
+    product?: (number | null) | Product;
     productName: string;
     variantId?: string | null;
     size?: string | null;
@@ -1156,6 +1166,13 @@ export interface ProductsSelect<T extends boolean = true> {
   returnNotePT?: T;
   returnNoteEN?: T;
   tag?: T;
+  marketTags?:
+    | T
+    | {
+        tag?: T;
+        market?: T;
+        id?: T;
+      };
   images?:
     | T
     | {
