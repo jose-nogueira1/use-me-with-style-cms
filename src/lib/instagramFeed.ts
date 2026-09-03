@@ -80,7 +80,7 @@ type CatalogueProduct = {
   salePTEur?: number | null
   saleStartDate?: string | null
   saleEndDate?: string | null
-  images?: Array<{ image?: unknown }> | null
+  images?: Array<{ image?: unknown; color?: unknown }> | null
   variants?: Array<{
     id?: string | null
     color?: unknown
@@ -125,14 +125,15 @@ function selectedColours(value: unknown): Record<string, string[]> {
   )
 }
 
-function productImageUrl(product: CatalogueProduct): string | null {
-  const image = relationshipDoc(product.images?.[0]?.image)
-  return typeof image?.url === 'string' && image.url ? image.url : null
-}
-
-function productImageAlt(product: CatalogueProduct): string | null {
-  const image = relationshipDoc(product.images?.[0]?.image)
-  return typeof image?.alt === 'string' && image.alt.trim() ? image.alt.trim() : null
+function productImage(product: CatalogueProduct, selectedColorId: string): { url: string | null; alt: string | null } {
+  const imageEntry = product.images?.find((entry) => relationshipId(entry.color) === selectedColorId)
+    ?? product.images?.find((entry) => !relationshipId(entry.color))
+    ?? product.images?.[0]
+  const image = relationshipDoc(imageEntry?.image)
+  return {
+    url: typeof image?.url === 'string' && image.url ? image.url : null,
+    alt: typeof image?.alt === 'string' && image.alt.trim() ? image.alt.trim() : null,
+  }
 }
 
 function colourNames(value: unknown): { pt: string | null; en: string | null } {
@@ -236,36 +237,37 @@ export function resolveShopTheLookProducts(
       const names = colourNames(selectedVariant?.color)
       const regularPrice = market === 'AO' ? Number(product.priceAOKz ?? 0) : Number(product.pricePTEur ?? 0)
       const price = effectiveUnitPrice({
-      priceAOKz: Number(product.priceAOKz ?? 0),
-      pricePTEur: Number(product.pricePTEur ?? 0),
-      saleAOKz: product.saleAOKz,
-      salePTEur: product.salePTEur,
-      saleStartDate: product.saleStartDate,
-      saleEndDate: product.saleEndDate,
+        priceAOKz: Number(product.priceAOKz ?? 0),
+        pricePTEur: Number(product.pricePTEur ?? 0),
+        saleAOKz: product.saleAOKz,
+        salePTEur: product.salePTEur,
+        saleStartDate: product.saleStartDate,
+        saleEndDate: product.saleEndDate,
       }, market)
       const namePT = (typeof product.namePT === 'string' && product.namePT.trim()) || (typeof product.name === 'string' ? product.name : '')
       const nameEN = (typeof product.nameEN === 'string' && product.nameEN.trim()) || namePT
+      const image = productImage(product, selectedColorId)
 
       result.push({
-      id,
-      slug,
-      name: namePT || nameEN,
-      namePT,
-      nameEN,
-      imageUrl: productImageUrl(product),
-      imageAlt: productImageAlt(product),
-      price,
-      regularPrice,
-      currency: market === 'AO' ? 'AOA' : 'EUR',
-      onSale: price < regularPrice,
-      // A colour-only or option-less accessory has no display option but is
-      // still sellable. Fixed kits derive availability from every component
-      // variant instead of maintaining duplicate stock on the kit itself.
-      inStock: product.productType === 'bundle' ? bundleStock(product, market) > 0 : inStockVariants.length > 0,
-      availableSizes,
-      selectedColorId,
-      selectedColorNamePT: names.pt,
-      selectedColorNameEN: names.en,
+        id,
+        slug,
+        name: namePT || nameEN,
+        namePT,
+        nameEN,
+        imageUrl: image.url,
+        imageAlt: image.alt,
+        price,
+        regularPrice,
+        currency: market === 'AO' ? 'AOA' : 'EUR',
+        onSale: price < regularPrice,
+        // A colour-only or option-less accessory has no display option but is
+        // still sellable. Fixed kits derive availability from every component
+        // variant instead of maintaining duplicate stock on the kit itself.
+        inStock: product.productType === 'bundle' ? bundleStock(product, market) > 0 : inStockVariants.length > 0,
+        availableSizes,
+        selectedColorId,
+        selectedColorNamePT: names.pt,
+        selectedColorNameEN: names.en,
       })
     }
   }

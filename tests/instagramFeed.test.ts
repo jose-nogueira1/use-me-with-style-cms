@@ -255,6 +255,33 @@ test('shop-the-look resolves one product into one card per selected colour', () 
   assert.deepEqual(products.map((product) => product.selectedColorId), ['red', 'blue'])
 })
 
+test('shop-the-look uses the image assigned to each selected colour', () => {
+  const products = resolveShopTheLookProducts({
+    permalink: 'https://instagram.com/p/colour-images/',
+    variantSelections: { '10': ['red', 'blue'] },
+    products: [{
+      id: 10,
+      slug: 'vestido-multi-cor',
+      name: 'Vestido',
+      namePT: 'Vestido',
+      nameEN: 'Dress',
+      active: true,
+      availableAO: true,
+      images: [
+        { image: { url: '/media/general.jpg', alt: 'General' } },
+        { image: { url: '/media/red.jpg', alt: 'Red' }, color: { id: 'red' } },
+        { image: { url: '/media/blue.jpg', alt: 'Blue' }, color: { id: 'blue' } },
+      ],
+      variants: [
+        { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'S', stockAO: 1 },
+        { color: { id: 'blue', namePT: 'Azul', nameEN: 'Blue' }, size: 'S', stockAO: 1 },
+      ],
+    }],
+  }, 'AO')
+
+  assert.deepEqual(products.map((product) => product.imageUrl), ['/media/red.jpg', '/media/blue.jpg'])
+})
+
 test('shop-the-look products are market-safe and retain sold-out looks without broken products', () => {
   const base = {
     name: 'Top', namePT: 'Top', nameEN: 'Top', active: true,
