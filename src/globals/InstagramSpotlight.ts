@@ -68,7 +68,7 @@ export const InstagramSpotlight: GlobalConfig = {
           type: 'relationship',
           relationTo: 'products',
           hasMany: true,
-          maxRows: 4,
+          maxRows: 6,
           label: 'Products in this look',
         },
         {

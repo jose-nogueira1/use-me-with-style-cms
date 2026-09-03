@@ -10,6 +10,7 @@ import {
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   normalizePermalink,
+  removeProductFromInstagramProductTags,
   resolveShopTheLookProducts,
 } from '../src/lib/instagramFeed.ts'
 
@@ -288,7 +289,7 @@ test('shop-the-look treats option-less accessories and component-backed kits as 
   assert.equal(products[1].inStock, true)
 })
 
-test('shop-the-look caps every Instagram post at four products', () => {
+test('shop-the-look caps every Instagram post at six products', () => {
   const products = resolveShopTheLookProducts({
     permalink: 'https://instagram.com/p/look/',
     products: Array.from({ length: 6 }, (_, index) => ({
@@ -304,5 +305,21 @@ test('shop-the-look caps every Instagram post at four products', () => {
     })),
   }, 'AO')
 
-  assert.equal(products.length, 4)
+  assert.equal(products.length, 6)
+})
+
+test('deleting a product removes it and its colour selection from Instagram associations', () => {
+  const cleaned = removeProductFromInstagramProductTags([{
+    mediaId: 'post-1',
+    permalink: 'https://instagram.com/p/look/',
+    products: [12, 99],
+    variantSelections: { '12': 'blue', '99': 'red' },
+  }], 99)
+
+  assert.deepEqual(cleaned, [{
+    mediaId: 'post-1',
+    permalink: 'https://instagram.com/p/look/',
+    products: [12],
+    variantSelections: { '12': 'blue' },
+  }])
 })

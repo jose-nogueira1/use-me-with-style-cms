@@ -171,6 +171,24 @@ export function indexInstagramProductTags(entries: InstagramProductTagEntry[] = 
   return index
 }
 
+/** Removes a deleted catalogue product from every Instagram association and
+ * drops colour selections that would otherwise point at the deleted product. */
+export function removeProductFromInstagramProductTags(
+  entries: InstagramProductTagEntry[] = [],
+  productId: string | number,
+): InstagramProductTagEntry[] {
+  const deletedKey = String(productId)
+  return entries.flatMap((entry) => {
+    const products = (entry.products ?? []).filter((value) => relationshipId(value) !== deletedKey)
+    if (!entry.permalink || products.length === 0) return []
+    const productKeys = new Set(products.map(relationshipId))
+    const variantSelections = Object.fromEntries(
+      Object.entries(selectedColours(entry.variantSelections)).filter(([key]) => productKeys.has(key)),
+    )
+    return [{ ...entry, products, variantSelections }]
+  })
+}
+
 export function findInstagramProductTag(
   index: Map<string, InstagramProductTagEntry>,
   post: Pick<InstagramPost, 'id' | 'permalink'>,
@@ -244,7 +262,7 @@ export function resolveShopTheLookProducts(
     })
   }
 
-  return result.slice(0, 4)
+  return result.slice(0, 6)
 }
 
 // Highlighting (2026-08-02, simplified from an earlier ordered/labelled
