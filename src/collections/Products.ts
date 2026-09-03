@@ -1,6 +1,20 @@
-import { APIError, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
+import { APIError, type CollectionAfterDeleteHook, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
 import { generateProductSlug } from '../lib/productSlug'
 import { blockDeleteProductUsedByKit } from '../lib/productDeletionGuard'
+import { removeProductFromInstagramProductTags, type InstagramProductTagEntry } from '../lib/instagramFeed'
+import type { InstagramSpotlight } from '../payload-types'
+
+const cleanupInstagramProductTags: CollectionAfterDeleteHook = async ({ id, req }) => {
+  const global = await req.payload.findGlobal({ slug: 'instagram-spotlight', depth: 0 })
+  const productTags = (Array.isArray(global.productTags) ? global.productTags : []) as InstagramProductTagEntry[]
+  const cleaned = removeProductFromInstagramProductTags(productTags, id)
+  if (JSON.stringify(productTags) === JSON.stringify(cleaned)) return
+  await req.payload.updateGlobal({
+    slug: 'instagram-spotlight',
+    data: { productTags: cleaned as NonNullable<InstagramSpotlight['productTags']> },
+    depth: 0,
+  })
+}
 
 const validateProductStructure: CollectionBeforeValidateHook = async ({ data, operation, originalDoc }) => {
   if (!data) return data
@@ -46,6 +60,7 @@ export const Products: CollectionConfig = {
   hooks: {
     beforeValidate: [generateProductSlug, validateProductStructure],
     beforeDelete: [blockDeleteProductUsedByKit],
+    afterDelete: [cleanupInstagramProductTags],
   },
   fields: [
     {
