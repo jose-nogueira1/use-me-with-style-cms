@@ -233,6 +233,28 @@ test('shop-the-look products resolve current market price, stock, image and sele
   })
 })
 
+test('shop-the-look resolves one product into one card per selected colour', () => {
+  const products = resolveShopTheLookProducts({
+    permalink: 'https://instagram.com/p/multi-colour/',
+    variantSelections: { '10': ['red', 'blue'] },
+    products: [{
+      id: 10,
+      slug: 'vestido-multi-cor',
+      name: 'Vestido',
+      namePT: 'Vestido',
+      nameEN: 'Dress',
+      active: true,
+      availableAO: true,
+      variants: [
+        { color: { id: 'red', namePT: 'Vermelho', nameEN: 'Red' }, size: 'S', stockAO: 1 },
+        { color: { id: 'blue', namePT: 'Azul', nameEN: 'Blue' }, size: 'S', stockAO: 1 },
+      ],
+    }],
+  }, 'AO')
+
+  assert.deepEqual(products.map((product) => product.selectedColorId), ['red', 'blue'])
+})
+
 test('shop-the-look products are market-safe and retain sold-out looks without broken products', () => {
   const base = {
     name: 'Top', namePT: 'Top', nameEN: 'Top', active: true,
@@ -313,13 +335,13 @@ test('deleting a product removes it and its colour selection from Instagram asso
     mediaId: 'post-1',
     permalink: 'https://instagram.com/p/look/',
     products: [12, 99],
-    variantSelections: { '12': 'blue', '99': 'red' },
+    variantSelections: { '12': ['blue'], '99': ['red'] },
   }], 99)
 
   assert.deepEqual(cleaned, [{
     mediaId: 'post-1',
     permalink: 'https://instagram.com/p/look/',
     products: [12],
-    variantSelections: { '12': 'blue' },
+    variantSelections: { '12': ['blue'] },
   }])
 })
