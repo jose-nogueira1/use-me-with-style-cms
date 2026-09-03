@@ -110,12 +110,18 @@ function relationshipDoc(value: unknown): Record<string, unknown> | null {
   return isRecord(value) ? value : null
 }
 
-function selectedColours(value: unknown): Record<string, string> {
+function selectedColours(value: unknown): Record<string, string[]> {
   if (!isRecord(value)) return {}
   return Object.fromEntries(
     Object.entries(value)
-      .filter((entry): entry is [string, string | number] => typeof entry[1] === 'string' || typeof entry[1] === 'number')
-      .map(([productId, colourId]) => [String(productId), String(colourId)]),
+      .map(([productId, colourIds]) => {
+        const values = Array.isArray(colourIds) ? colourIds : [colourIds]
+        const normalized = values
+          .filter((colourId): colourId is string | number => typeof colourId === 'string' || typeof colourId === 'number')
+          .map(String)
+        return [String(productId), [...new Set(normalized)]]
+      })
+      .filter((entry): entry is [string, string[]] => entry[1].length > 0),
   )
 }
 
@@ -214,32 +220,33 @@ export function resolveShopTheLookProducts(
     if (!id || !slug || product.active === false) continue
     if (market === 'AO' ? product.availableAO === false : product.availablePT === false) continue
 
-    const selectedColorId = variantsByProduct[id] || null
-    const relevantVariants = (product.variants ?? []).filter((variant) =>
-      !selectedColorId || relationshipId(variant.color) === selectedColorId,
-    )
-    const stockField = market === 'AO' ? 'stockAO' : 'stockPT'
-    const inStockVariants = relevantVariants.filter((variant) => Number(variant[stockField] ?? 0) > 0)
-    const availableSizes = [...new Set(inStockVariants
-      .map((variant) => variant.size?.trim() || variant.optionValueEN?.trim() || '')
-      .filter(Boolean))]
-    const selectedVariant = selectedColorId
-      ? (product.variants ?? []).find((variant) => relationshipId(variant.color) === selectedColorId)
-      : null
-    const names = colourNames(selectedVariant?.color)
-    const regularPrice = market === 'AO' ? Number(product.priceAOKz ?? 0) : Number(product.pricePTEur ?? 0)
-    const price = effectiveUnitPrice({
+    const selectedColorIds = variantsByProduct[id] ?? ['']
+    for (const selectedColorId of selectedColorIds) {
+      const relevantVariants = (product.variants ?? []).filter((variant) =>
+        !selectedColorId || relationshipId(variant.color) === selectedColorId,
+      )
+      const stockField = market === 'AO' ? 'stockAO' : 'stockPT'
+      const inStockVariants = relevantVariants.filter((variant) => Number(variant[stockField] ?? 0) > 0)
+      const availableSizes = [...new Set(inStockVariants
+        .map((variant) => variant.size?.trim() || variant.optionValueEN?.trim() || '')
+        .filter(Boolean))]
+      const selectedVariant = selectedColorId
+        ? (product.variants ?? []).find((variant) => relationshipId(variant.color) === selectedColorId)
+        : null
+      const names = colourNames(selectedVariant?.color)
+      const regularPrice = market === 'AO' ? Number(product.priceAOKz ?? 0) : Number(product.pricePTEur ?? 0)
+      const price = effectiveUnitPrice({
       priceAOKz: Number(product.priceAOKz ?? 0),
       pricePTEur: Number(product.pricePTEur ?? 0),
       saleAOKz: product.saleAOKz,
       salePTEur: product.salePTEur,
       saleStartDate: product.saleStartDate,
       saleEndDate: product.saleEndDate,
-    }, market)
-    const namePT = (typeof product.namePT === 'string' && product.namePT.trim()) || (typeof product.name === 'string' ? product.name : '')
-    const nameEN = (typeof product.nameEN === 'string' && product.nameEN.trim()) || namePT
+      }, market)
+      const namePT = (typeof product.namePT === 'string' && product.namePT.trim()) || (typeof product.name === 'string' ? product.name : '')
+      const nameEN = (typeof product.nameEN === 'string' && product.nameEN.trim()) || namePT
 
-    result.push({
+      result.push({
       id,
       slug,
       name: namePT || nameEN,
@@ -259,7 +266,8 @@ export function resolveShopTheLookProducts(
       selectedColorId,
       selectedColorNamePT: names.pt,
       selectedColorNameEN: names.en,
-    })
+      })
+    }
   }
 
   return result.slice(0, 6)

@@ -77,7 +77,7 @@ export const InstagramSpotlight: GlobalConfig = {
           label: 'Selected colours',
           admin: {
             hidden: true,
-            description: 'Storefront-admin managed map of product ID to the colour visible in the Instagram post.',
+            description: 'Storefront-admin managed map of product ID to one or more colours visible in the Instagram post.',
           },
         },
       ],
