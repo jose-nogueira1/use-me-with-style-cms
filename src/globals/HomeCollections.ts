@@ -36,6 +36,42 @@ export const HomeCollections: GlobalConfig = {
   endpoints: [deleteGlobalVersionEndpoint('home-collections')],
   fields: [
     {
+      name: 'featuredTitlePT',
+      type: 'text',
+      label: 'Featured title -- Portuguese',
+      defaultValue: 'Destaques',
+    },
+    {
+      name: 'featuredTitleEN',
+      type: 'text',
+      label: 'Featured title -- English',
+      defaultValue: 'Featured',
+    },
+    {
+      name: 'featuredItemLimit',
+      type: 'number',
+      min: 1,
+      max: 24,
+      defaultValue: 8,
+      label: 'Featured item limit',
+    },
+    {
+      name: 'featuredProductsAO',
+      type: 'relationship',
+      relationTo: 'products',
+      hasMany: true,
+      label: 'Featured products -- Angola (ordered)',
+      admin: { description: 'Selected products appear in this order on the Angola storefront.' },
+    },
+    {
+      name: 'featuredProductsPT',
+      type: 'relationship',
+      relationTo: 'products',
+      hasMany: true,
+      label: 'Featured products -- Portugal (ordered)',
+      admin: { description: 'Selected products appear in this order on the Portugal storefront.' },
+    },
+    {
       name: 'collections',
       type: 'array',
       label: 'Homepage collections (tag-driven shelves)',

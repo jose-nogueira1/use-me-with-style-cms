@@ -1089,6 +1089,49 @@ if (homeColumns.size > 0 && !homeCollectionsExists) {
   console.log('Created local SQLite home_collections/_home_collections_v tables and backfilled from home_content/_home_content_v.')
 }
 
+// Curated Featured shelf fields (2026-09-04). Keep this repair idempotent so
+// the local sync script upgrades an existing SQLite database as well as a
+// freshly created one.
+const featuredHomeCollectionsExists =
+  (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_collections'`)).rows.length > 0
+if (featuredHomeCollectionsExists) {
+  const featuredColumns = await columns('home_collections')
+  if (!featuredColumns.has('featured_title_p_t')) await client.execute(`ALTER TABLE home_collections ADD COLUMN featured_title_p_t TEXT DEFAULT 'Destaques'`)
+  if (!featuredColumns.has('featured_title_e_n')) await client.execute(`ALTER TABLE home_collections ADD COLUMN featured_title_e_n TEXT DEFAULT 'Featured'`)
+  if (!featuredColumns.has('featured_item_limit')) await client.execute('ALTER TABLE home_collections ADD COLUMN featured_item_limit NUMERIC DEFAULT 8')
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS home_collections_rels (
+      id INTEGER PRIMARY KEY NOT NULL,
+      "order" INTEGER,
+      parent_id INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      products_id INTEGER,
+      FOREIGN KEY (parent_id) REFERENCES home_collections(id) ON UPDATE no action ON DELETE cascade,
+      FOREIGN KEY (products_id) REFERENCES products(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  await client.execute('CREATE INDEX IF NOT EXISTS home_collections_rels_order_idx ON home_collections_rels ("order")')
+  await client.execute('CREATE INDEX IF NOT EXISTS home_collections_rels_parent_idx ON home_collections_rels (parent_id)')
+  await client.execute('CREATE INDEX IF NOT EXISTS home_collections_rels_path_idx ON home_collections_rels (path)')
+  await client.execute('CREATE INDEX IF NOT EXISTS home_collections_rels_products_idx ON home_collections_rels (products_id)')
+  const featuredVersionColumns = await columns('_home_collections_v')
+  if (!featuredVersionColumns.has('version_featured_title_p_t')) await client.execute('ALTER TABLE _home_collections_v ADD COLUMN version_featured_title_p_t TEXT')
+  if (!featuredVersionColumns.has('version_featured_title_e_n')) await client.execute('ALTER TABLE _home_collections_v ADD COLUMN version_featured_title_e_n TEXT')
+  if (!featuredVersionColumns.has('version_featured_item_limit')) await client.execute('ALTER TABLE _home_collections_v ADD COLUMN version_featured_item_limit NUMERIC DEFAULT 8')
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS _home_collections_v_rels (
+      id INTEGER PRIMARY KEY NOT NULL,
+      "order" INTEGER,
+      parent_id INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      products_id INTEGER,
+      FOREIGN KEY (parent_id) REFERENCES _home_collections_v(id) ON UPDATE no action ON DELETE cascade,
+      FOREIGN KEY (products_id) REFERENCES products(id) ON UPDATE no action ON DELETE cascade
+    )
+  `)
+  console.log('Added local SQLite home_collections Featured product selections.')
+}
+
 const marketTagsExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'products_market_tags'`)).rows.length > 0
 if (productColumns.size > 0 && !marketTagsExists) {

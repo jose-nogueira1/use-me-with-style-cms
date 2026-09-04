@@ -81,6 +81,7 @@ import * as migration_20260813_140000_returns_workflow from './20260813_140000_r
 import * as migration_20260813_170000_customer_return_requests from './20260813_170000_customer_return_requests';
 import * as migration_20260901_120000_product_delete_safety from './20260901_120000_product_delete_safety';
 import * as migration_20260902_020000_market_specific_product_tags from './20260902_020000_market_specific_product_tags';
+import * as migration_20260904_010000_home_featured_products from './20260904_010000_home_featured_products';
 export const migrations = [
   {
     up: migration_20260708_220620_initial.up,
@@ -485,4 +486,5 @@ export const migrations = [
   { up: migration_20260813_170000_customer_return_requests.up, down: migration_20260813_170000_customer_return_requests.down, name: '20260813_170000_customer_return_requests' },
   { up: migration_20260901_120000_product_delete_safety.up, down: migration_20260901_120000_product_delete_safety.down, name: '20260901_120000_product_delete_safety' },
   { up: migration_20260902_020000_market_specific_product_tags.up, down: migration_20260902_020000_market_specific_product_tags.down, name: '20260902_020000_market_specific_product_tags' },
+  { up: migration_20260904_010000_home_featured_products.up, down: migration_20260904_010000_home_featured_products.down, name: '20260904_010000_home_featured_products' },
 ];

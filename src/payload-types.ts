@@ -1876,6 +1876,17 @@ export interface HomeCategory {
  */
 export interface HomeCollection {
   id: number;
+  featuredTitlePT?: string | null;
+  featuredTitleEN?: string | null;
+  featuredItemLimit?: number | null;
+  /**
+   * Selected products appear in this order on the Angola storefront.
+   */
+  featuredProductsAO?: (number | Product)[] | null;
+  /**
+   * Selected products appear in this order on the Portugal storefront.
+   */
+  featuredProductsPT?: (number | Product)[] | null;
   /**
    * Each row is one product shelf on the homepage, driven by a merchandising tag (e.g. "New", "Bestseller", "SS26"). Leave empty to keep the previous fixed New Arrivals / Featured sections.
    */
@@ -2248,6 +2259,11 @@ export interface HomeCategoriesSelect<T extends boolean = true> {
  * via the `definition` "home-collections_select".
  */
 export interface HomeCollectionsSelect<T extends boolean = true> {
+  featuredTitlePT?: T;
+  featuredTitleEN?: T;
+  featuredItemLimit?: T;
+  featuredProductsAO?: T;
+  featuredProductsPT?: T;
   collections?:
     | T
     | {
