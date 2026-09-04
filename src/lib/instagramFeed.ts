@@ -50,6 +50,8 @@ export type ShopTheLookProduct = {
   regularPrice: number
   currency: 'AOA' | 'EUR'
   onSale: boolean
+  saleEndDate: string | null
+  marketStock: number
   inStock: boolean
   availableSizes: string[]
   selectedColorId: string | null
@@ -247,6 +249,7 @@ export function resolveShopTheLookProducts(
       const namePT = (typeof product.namePT === 'string' && product.namePT.trim()) || (typeof product.name === 'string' ? product.name : '')
       const nameEN = (typeof product.nameEN === 'string' && product.nameEN.trim()) || namePT
       const image = productImage(product, selectedColorId)
+      const marketStock = product.productType === 'bundle' ? bundleStock(product, market) : inStockVariants.reduce((total, variant) => total + Math.max(0, Number(variant[stockField] ?? 0) || 0), 0)
 
       result.push({
         id,
@@ -260,10 +263,12 @@ export function resolveShopTheLookProducts(
         regularPrice,
         currency: market === 'AO' ? 'AOA' : 'EUR',
         onSale: price < regularPrice,
+        saleEndDate: product.saleEndDate ?? null,
+        marketStock,
         // A colour-only or option-less accessory has no display option but is
         // still sellable. Fixed kits derive availability from every component
         // variant instead of maintaining duplicate stock on the kit itself.
-        inStock: product.productType === 'bundle' ? bundleStock(product, market) > 0 : inStockVariants.length > 0,
+        inStock: marketStock > 0,
         availableSizes,
         selectedColorId,
         selectedColorNamePT: names.pt,
