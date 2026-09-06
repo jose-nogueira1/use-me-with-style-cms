@@ -1932,7 +1932,7 @@ export interface InstagramSpotlight {
         permalink: string;
         products?: (number | Product)[] | null;
         /**
-         * Storefront-admin managed map of product ID to the colour visible in the Instagram post.
+         * Storefront-admin managed map of product ID to one or more colours visible in the Instagram post.
          */
         variantSelections?:
           | {

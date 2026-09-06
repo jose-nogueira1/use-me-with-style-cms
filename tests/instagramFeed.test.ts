@@ -225,6 +225,8 @@ test('shop-the-look products resolve current market price, stock, image and sele
     regularPrice: 42000,
     currency: 'AOA',
     onSale: true,
+    saleEndDate: null,
+    marketStock: 3,
     inStock: true,
     availableSizes: ['S', 'M'],
     selectedColorId: 'red',
