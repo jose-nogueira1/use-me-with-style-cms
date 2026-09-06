@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { checkInventoryHeartbeat, runOperationsMonitor } from '../scripts/operations-monitor.mjs'
+import { runOperationsMonitor } from '../scripts/operations-monitor.mjs'
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status,
@@ -23,43 +23,35 @@ test('inventory mode accepts a valid cleanup heartbeat', async () => {
   assert.deepEqual(result.results, [{ check: 'inventory_cleanup', released: 2 }])
 })
 
-test('heartbeat check rejects stale successful runs', async () => {
-  await assert.rejects(
-    checkInventoryHeartbeat({
-      env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_TOKEN: 'token', OPS_HEARTBEAT_MAX_AGE_MS: '900000' },
-      now: Date.parse('2026-08-21T12:30:01Z'),
-      fetchImpl: async () => json({ workflow_runs: [{ updated_at: '2026-08-21T12:15:00Z' }] }),
-    }),
-    /older than 15 minutes/,
-  )
-})
-
-test('heartbeat check tolerates delayed GitHub schedules within the configured window', async () => {
-  const result = await checkInventoryHeartbeat({
-    env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_TOKEN: 'token', OPS_HEARTBEAT_MAX_AGE_MS: '2700000' },
-    now: Date.parse('2026-08-21T12:44:59Z'),
-    fetchImpl: async () => json({ workflow_runs: [{ updated_at: '2026-08-21T12:00:00Z' }] }),
+test('platform mode verifies inventory cleanup directly without depending on GitHub schedule timing', async () => {
+  const requestedUrls = []
+  const result = await runOperationsMonitor({
+    env: {
+      CRON_SECRET: 'secret',
+      META_WEBHOOK_VERIFY_TOKEN: 'verify',
+    },
+    fetchImpl: async (url, options = {}) => {
+      const value = String(url)
+      requestedUrls.push(value)
+      if (value.includes('messaging-webhook')) return new Response(new URL(value).searchParams.get('hub.challenge'))
+      if (value.includes('/api/globals/')) return json({ id: 1 })
+      if (value.endsWith('/api/inventory/release-expired')) {
+        assert.equal(options.headers.authorization, 'Bearer secret')
+        return json({ released: 0 })
+      }
+      return new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
+    },
   })
 
-  assert.deepEqual(result, { check: 'inventory_heartbeat', ageSeconds: 2699 })
-})
-
-test('heartbeat check still rejects runs older than the delayed-schedule window', async () => {
-  await assert.rejects(
-    checkInventoryHeartbeat({
-      env: { GITHUB_REPOSITORY: 'owner/repo', GITHUB_TOKEN: 'token', OPS_HEARTBEAT_MAX_AGE_MS: '2700000' },
-      now: Date.parse('2026-08-21T12:45:01Z'),
-      fetchImpl: async () => json({ workflow_runs: [{ updated_at: '2026-08-21T12:00:00Z' }] }),
-    }),
-    /older than 45 minutes/,
-  )
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.results.at(-1), { check: 'inventory_cleanup', released: 0 })
+  assert.equal(requestedUrls.some((url) => url.includes('api.github.com')), false)
 })
 
 test('a failed platform check sends an operations alert and fails closed', async () => {
   const env = {
+    CRON_SECRET: 'secret',
     META_WEBHOOK_VERIFY_TOKEN: 'verify',
-    GITHUB_REPOSITORY: 'owner/repo',
-    GITHUB_TOKEN: 'token',
     RESEND_API_KEY: 'resend',
     RESEND_FROM_EMAIL: 'orders@example.test',
     OPS_ALERT_EMAIL: 'master@example.test',
@@ -76,9 +68,9 @@ test('a failed platform check sends an operations alert and fails closed', async
         assert.match(body.subject, /production check/)
         return json({ id: 'email-id' })
       }
-      if (value.includes('api.github.com')) return json({ workflow_runs: [{ updated_at: '2026-08-21T12:29:00Z' }] })
       if (value.includes('messaging-webhook')) return new Response(new URL(value).searchParams.get('hub.challenge'))
       if (value.includes('/api/globals/')) return json({ id: 1 })
+      if (value.endsWith('/api/inventory/release-expired')) return json({ released: 0 })
       if (value === 'https://pt.usemewithstyle.shop') return new Response('down', { status: 503 })
       return new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
     },

@@ -7,11 +7,6 @@ const DEFAULT_STOREFRONTS = [
   'https://ao.usemewithstyle.shop',
   'https://pt.usemewithstyle.shop',
 ]
-// GitHub Actions cron runs are best-effort and can start well after their
-// scheduled time. The primary Railway cleanup still runs every five minutes;
-// this independent heartbeat alerts after 45 minutes without a successful run.
-const DEFAULT_HEARTBEAT_MAX_AGE_MS = 45 * 60 * 1000
-
 function required(env, name) {
   const value = env[name]?.trim()
   if (!value) throw new Error(`${name} is required.`)
@@ -66,6 +61,7 @@ export async function checkMetaWebhook({ env, fetchImpl }) {
 }
 
 export async function runInventoryCleanup({ env, fetchImpl }) {
+  if (env.SIMULATE_MISSED_HEARTBEAT === '1') throw new Error('Simulated missed inventory-cleanup heartbeat.')
   const cmsUrl = env.OPS_CMS_URL || DEFAULT_CMS_URL
   const secret = required(env, 'CRON_SECRET')
   const response = await request(fetchImpl, new URL('/api/inventory/release-expired', cmsUrl), {
@@ -79,27 +75,6 @@ export async function runInventoryCleanup({ env, fetchImpl }) {
   const payload = await response.json().catch(() => null)
   if (!payload || typeof payload.released !== 'number') throw new Error('Inventory cleanup returned an invalid response.')
   return { check: 'inventory_cleanup', released: payload.released }
-}
-
-export async function checkInventoryHeartbeat({ env, fetchImpl, now = Date.now() }) {
-  if (env.SIMULATE_MISSED_HEARTBEAT === '1') throw new Error('Simulated missed inventory-cleanup heartbeat.')
-  const repository = required(env, 'GITHUB_REPOSITORY')
-  const token = required(env, 'GITHUB_TOKEN')
-  const endpoint = `https://api.github.com/repos/${repository}/actions/workflows/inventory-cleanup-heartbeat.yml/runs?status=success&per_page=1`
-  const response = await request(fetchImpl, endpoint, {
-    headers: {
-      accept: 'application/vnd.github+json',
-      authorization: `Bearer ${token}`,
-      'x-github-api-version': '2022-11-28',
-    },
-  })
-  const payload = await response.json().catch(() => null)
-  const run = payload?.workflow_runs?.[0]
-  const completedAt = Date.parse(run?.updated_at || run?.run_started_at || run?.created_at || '')
-  const maxAgeMs = Number(env.OPS_HEARTBEAT_MAX_AGE_MS || DEFAULT_HEARTBEAT_MAX_AGE_MS)
-  if (!Number.isFinite(completedAt)) throw new Error('No successful inventory-cleanup heartbeat was found.')
-  if (now - completedAt > maxAgeMs) throw new Error(`Inventory-cleanup heartbeat is older than ${Math.round(maxAgeMs / 60_000)} minutes.`)
-  return { check: 'inventory_heartbeat', ageSeconds: Math.max(0, Math.round((now - completedAt) / 1000)) }
 }
 
 async function sendResendEmail({ env, fetchImpl, subject, text, html }) {
@@ -159,7 +134,7 @@ export async function runOperationsMonitor({ mode = 'platform', env = process.en
         ['storefronts', checkStorefronts],
         ['cms', checkCms],
         ['meta_webhook', checkMetaWebhook],
-        ['inventory_heartbeat', checkInventoryHeartbeat],
+        ['inventory_cleanup', runInventoryCleanup],
       ]
   const results = []
   const failures = []

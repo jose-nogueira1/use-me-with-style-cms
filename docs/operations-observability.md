@@ -22,7 +22,7 @@ If Railway reports that a deployment failed before initialization or build began
 
 ### Independent heartbeat monitor
 
-The Railway job remains the primary five-minute cleanup scheduler. GitHub Actions provides an independent nominal five-minute heartbeat using `.github/workflows/inventory-cleanup-heartbeat.yml`; the cleanup endpoint is idempotent, so this safely provides both a second execution path and durable success-run evidence. `.github/workflows/operations-monitor.yml` checks that a successful heartbeat exists within the last 45 minutes. Gate 4.5 established this threshold after GitHub scheduled runs were observed starting 25-35 minutes late. A controlled missed-heartbeat alert can be rehearsed with the workflow-dispatch input without disabling production cleanup.
+The Railway job remains the primary five-minute cleanup scheduler. GitHub Actions provides an independent cleanup execution using `.github/workflows/inventory-cleanup-heartbeat.yml`; the cleanup endpoint is idempotent, so this safely provides both a second execution path and durable success-run evidence. `.github/workflows/operations-monitor.yml` calls the same authenticated cleanup endpoint directly during each platform check. This verifies the production operation without treating GitHub's best-effort schedule timing as service health. A controlled cleanup-failure alert can be rehearsed with the workflow-dispatch input without disabling production cleanup.
 
 The production monitor also checks the root, Angola, and Portugal storefronts, the CMS content endpoint, and the Meta webhook verification handshake every 15 minutes. Failures are sent to the shared operations mailbox. GitHub records the workflow failure as the fallback signal if Resend itself is unavailable. `.github/workflows/email-delivery-canary.yml` sends a daily canary to exercise Resend independently of customer orders.
 
@@ -43,6 +43,6 @@ The backup passphrase is stored as a GitHub Actions secret and in José's macOS 
 - Any `inventory_reservation_cleanup_failed` event: page the operator.
 - Five or more payment endpoint failures in ten minutes: urgent notification.
 - Sustained `order_lookup_rate_limited` volume: investigate abusive traffic and consider a shared rate-limit store.
-- No successful independent cleanup heartbeat for 45 minutes: verify the scheduler and CMS availability.
+- Any failed independent cleanup execution: verify the scheduler and CMS availability.
 
 Use `requestId` to correlate a browser/deployment request with server logs. `durationMs` supports basic latency monitoring without recording customer data.

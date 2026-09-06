@@ -16,7 +16,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
@@ -24,20 +23,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
-      - name: Check storefronts, CMS, Meta webhook, and inventory heartbeat
+          node-version: '24'
+      - name: Check storefronts, CMS, Meta webhook, and inventory cleanup
         run: node scripts/operations-monitor.mjs --mode=platform
         env:
           OPS_CMS_URL: https://cms.usemewithstyle.shop
           OPS_STOREFRONT_URLS: https://usemewithstyle.shop,https://ao.usemewithstyle.shop,https://pt.usemewithstyle.shop
-          # GitHub scheduled workflows can be delayed significantly under load.
-          # Allow two observed delayed heartbeat intervals before alerting.
-          OPS_HEARTBEAT_MAX_AGE_MS: '2700000'
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           META_WEBHOOK_VERIFY_TOKEN: ${{ secrets.META_WEBHOOK_VERIFY_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           RESEND_FROM_NAME: Use Me With Style Operations
