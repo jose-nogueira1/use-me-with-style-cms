@@ -1,3 +1,4 @@
+import { up as heroPositionsUp, down as heroPositionsDown } from '../src/migrations/20260910_160000_hero_image_positions.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { randomUUID } from 'node:crypto'
@@ -614,5 +615,31 @@ test('product image alt backfill adds product, colour, category and brand withou
       'Vista traseira detalhada',
       'Vestido Teste Mostarda Vestidos — Use Me With Style',
     ])
+  })
+})
+
+
+test('hero image positions preserve legacy framing and survive repeated migrations', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE home_hero (id serial PRIMARY KEY, hero_headline_p_t varchar);
+      CREATE TABLE _home_hero_v (id serial PRIMARY KEY, version_hero_headline_p_t varchar);
+      INSERT INTO home_hero (hero_headline_p_t) VALUES ('Current campaign');
+      INSERT INTO _home_hero_v (version_hero_headline_p_t) VALUES ('Previous campaign');
+    `)
+    const db = drizzle(pool)
+    await heroPositionsUp({ db } as never)
+    const current = (await pool.query('SELECT * FROM home_hero')).rows[0]
+    const version = (await pool.query('SELECT * FROM _home_hero_v')).rows[0]
+    assert.deepEqual([current.hero_desktop_position_x, current.hero_desktop_position_y, current.hero_mobile_position_x, current.hero_mobile_position_y].map(Number), [65, 20, 50, 50])
+    assert.deepEqual([version.version_hero_desktop_position_x, version.version_hero_desktop_position_y, version.version_hero_mobile_position_x, version.version_hero_mobile_position_y].map(Number), [65, 20, 50, 50])
+    await pool.query('UPDATE home_hero SET hero_desktop_position_x = 0, hero_mobile_position_y = 100')
+    await heroPositionsUp({ db } as never)
+    const saved = (await pool.query('SELECT * FROM home_hero')).rows[0]
+    assert.equal(Number(saved.hero_desktop_position_x), 0)
+    assert.equal(Number(saved.hero_mobile_position_y), 100)
+    await heroPositionsDown({ db } as never)
+    assert.deepEqual((await pool.query('SELECT * FROM home_hero')).rows, [{ id: 1, hero_headline_p_t: 'Current campaign' }])
+    assert.deepEqual((await pool.query('SELECT * FROM _home_hero_v')).rows, [{ id: 1, version_hero_headline_p_t: 'Previous campaign' }])
   })
 })

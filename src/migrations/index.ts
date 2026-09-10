@@ -1,3 +1,4 @@
+import * as migration_20260910_160000_hero_image_positions from './20260910_160000_hero_image_positions';
 import * as migration_20260708_220620_initial from './20260708_220620_initial';
 import * as migration_20260709_171700_add_order_payment_reference from './20260709_171700_add_order_payment_reference';
 import * as migration_20260710_010000_add_order_lang from './20260710_010000_add_order_lang';
@@ -487,4 +488,5 @@ export const migrations = [
   { up: migration_20260901_120000_product_delete_safety.up, down: migration_20260901_120000_product_delete_safety.down, name: '20260901_120000_product_delete_safety' },
   { up: migration_20260902_020000_market_specific_product_tags.up, down: migration_20260902_020000_market_specific_product_tags.down, name: '20260902_020000_market_specific_product_tags' },
   { up: migration_20260904_010000_home_featured_products.up, down: migration_20260904_010000_home_featured_products.down, name: '20260904_010000_home_featured_products' },
+  { up: migration_20260910_160000_hero_image_positions.up, down: migration_20260910_160000_hero_image_positions.down, name: '20260910_160000_hero_image_positions' },
 ];

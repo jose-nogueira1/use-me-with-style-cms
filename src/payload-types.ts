@@ -1842,6 +1842,22 @@ export interface HomeHero {
    * Optional mobile composition. The desktop image is used as a safe fallback when this is empty.
    */
   heroImageMobile?: (number | null) | Media;
+  /**
+   * 0 = left, 100 = right. Applied where the image is cropped to fit the screen.
+   */
+  heroDesktopPositionX?: number | null;
+  /**
+   * 0 = top, 100 = bottom. Applied where the image is cropped to fit the screen.
+   */
+  heroDesktopPositionY?: number | null;
+  /**
+   * 0 = left, 100 = right. Applied where the image is cropped to fit the screen.
+   */
+  heroMobilePositionX?: number | null;
+  /**
+   * 0 = top, 100 = bottom. Applied where the image is cropped to fit the screen.
+   */
+  heroMobilePositionY?: number | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2235,6 +2251,10 @@ export interface HomeHeroSelect<T extends boolean = true> {
   heroCtaTagSlug?: T;
   heroImage?: T;
   heroImageMobile?: T;
+  heroDesktopPositionX?: T;
+  heroDesktopPositionY?: T;
+  heroMobilePositionX?: T;
+  heroMobilePositionY?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
