@@ -17,6 +17,9 @@ import { up as productImageColorsUp, down as productImageColorsDown } from '../s
 import { up as productImageAltBackfillUp } from '../src/migrations/20260810_153000_product_image_alt_backfill.ts'
 
 const adminUrl = process.env.TEST_POSTGRES_URL
+if (process.env.CI && !adminUrl) {
+  throw new Error('CI requires TEST_POSTGRES_URL pointing to a disposable PostgreSQL service; migrations must not be skipped.')
+}
 
 async function withDatabase(run: (client: pg.Pool) => Promise<void>) {
   if (!adminUrl) return

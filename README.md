@@ -1,5 +1,7 @@
 # Use Me With Style -- CMS (Payload)
 
+Engineering workflow: start with [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md). The context map identifies approved decisions that supersede historical details below.
+
 Backend data/admin-API layer for the Use Me With Style platform, per the
 Phase 1 architecture decision (`docs/decisions/phase-1-architecture-and-blockers.md`
 in `use-me-with-style-platform`, JOS-20): the existing React + Vite SPA stays

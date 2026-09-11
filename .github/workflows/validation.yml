@@ -1,0 +1,54 @@
+name: CMS validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cms-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: CMS checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_DB: useme_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d useme_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: 'true'
+      TEST_POSTGRES_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/useme_test
+      DATABASE_URL: file:./ci-build.db
+      PAYLOAD_SECRET: disposable-ci-build-secret-not-for-production
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Check generated Payload types
+        run: |
+          npm run generate:types
+          git diff --exit-code -- src/payload-types.ts
+      - run: npm run verify
+      - name: Check generated admin import map
+        run: git diff --exit-code -- 'src/app/(payload)/admin/importMap.js'

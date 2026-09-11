@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { createClient } from '@libsql/client'
+import { syncHeroPositions } from './lib/sync-hero-positions.mjs'
 
 const databaseUrl = process.env.DATABASE_URL || 'file:./dev.db'
 
@@ -964,19 +965,7 @@ const homeHeroVersionColumns = await columns('_home_hero_v')
 if (homeHeroVersionColumns.size > 0 && !homeHeroVersionColumns.has('version_hero_image_mobile_id'))
   await client.execute('ALTER TABLE _home_hero_v ADD COLUMN version_hero_image_mobile_id INTEGER')
 
-// Independent image positions for the responsive hero and its saved versions.
-for (const [column, defaultValue] of [
-  ['hero_desktop_position_x', 65],
-  ['hero_desktop_position_y', 20],
-  ['hero_mobile_position_x', 50],
-  ['hero_mobile_position_y', 50],
-]) {
-  if (homeHeroColumns.size > 0 && !homeHeroColumns.has(column))
-    await client.execute(`ALTER TABLE home_hero ADD COLUMN ${column} NUMERIC DEFAULT ${defaultValue}`)
-  if (homeHeroVersionColumns.size > 0 && !homeHeroVersionColumns.has(`version_${column}`))
-    await client.execute(`ALTER TABLE _home_hero_v ADD COLUMN version_${column} NUMERIC DEFAULT ${defaultValue}`)
-}
-
+await syncHeroPositions(client)
 
 const homeCategoriesExists =
   (await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_categories'`)).rows.length > 0
