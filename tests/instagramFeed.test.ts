@@ -7,12 +7,22 @@ import {
   findInstagramProductTag,
   indexInstagramProductTags,
   instagramLookSlug,
+  instagramThumbnailUrl,
+  instagramThumbnailWidth,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   normalizePermalink,
   removeProductFromInstagramProductTags,
   resolveShopTheLookProducts,
 } from '../src/lib/instagramFeed.ts'
+
+test('Instagram thumbnail URLs are same-origin and width is constrained to generated variants', () => {
+  assert.equal(instagramThumbnailUrl('media/id', 480), '/api/instagram-thumbnail/media%2Fid?width=480')
+  assert.equal(instagramThumbnailWidth(null), 480)
+  assert.equal(instagramThumbnailWidth('959'), 480)
+  assert.equal(instagramThumbnailWidth('960'), 960)
+  assert.equal(instagramThumbnailWidth('9999'), 960)
+})
 
 test('Instagram Login feed requests use graph.instagram.com and bearer authorization', () => {
   const request = buildInstagramMediaRequest('ig/account', 'secret token', 12)

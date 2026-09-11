@@ -40,6 +40,16 @@ export const Media: CollectionConfig = {
     // (no S3_BUCKET) case.
     staticDir: 'media',
     adminThumbnail: 'thumbnail',
+    // Media filenames are immutable in practice: replacing an upload creates
+    // a new file/URL, and relationships move to that new media document. Let
+    // browsers and the storefront CDN keep those bytes instead of
+    // revalidating every hero/product image on every visit.
+    modifyResponseHeaders: ({ headers }) => {
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+      headers.set('CDN-Cache-Control', 'public, max-age=31536000, immutable')
+      headers.set('Vercel-CDN-Cache-Control', 'public, max-age=31536000, immutable')
+      return headers
+    },
     formatOptions: { format: 'webp', options: { quality: 84 } },
     resizeOptions: { width: 2560, withoutEnlargement: true },
     imageSizes: [
