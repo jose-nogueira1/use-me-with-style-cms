@@ -38,6 +38,14 @@ export type InstagramPost = {
   caption: string
 }
 
+export function instagramThumbnailUrl(mediaId: string, width = 640): string {
+  return `/api/instagram-thumbnail/${encodeURIComponent(mediaId)}?width=${width}`
+}
+
+export function instagramThumbnailWidth(value: string | null): 480 | 960 {
+  return Number(value) >= 960 ? 960 : 480
+}
+
 export type ShopTheLookProduct = {
   id: string
   slug: string

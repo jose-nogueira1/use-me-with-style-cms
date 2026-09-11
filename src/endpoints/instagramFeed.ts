@@ -1,4 +1,5 @@
 import type { Endpoint } from 'payload'
+import sharp from 'sharp'
 import {
   INSTAGRAM_GRAPH_FIELDS,
   INSTAGRAM_GRAPH_VERSION,
@@ -7,6 +8,8 @@ import {
   findInstagramProductTag,
   indexInstagramProductTags,
   instagramLookSlug,
+  instagramThumbnailUrl,
+  instagramThumbnailWidth,
   isInstagramFeedConfigured,
   mapGraphMediaToPosts,
   resolveShopTheLookProducts,
@@ -86,6 +89,8 @@ function toApiPost(
     id: post.id,
     lookSlug: instagramLookSlug(post.permalink),
     imageUrl: post.imageUrl,
+    thumbnailUrl: instagramThumbnailUrl(post.id, 480),
+    thumbnailLargeUrl: instagramThumbnailUrl(post.id, 960),
     mediaType: post.mediaType,
     videoUrl: post.videoUrl,
     permalink: post.permalink,
@@ -139,6 +144,61 @@ export const instagramFeedEndpoints: Endpoint[] = [
         .slice(0, limit)
         .map((post) => toApiPost(post, productTags, market))
       return Response.json({ configured: true, posts })
+    },
+  },
+  {
+    path: '/instagram-thumbnail/:id',
+    method: 'get',
+    handler: async (req) => {
+      if (!isInstagramFeedConfigured()) return new Response('Not found', { status: 404 })
+
+      const mediaId = String(req.routeParams?.id ?? '')
+      const url = new URL(req.url ?? '', 'http://localhost')
+      const width = instagramThumbnailWidth(url.searchParams.get('width'))
+      const now = Date.now()
+      let pool = cache && now - cache.fetchedAt < CACHE_TTL_MS ? cache.posts : null
+
+      if (!pool) {
+        try {
+          pool = await fetchFromGraphApi(MAX_LIMIT)
+          cache = { posts: pool, fetchedAt: now }
+        } catch (err) {
+          req.payload.logger.error(
+            { err: err instanceof Error ? err.message : String(err) },
+            '[instagram:thumbnail-feed-fetch-failed]',
+          )
+          pool = cache?.posts ?? null
+        }
+      }
+
+      // Only proxy URLs returned by the authenticated Graph feed. This keeps
+      // the endpoint from becoming an open image proxy/SSRF surface.
+      const post = pool?.find((item) => item.id === mediaId)
+      if (!post) return new Response('Not found', { status: 404 })
+
+      try {
+        const upstream = await fetch(post.imageUrl, { headers: { accept: 'image/*' } })
+        if (!upstream.ok) return new Response('Image unavailable', { status: 502 })
+        const source = Buffer.from(await upstream.arrayBuffer())
+        const thumbnail = await sharp(source)
+          .resize({ width, withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toBuffer()
+        return new Response(thumbnail, {
+          headers: {
+            'Content-Type': 'image/webp',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'CDN-Cache-Control': 'public, max-age=31536000, immutable',
+            'Vercel-CDN-Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        })
+      } catch (err) {
+        req.payload.logger.error(
+          { err: err instanceof Error ? err.message : String(err), mediaId },
+          '[instagram:thumbnail-render-failed]',
+        )
+        return new Response('Image unavailable', { status: 502 })
+      }
     },
   },
 ]
