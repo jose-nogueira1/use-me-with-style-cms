@@ -475,6 +475,44 @@ const appyPayCancelOrder: Endpoint = {
   },
 }
 
+const appyPayOrderStatus: Endpoint = {
+  path: '/payments/appypay/status',
+  method: 'post',
+  handler: async (req) => {
+    const body = await readJsonBody<{ merchantTransactionId?: string; cancellationToken?: string }>(req)
+    if (!body?.merchantTransactionId || !body.cancellationToken) {
+      return Response.json({ error: 'Status details are required.' }, { status: 400 })
+    }
+
+    let expectedToken: string
+    try {
+      expectedToken = appyPayCancellationToken(body.merchantTransactionId)
+    } catch (err) {
+      req.payload.logger.error({ err }, '[payments:appypay:status-secret-missing]')
+      return Response.json({ error: 'Payment status is unavailable.' }, { status: 503 })
+    }
+    if (!safeEqual(body.cancellationToken, expectedToken)) {
+      return Response.json({ error: 'Invalid status token.' }, { status: 403 })
+    }
+
+    const matches = await req.payload.find({
+      collection: 'orders',
+      where: { appyPayMerchantTransactionId: { equals: body.merchantTransactionId } },
+      limit: 1,
+      overrideAccess: true,
+    })
+    const order = matches.docs[0]
+    if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 })
+
+    return Response.json({
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      appyPayStatus: order.appyPayStatus,
+    })
+  },
+}
+
 const appyPayWebhook: Endpoint = {
   path: '/payments/appypay/webhook',
   method: 'post',
@@ -763,6 +801,7 @@ const paypalCaptureOrderEndpoint: Endpoint = {
 export const paymentsEndpoints: Endpoint[] = [
   appyPayCreateOrder,
   appyPayCancelOrder,
+  appyPayOrderStatus,
   appyPayWebhook,
   appyPayReconcile,
   stripeCreateSession,

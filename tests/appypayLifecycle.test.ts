@@ -188,3 +188,59 @@ test('public cancellation token cancels a pending AppyPay order and releases thr
     else process.env.PAYLOAD_SECRET = previousSecret
   }
 })
+
+test('signed AppyPay status lookup exposes the webhook payment result without changing the order', async () => {
+  const previousSecret = process.env.PAYLOAD_SECRET
+  process.env.PAYLOAD_SECRET = 'test-only-appypay-signing-secret'
+  try {
+    const createEndpoint = paymentsEndpoints.find((endpoint) => endpoint.path === '/payments/appypay/create-order')
+    const statusEndpoint = paymentsEndpoints.find((endpoint) => endpoint.path === '/payments/appypay/status')
+    assert.ok(createEndpoint?.handler)
+    assert.ok(statusEndpoint?.handler)
+
+    let storedOrder = {
+      ...validOrder,
+      status: 'new',
+      paymentStatus: 'pending',
+      appyPayStatus: 'Pending',
+      appyPayMerchantTransactionId: '',
+      inventoryReservationStatus: 'active',
+      inventoryReservationExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    }
+    const payload = {
+      create: async () => storedOrder,
+      update: async (args: Record<string, unknown>) => {
+        storedOrder = { ...storedOrder, ...(args.data as object) }
+        return storedOrder
+      },
+      find: async () => ({ docs: [storedOrder] }),
+      logger: { error: () => {} },
+    }
+    const createResponse = await createEndpoint.handler({
+      json: async () => ({
+        market: 'AO', customerName: 'Test Buyer', customerPhone: '+244923000000', customerEmail: 'test@example.com',
+        address: 'Rua Teste', addressLine2: '10', city: 'Luanda', country: 'Angola', items: [], currency: 'Kz',
+        subtotal: 21500, shippingCost: 0, total: 21500, paymentMethod: 'multicaixa_express', deliveryMethod: 'courier_ao',
+      }),
+      payload,
+    } as never)
+    const created = await createResponse.json() as { merchantTransactionId: string; cancellationToken: string }
+    storedOrder = { ...storedOrder, status: 'processing', paymentStatus: 'paid', appyPayStatus: 'Success' }
+
+    const statusResponse = await statusEndpoint.handler({
+      json: async () => created,
+      headers: new Headers(),
+      payload,
+    } as never)
+    assert.equal(statusResponse.status, 200)
+    assert.deepEqual(await statusResponse.json(), {
+      orderNumber: 'AO-TEST42',
+      status: 'processing',
+      paymentStatus: 'paid',
+      appyPayStatus: 'Success',
+    })
+  } finally {
+    if (previousSecret === undefined) delete process.env.PAYLOAD_SECRET
+    else process.env.PAYLOAD_SECRET = previousSecret
+  }
+})
