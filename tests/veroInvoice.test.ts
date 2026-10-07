@@ -55,7 +55,7 @@ test('a coupon discount gets its own explanatory zero-price line', () => {
   assert.deepEqual(lines.map((l) => [l.description, l.unitPrice]), [
     ['A (Original 10,00 Kz | Cupão -9,00 Kz)', 100],
     ['Desconto TEST90 (90% off): -9,00 Kz (já incluído nos preços acima)', 0],
-    ['Portes de envio (Grátis)', 0],
+    ['Portes de envio', 0],
   ])
 })
 
@@ -82,10 +82,10 @@ test('waived delivery says why and what it would normally cost', () => {
   assert.equal(byCoupon.at(-1)?.description, 'Portes de envio (Original 4.000,00 Kz | Grátis por cupão FREESHIP (free shipping))')
   // free because the municipality is priced at 0, not because of the threshold
   const zeroMunicipality = buildVeroLines(order({ items: [item('A', 1, 5_000)], total: 5_000 }), { regular: 0, freeThreshold: 80_000 })
-  assert.equal(zeroMunicipality.at(-1)?.description, 'Portes de envio (Grátis)')
+  assert.deepEqual([zeroMunicipality.at(-1)?.description, zeroMunicipality.at(-1)?.unitPrice], ['Portes de envio', 0]) // a price of 0, not a free delivery
   // the threshold is judged after discounts: 90.000 minus a 20.000 coupon is under 80.000
   const discounted = buildVeroLines(order({ items: [item('A', 1, 90_000)], total: 70_000, discountAmount: 20_000, discountLabel: 'F (discount)' }), { regular: 0, freeThreshold: 80_000 })
-  assert.equal(discounted.at(-1)?.description, 'Portes de envio (Grátis)')
+  assert.equal(discounted.at(-1)?.description, 'Portes de envio')
   const paid = buildVeroLines(order({ items: [item('A', 1, 5_000)], shippingCost: 4_000, total: 9_000 }), shipping)
   assert.deepEqual([paid.at(-1)?.description, paid.at(-1)?.unitPrice], ['Portes de envio', 400_000])
 })

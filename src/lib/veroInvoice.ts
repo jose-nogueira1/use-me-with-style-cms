@@ -151,12 +151,16 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
     // like checkout does. Free delivery that is neither a coupon nor the
     // threshold (e.g. a municipality priced at 0) is just "Grátis".
     const reachedThreshold = Boolean(shippingInfo?.freeThreshold) && cents(order.total) - shipping >= cents(shippingInfo!.freeThreshold)
+    // "Grátis" is only for a real waiver (coupon or threshold). A municipality
+    // that simply has a delivery price of 0 is a price of 0, not a free delivery:
+    // the line says "Portes de envio" and the price columns show 0,00.
     const why = byCoupon
       ? `Grátis por cupão ${order.discountLabel}`
       : reachedThreshold
         ? `Grátis: compra acima de ${kz(shippingInfo!.freeThreshold)}`
-        : 'Grátis'
-    description = `Portes de envio (${[shippingInfo?.regular ? `Original ${kz(shippingInfo.regular)}` : '', why].filter(Boolean).join(' | ')})`
+        : ''
+    const parts = [shippingInfo?.regular ? `Original ${kz(shippingInfo.regular)}` : '', why].filter(Boolean)
+    if (parts.length) description = `Portes de envio (${parts.join(' | ')})`
   }
   lines.push({ description, quantity: 1, unitPrice: shipping, taxExemptionCode: EXEMPTION_CODE })
   return lines
