@@ -38,6 +38,26 @@ export const Invoices: CollectionConfig = {
       ],
     },
     { name: 'market', type: 'select', required: true, options: ['AO', 'PT'] },
+    // Angola invoices are fiscal documents issued through Vero (AGT-certified);
+    // Portugal (and Angola without Vero credentials) keeps the internal PDF.
+    // For Vero rows `invoiceNumber` is the AGT number.
+    {
+      name: 'provider',
+      type: 'select',
+      defaultValue: 'internal',
+      options: ['internal', 'vero'],
+      admin: { readOnly: true },
+    },
+    { name: 'veroId', type: 'text', admin: { readOnly: true, condition: (data) => data?.provider === 'vero' } },
+    { name: 'veroStatus', type: 'text', admin: { readOnly: true, condition: (data) => data?.provider === 'vero' } },
+    { name: 'atcud', type: 'text', admin: { readOnly: true, condition: (data) => data?.provider === 'vero' } },
+    {
+      name: 'agtStatus',
+      type: 'select',
+      options: ['pending', 'validated', 'rejected'],
+      admin: { readOnly: true, condition: (data) => data?.provider === 'vero', description: 'AGT validation. Empty for sandbox documents.' },
+    },
+    { name: 'agtErrors', type: 'json', admin: { readOnly: true, condition: (data) => data?.provider === 'vero' } },
     { name: 'issuedAt', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayAndTime' } } },
     { name: 'orderNumber', type: 'text', required: true },
     { name: 'issuerName', type: 'text', required: true },

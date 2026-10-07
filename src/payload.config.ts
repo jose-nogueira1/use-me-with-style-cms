@@ -35,6 +35,7 @@ import { StorefrontContent } from './globals/StorefrontContent'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
+import { veroSyncEndpoints } from './endpoints/veroSync'
 import { metaConversionEndpoints } from './endpoints/metaConversions'
 import { orderLookupEndpoint } from './endpoints/orderLookup'
 import { contactEndpoint } from './endpoints/contact'
@@ -186,6 +187,7 @@ export default buildConfig({
     ...messagingWebhookEndpoints,
     ...paymentsEndpoints,
     ...internalInvoiceEndpoints,
+    ...veroSyncEndpoints,
     ...metaConversionEndpoints,
     ...instagramFeedEndpoints,
     ...couponsEndpoints,

@@ -778,6 +778,23 @@ export interface Invoice {
   year: number;
   status: 'issued' | 'failed';
   market: 'AO' | 'PT';
+  provider?: ('internal' | 'vero') | null;
+  veroId?: string | null;
+  veroStatus?: string | null;
+  atcud?: string | null;
+  /**
+   * AGT validation. Empty for sandbox documents.
+   */
+  agtStatus?: ('pending' | 'validated' | 'rejected') | null;
+  agtErrors?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   issuedAt: string;
   orderNumber: string;
   issuerName: string;
@@ -1461,6 +1478,12 @@ export interface InvoicesSelect<T extends boolean = true> {
   year?: T;
   status?: T;
   market?: T;
+  provider?: T;
+  veroId?: T;
+  veroStatus?: T;
+  atcud?: T;
+  agtStatus?: T;
+  agtErrors?: T;
   issuedAt?: T;
   orderNumber?: T;
   issuerName?: T;

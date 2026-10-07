@@ -199,6 +199,39 @@ export function customerPaymentMethodLabel(method: string | undefined, lang: Pdf
   return labels[method]?.[lang] ?? method.replaceAll('_', ' ')
 }
 
+// Maps a paid `orders` document to the invoice input shared by the internal
+// (PT) and Vero (AO) paths.
+export function orderInvoiceInput(doc: Record<string, any>): OrderForInternalInvoice {
+  const addressParts = [doc.address, doc.addressLine2, doc.postalCode, doc.city, doc.country].filter(Boolean)
+  return {
+    id: doc.id,
+    orderNumber: doc.orderNumber,
+    market: doc.market,
+    lang: doc.lang,
+    customerName: doc.customerName,
+    customerEmail: doc.customerEmail,
+    customerPhone: doc.customerPhone,
+    customerTaxId: doc.taxId || undefined,
+    customerAddress: addressParts.join(', '),
+    deliveryRegion: doc.deliveryRegion || undefined,
+    currency: doc.currency,
+    subtotal: doc.subtotal,
+    shippingCost: doc.shippingCost,
+    discountAmount: doc.discountAmount || undefined,
+    discountLabel: doc.discountLabel || undefined,
+    total: doc.total,
+    paymentMethod: doc.paymentMethod,
+    paymentReference: doc.paymentReference || undefined,
+    items: doc.items,
+  }
+}
+
+export function invoiceLineDescription(item: InvoiceLineInput, lang: PdfLang): string {
+  if (item.productType === 'bundle') return `${item.productName} — ${lang === 'en' ? 'Product kit' : 'Kit de produtos'}`
+  const variant = [item.optionValue || item.size, item.color].filter(Boolean).join(' / ')
+  return variant ? `${item.productName} — ${variant}` : item.productName
+}
+
 export function calculateIncludedVatInvoice(
   order: Pick<OrderForInternalInvoice, 'items' | 'shippingCost' | 'total' | 'discountAmount' | 'discountLabel'>,
   vatRate: number,
@@ -211,7 +244,7 @@ export function calculateIncludedVatInvoice(
     const grossAmount = roundMoney(item.qty * item.unitPrice)
     const netAmount = rate > 0 ? roundMoney(grossAmount / divisor) : grossAmount
     return {
-      description: `${item.productName}${item.productType === 'bundle' ? ` — ${lang === 'en' ? 'Product kit' : 'Kit de produtos'}` : [item.optionValue || item.size, item.color].filter(Boolean).length ? ` — ${[item.optionValue || item.size, item.color].filter(Boolean).join(' / ')}` : ''}`,
+      description: invoiceLineDescription(item, lang),
       quantity: item.qty,
       unitPrice: roundMoney(item.unitPrice),
       netAmount,
@@ -316,7 +349,7 @@ export function resolveVatRate(
   return Math.max(0, Number(global[key]) || 0)
 }
 
-async function getSettings(
+export async function getSettings(
   payload: Payload,
   market: Market,
   lang: PdfLang,

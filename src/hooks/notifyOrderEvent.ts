@@ -1,13 +1,35 @@
-import type { CollectionAfterChangeHook } from 'payload'
+import type { CollectionAfterChangeHook, Payload } from 'payload'
 
 import { buildCttTrackingUrl } from '../lib/messaging'
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../lib/email'
 import type { OrderConfirmationItemInput } from '../lib/email'
-import { generateInternalInvoiceForOrder } from '../lib/internalInvoice'
+import { generateInternalInvoiceForOrder, orderInvoiceInput } from '../lib/internalInvoice'
+import { issueVeroInvoiceForOrder } from '../lib/veroInvoice'
 import type { InvoiceAttachment } from '../lib/email'
 import { sendMetaPurchase } from '../endpoints/metaConversions'
 import { absoluteMediaUrl } from '../lib/mediaUrl'
 import { relationshipId, selectOrderItemImage } from '../lib/orderItemImage'
+
+// Runs `task` once the order is seen as `paid` by a fresh, transaction-free
+// read (i.e. the writer committed). Gives up quietly if that never happens.
+// ponytail: in-process retry, a restart in this window drops the task; the
+// /vero/sync job still retries the invoice but not the confirmation email.
+function afterCommit(payload: Payload, orderId: number | string, task: (order: Record<string, any>) => Promise<void>) {
+  void (async () => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1500))
+      const order = await payload.findByID({ collection: 'orders', id: orderId, overrideAccess: true, depth: 0 }).catch(() => null)
+      if (order?.paymentStatus !== 'paid') continue
+      try {
+        await task(order)
+      } catch (err) {
+        payload.logger.error({ event: 'after_commit_task_failed', orderId, err })
+      }
+      return
+    }
+    payload.logger.warn({ event: 'after_commit_order_not_paid', orderId })
+  })()
+}
 
 // Customer order communication is email-only. Telephone numbers remain on
 // orders for exceptional staff-initiated contact, but order events never
@@ -87,127 +109,119 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
 
   if (justPaid) {
     await sendMetaPurchase(doc, req.payload.logger)
-    // Generate the immutable commercial-document snapshot before sending the
-    // confirmation so the same PDF is stored in admin and attached to email.
-    // The PDF is explicitly marked non-fiscal during this phase.
-    let invoiceAttachment: InvoiceAttachment | undefined
-    const addressParts = [doc.address, doc.addressLine2, doc.postalCode, doc.city, doc.country].filter(Boolean)
-    const attachment = await generateInternalInvoiceForOrder(req.payload, {
-      id: doc.id,
-      orderNumber: doc.orderNumber,
-      market: doc.market,
-      lang: doc.lang,
-      customerName: doc.customerName,
-      customerEmail: doc.customerEmail,
-      customerPhone: doc.customerPhone,
-      customerTaxId: doc.taxId || undefined,
-      customerAddress: addressParts.join(', '),
-      deliveryRegion: doc.deliveryRegion || undefined,
-      currency: doc.currency,
-      subtotal: doc.subtotal,
-      shippingCost: doc.shippingCost,
-      discountAmount: doc.discountAmount || undefined,
-      discountLabel: doc.discountLabel || undefined,
-      total: doc.total,
-      paymentMethod: doc.paymentMethod,
-      paymentReference: doc.paymentReference || undefined,
-      items: doc.items,
-    }, req)
-    if (attachment) invoiceAttachment = attachment
-
-    // Resolve each item's product image for the confirmation email --
-    // Orders.items only snapshots productName/size/color/qty/unitPrice (see
-    // Orders.ts), never an image, so the `product` relationship has to be
-    // looked up separately. Best-effort: a lookup failure (or a product
-    // with no images) just means that item's email row falls back to the
-    // template's own placeholder swatch (see renderItemRow in lib/email.ts)
-    // instead of blocking or failing the confirmation send.
-    const orderItems: Array<Record<string, unknown>> = Array.isArray(doc.items) ? doc.items : []
-    const productIds = Array.from(
-      new Set(orderItems.map((item) => relationshipId(item.product)).filter((id): id is string => Boolean(id))),
-    )
-    const productById = new Map<string, Record<string, unknown>>()
-    if (productIds.length) {
-      try {
-        const products = await req.payload.find({
-          collection: 'products',
-          where: { id: { in: productIds } },
-          depth: 1,
-          limit: productIds.length,
-          overrideAccess: true,
-        })
-        for (const product of products.docs) {
-          productById.set(String(product.id), product as unknown as Record<string, unknown>)
+    const sendConfirmation = async (payload: Payload, order: Record<string, any>, attachment?: InvoiceAttachment) => {
+      // Resolve each item's product image for the confirmation email --
+      // Orders.items only snapshots productName/size/color/qty/unitPrice (see
+      // Orders.ts), never an image, so the `product` relationship has to be
+      // looked up separately. Best-effort: a lookup failure (or a product
+      // with no images) just means that item's email row falls back to the
+      // template's own placeholder swatch (see renderItemRow in lib/email.ts)
+      // instead of blocking or failing the confirmation send.
+      const orderItems: Array<Record<string, unknown>> = Array.isArray(order.items) ? order.items : []
+      const productIds = Array.from(
+        new Set(orderItems.map((item) => relationshipId(item.product)).filter((id): id is string => Boolean(id))),
+      )
+      const productById = new Map<string, Record<string, unknown>>()
+      if (productIds.length) {
+        try {
+          const products = await payload.find({
+            collection: 'products',
+            where: { id: { in: productIds } },
+            depth: 1,
+            limit: productIds.length,
+            overrideAccess: true,
+          })
+          for (const product of products.docs) {
+            productById.set(String(product.id), product as unknown as Record<string, unknown>)
+          }
+        } catch (err) {
+          // Never let an image-lookup failure block the confirmation email.
+          // eslint-disable-next-line no-console
+          console.error('[email:product-image-lookup-failed]', err)
         }
-      } catch (err) {
-        // Never let an image-lookup failure block the confirmation email.
-        // eslint-disable-next-line no-console
-        console.error('[email:product-image-lookup-failed]', err)
       }
+
+      const emailItems: OrderConfirmationItemInput[] = orderItems.map((item) => {
+        const productId = relationshipId(item.product)
+        const product = productId ? productById.get(productId) : undefined
+        const selectedImage = selectOrderItemImage(
+          product?.images as Array<{ image?: unknown; color?: unknown }> | undefined,
+          item.colorId,
+        )
+        const media = selectedImage && typeof selectedImage === 'object'
+          ? selectedImage as { url?: string | null; alt?: string | null; sizes?: { card?: { url?: string | null } } }
+          : undefined
+        return {
+          productName: String(item.productName ?? ''),
+          size: (item.size as string | undefined) || undefined,
+          optionLabel: (item.optionLabel as string | undefined) || undefined,
+          optionValue: (item.optionValue as string | undefined) || undefined,
+          productType: item.productType === 'bundle' ? 'bundle' : 'standard',
+          color: (item.color as string | undefined) || undefined,
+          qty: Number(item.qty) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          imageUrl: absoluteMediaUrl(media?.sizes?.card?.url || media?.url),
+          imageAlt: media?.alt || String(item.productName ?? ''),
+        }
+      })
+
+      await sendOrderConfirmationEmail(payload, {
+        to: order.customerEmail,
+        orderNumber: order.orderNumber,
+        orderDate: order.createdAt,
+        customerName: order.customerName,
+        // customerFirstName is optional/not backfilled on older orders --
+        // buildOrderConfirmationEmail itself falls back to the first token of
+        // customerName when this is absent (see resolveFirstName).
+        customerFirstName: order.customerFirstName || undefined,
+        total: order.total,
+        currency: order.currency,
+        // order.lang is the storefront language at checkout (Orders.lang,
+        // defaultValue 'pt'); sendOrderConfirmationEmail also defaults to 'pt'
+        // itself if this is somehow missing (e.g. an order written before this
+        // field existed).
+        lang: order.lang,
+        items: emailItems,
+        subtotal: order.subtotal,
+        discountAmount: order.discountAmount || undefined,
+        discountLabel: order.discountLabel || undefined,
+        shippingCost: order.shippingCost,
+        paymentMethod: order.paymentMethod,
+        deliveryMethod: order.deliveryMethod,
+        // Only set this early if staff somehow entered a tracking code before
+        // the payment-confirmation email went out -- rare (tracking is
+        // normally added at the shipped stage, see justShipped above) but
+        // harmless to include when it happens.
+        courierTrackingCode: order.cttTrackingCode || undefined,
+        courierTrackingUrl: trackingUrl,
+        address: {
+          line1: order.address,
+          line2: order.addressLine2,
+          postalCode: order.postalCode || undefined,
+          city: order.city,
+          country: order.country,
+        },
+        attachment,
+      })
     }
 
-    const emailItems: OrderConfirmationItemInput[] = orderItems.map((item) => {
-      const productId = relationshipId(item.product)
-      const product = productId ? productById.get(productId) : undefined
-      const selectedImage = selectOrderItemImage(
-        product?.images as Array<{ image?: unknown; color?: unknown }> | undefined,
-        item.colorId,
-      )
-      const media = selectedImage && typeof selectedImage === 'object'
-        ? selectedImage as { url?: string | null; alt?: string | null; sizes?: { card?: { url?: string | null } } }
-        : undefined
-      return {
-        productName: String(item.productName ?? ''),
-        size: (item.size as string | undefined) || undefined,
-        optionLabel: (item.optionLabel as string | undefined) || undefined,
-        optionValue: (item.optionValue as string | undefined) || undefined,
-        productType: item.productType === 'bundle' ? 'bundle' : 'standard',
-        color: (item.color as string | undefined) || undefined,
-        qty: Number(item.qty) || 1,
-        unitPrice: Number(item.unitPrice) || 0,
-        imageUrl: absoluteMediaUrl(media?.sizes?.card?.url || media?.url),
-        imageAlt: media?.alt || String(item.productName ?? ''),
-      }
-    })
-
-    await sendOrderConfirmationEmail(req.payload, {
-      to: doc.customerEmail,
-      orderNumber: doc.orderNumber,
-      orderDate: doc.createdAt,
-      customerName: doc.customerName,
-      // customerFirstName is optional/not backfilled on older orders --
-      // buildOrderConfirmationEmail itself falls back to the first token of
-      // customerName when this is absent (see resolveFirstName).
-      customerFirstName: doc.customerFirstName || undefined,
-      total: doc.total,
-      currency: doc.currency,
-      // doc.lang is the storefront language at checkout (Orders.lang,
-      // defaultValue 'pt'); sendOrderConfirmationEmail also defaults to 'pt'
-      // itself if this is somehow missing (e.g. an order written before this
-      // field existed).
-      lang: doc.lang,
-      items: emailItems,
-      subtotal: doc.subtotal,
-      discountAmount: doc.discountAmount || undefined,
-      discountLabel: doc.discountLabel || undefined,
-      shippingCost: doc.shippingCost,
-      paymentMethod: doc.paymentMethod,
-      deliveryMethod: doc.deliveryMethod,
-      // Only set this early if staff somehow entered a tracking code before
-      // the payment-confirmation email went out -- rare (tracking is
-      // normally added at the shipped stage, see justShipped above) but
-      // harmless to include when it happens.
-      courierTrackingCode: doc.cttTrackingCode || undefined,
-      courierTrackingUrl: trackingUrl,
-      address: {
-        line1: doc.address,
-        line2: doc.addressLine2,
-        postalCode: doc.postalCode || undefined,
-        city: doc.city,
-        country: doc.country,
-      },
-      attachment: invoiceAttachment,
-    })
+    if (doc.market === 'AO') {
+      // Angola invoices are fiscal documents issued through Vero (AGT-certified);
+      // there is no internal fallback. This hook runs inside the payment
+      // webhook's database transaction (which holds a row lock on the order), so
+      // the Vero call waits until the paid state is actually committed -- a
+      // rollback must never leave a fiscal document nobody recorded. A Vero
+      // failure leaves a `failed` invoice row that /vero/sync retries.
+      afterCommit(req.payload, doc.id, async (paid) => {
+        const attachment = await issueVeroInvoiceForOrder(req.payload, orderInvoiceInput(paid))
+        await sendConfirmation(req.payload, paid, attachment ?? undefined)
+      })
+    } else {
+      // Portugal keeps the internal commercial PDF (generated in-transaction:
+      // purely local, no external call).
+      const attachment = await generateInternalInvoiceForOrder(req.payload, orderInvoiceInput(doc), req)
+      await sendConfirmation(req.payload, doc, attachment ?? undefined)
+    }
   }
 
   return doc
