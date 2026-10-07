@@ -56,4 +56,8 @@ test('sale and coupon discounts are described in text, not hidden', () => {
   assert.match(line.description, /Promoção -20%, preço original 25\.000,00 Kz/)
   assert.match(veroNotes(o), /UMWS-1 \| Desconto \(BEMVINDA\): 1\.000,00 Kz/)
   assert.equal(veroNotes(order({ orderNumber: 'X' })), 'Encomenda X')
+  assert.equal(
+    veroNotes(order({ orderNumber: 'X', paymentMethod: 'multicaixa_express', paymentReference: 'abc-123' })),
+    'Encomenda X | Pagamento: Multicaixa Express (AppyPay), ref. abc-123',
+  )
 })

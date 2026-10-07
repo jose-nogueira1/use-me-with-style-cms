@@ -1,7 +1,7 @@
 import type { Payload, PayloadRequest } from 'payload'
 
 import type { InvoiceAttachment } from './email'
-import { getSettings, invoiceLineDescription, type OrderForInternalInvoice } from './internalInvoice'
+import { customerPaymentMethodLabel, invoiceLineDescription, type OrderForInternalInvoice } from './internalInvoice'
 
 const VERO_BASE = 'https://api.vero.ao'
 // Prime Essencial is in Regime Simplificado ("Exclusão"): every line is 0%
@@ -38,7 +38,15 @@ export function veroNotes(order: OrderForInternalInvoice): string {
   const coupon = order.discountAmount && order.discountAmount > 0
     ? ` | Desconto${order.discountLabel ? ` (${order.discountLabel})` : ''}: ${kz(order.discountAmount)}, já incluído nos preços`
     : ''
-  return `Encomenda ${order.orderNumber}${coupon}`
+  // multicaixa_express orders are the AppyPay ones; paymentReference holds the
+  // AppyPay transaction id once the charge is verified.
+  const method = order.paymentMethod === 'multicaixa_express'
+    ? 'Multicaixa Express (AppyPay)'
+    : customerPaymentMethodLabel(order.paymentMethod, 'pt')
+  const payment = method
+    ? ` | Pagamento: ${method}${order.paymentReference ? `, ref. ${order.paymentReference}` : ''}`
+    : ''
+  return `Encomenda ${order.orderNumber}${coupon}${payment}`
 }
 
 // Vero rejects negative lines, so the coupon (and any rounding drift versus the
@@ -128,9 +136,6 @@ export async function issueVeroInvoiceForOrder(
   })
   if (existing.docs.some((invoice) => invoice.status === 'issued')) return null
 
-  const settings = await getSettings(payload, order.market, 'pt', order.deliveryRegion, req)
-  if (!settings.enabled) return null
-
   const issuedAt = new Date()
   const year = issuedAt.getUTCFullYear()
   const previous = await payload.find({
@@ -152,9 +157,8 @@ export async function issueVeroInvoiceForOrder(
     provider: 'vero' as const,
     issuedAt: issuedAt.toISOString(),
     orderNumber: order.orderNumber,
-    issuerName: settings.issuerName,
-    issuerTaxId: settings.issuerTaxId,
-    issuerAddress: settings.issuerAddress,
+    // Informational snapshot only: the fiscal issuer is the Vero organisation.
+    issuerName: 'Prime Essencial - Comércio & Prestação de Serviços LDA',
     customerName: order.customerName,
     customerEmail: order.customerEmail,
     customerPhone: order.customerPhone,

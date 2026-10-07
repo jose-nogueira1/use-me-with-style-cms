@@ -27,7 +27,7 @@ export const taxRatesEndpoint: Endpoint = {
       typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 
     return Response.json({
-      AO: rate(settings.vatRateAO, 14),
+      AO: rate(settings.vatRateAO, 0), // Regime Simplificado: no VAT line unless configured
       PT: {
         mainland: rate(settings.vatRatePortugalMainland, 23),
         madeira: rate(settings.vatRatePortugalMadeira, 22),

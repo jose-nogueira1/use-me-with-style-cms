@@ -1742,25 +1742,10 @@ export interface InvoiceSetting {
   id: number;
   phaseOneDisclaimerPT: string;
   phaseOneDisclaimerEN: string;
-  invoicingEnabledAO?: boolean | null;
-  issuerNameAO?: string | null;
-  issuerTaxIdAO?: string | null;
-  issuerAddressAO?: string | null;
-  bankNameAO?: string | null;
-  accountHolderAO?: string | null;
-  bankAccountAO?: string | null;
-  swiftBicAO?: string | null;
-  paymentInstructionsAO?: string | null;
   /**
-   * The paid total never changes. This rate extracts the VAT portion already included in the price. Angola VAT is a flat 14% nationwide.
+   * Display only; the paid total never changes and Vero invoices ignore this. 0 hides the VAT line at checkout (Regime Simplificado). Use 14 only under Regime Geral.
    */
   vatRateAO?: number | null;
-  /**
-   * Optional note supplied by the accountant.
-   */
-  taxNoteAO?: string | null;
-  invoicePrefixAO?: string | null;
-  invoiceFooterAO?: string | null;
   invoicingEnabledPT?: boolean | null;
   issuerNamePT?: string | null;
   issuerTaxIdPT?: string | null;
@@ -2209,19 +2194,7 @@ export interface MarketSettingsSelect<T extends boolean = true> {
 export interface InvoiceSettingsSelect<T extends boolean = true> {
   phaseOneDisclaimerPT?: T;
   phaseOneDisclaimerEN?: T;
-  invoicingEnabledAO?: T;
-  issuerNameAO?: T;
-  issuerTaxIdAO?: T;
-  issuerAddressAO?: T;
-  bankNameAO?: T;
-  accountHolderAO?: T;
-  bankAccountAO?: T;
-  swiftBicAO?: T;
-  paymentInstructionsAO?: T;
   vatRateAO?: T;
-  taxNoteAO?: T;
-  invoicePrefixAO?: T;
-  invoiceFooterAO?: T;
   invoicingEnabledPT?: T;
   issuerNamePT?: T;
   issuerTaxIdPT?: T;

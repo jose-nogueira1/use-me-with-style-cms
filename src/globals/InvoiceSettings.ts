@@ -22,11 +22,11 @@ const angolaVatFields = [
     type: 'number' as const,
     min: 0,
     max: 100,
-    defaultValue: 14,
-    label: 'Angola: VAT rate included in storefront prices (%)',
+    defaultValue: 0,
+    label: 'Angola: VAT rate shown at checkout (%)',
     admin: {
       description:
-        'The paid total never changes. This rate extracts the VAT portion already included in the price. Angola VAT is a flat 14% nationwide.',
+        'Display only; the paid total never changes and Vero invoices ignore this. 0 hides the VAT line at checkout (Regime Simplificado). Use 14 only under Regime Geral.',
     },
   },
 ]
@@ -162,10 +162,24 @@ export const InvoiceSettings: GlobalConfig = {
         'Internal commercial document, not fiscally certified. Must be validated and processed by the issuing entity’s accountant.',
       label: 'Required non-fiscal disclaimer — English',
     },
+    // Angola (2026-10-07): invoices are issued through Vero (AGT-certified), which
+    // holds the issuer, bank details, series and tax regime -- see
+    // lib/veroInvoice.ts. The internal-invoice settings below are commented out
+    // (not deleted) in case Angola ever needs the internal PDF again. Their
+    // database columns are intentionally left in place: if `payload
+    // migrate:create` later proposes DROP COLUMN for them, review it first.
+    // `vatRateAO` stays live because the public checkout reads it (via
+    // /tax-rates) to decide whether to show an "IVA incluído" line.
+    // {
+    //   type: 'collapsible',
+    //   label: 'Angola',
+    //   fields: marketFields('AO', angolaVatFields),
+    // },
     {
       type: 'collapsible',
       label: 'Angola',
-      fields: marketFields('AO', angolaVatFields),
+      admin: { description: 'Angola invoices are issued through Vero. Only the checkout VAT display is configured here.' },
+      fields: angolaVatFields,
     },
     {
       type: 'collapsible',
