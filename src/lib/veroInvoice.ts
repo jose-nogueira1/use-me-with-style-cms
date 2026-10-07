@@ -147,10 +147,14 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   let description = 'Portes de envio'
   if (shipping === 0) {
     const byCoupon = !order.discountAmount && order.discountLabel
+    // The threshold is judged on the merchandise actually paid (after discounts),
+    // like checkout does. Free delivery that is neither a coupon nor the
+    // threshold (e.g. a municipality priced at 0) is just "Grátis".
+    const reachedThreshold = Boolean(shippingInfo?.freeThreshold) && cents(order.total) - shipping >= cents(shippingInfo!.freeThreshold)
     const why = byCoupon
       ? `Grátis por cupão ${order.discountLabel}`
-      : shippingInfo?.freeThreshold
-        ? `Grátis: compra acima de ${kz(shippingInfo.freeThreshold)}`
+      : reachedThreshold
+        ? `Grátis: compra acima de ${kz(shippingInfo!.freeThreshold)}`
         : 'Grátis'
     description = `Portes de envio (${[shippingInfo?.regular ? `Original ${kz(shippingInfo.regular)}` : '', why].filter(Boolean).join(' | ')})`
   }
