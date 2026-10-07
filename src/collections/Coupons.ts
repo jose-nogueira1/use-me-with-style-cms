@@ -1,4 +1,4 @@
-import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
+import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 import { couponsEndpoints } from '../endpoints/coupons'
 
 // Discounts phase 2 (2026-07-25, "figure out discounts" -- per-request
@@ -24,6 +24,25 @@ const normalizeCouponCode: CollectionBeforeValidateHook = ({ data }) => {
   return data
 }
 
+// Only one code can be promoted on the storefront announcement bar at a time:
+// turning it on here turns it off on every other coupon.
+const singleBannerCoupon: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
+  if (data?.showOnBanner !== true) return data
+  const others = await req.payload.find({
+    collection: 'coupons',
+    where: { and: [{ showOnBanner: { equals: true } }, ...(originalDoc?.id ? [{ id: { not_equals: originalDoc.id } }] : [])] },
+    limit: 50,
+    depth: 0,
+    pagination: false,
+    overrideAccess: true,
+    req,
+  })
+  for (const other of others.docs) {
+    await req.payload.update({ collection: 'coupons', id: other.id, data: { showOnBanner: false }, overrideAccess: true, req })
+  }
+  return data
+}
+
 export const Coupons: CollectionConfig = {
   slug: 'coupons',
   labels: { singular: 'Coupon', plural: 'Coupons' },
@@ -40,6 +59,7 @@ export const Coupons: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [normalizeCouponCode],
+    beforeChange: [singleBannerCoupon],
   },
   endpoints: couponsEndpoints,
   fields: [
@@ -165,6 +185,29 @@ export const Coupons: CollectionConfig = {
     // default true so every existing coupon keeps working in both markets
     // until an admin deliberately restricts one -- see
     // lib/couponPricing.ts's resolveCoupon for the enforcement.
+    {
+      name: 'showOnBanner',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Show on the announcement bar',
+      admin: {
+        position: 'sidebar',
+        description:
+          'Promote this code in the scrolling bar above the storefront header. Only one code at a time: turning this on turns it off on the others. Shown only while the code is active, in date and not used up.',
+      },
+    },
+    {
+      name: 'bannerTextPt',
+      type: 'text',
+      label: 'Announcement bar text — Portuguese',
+      admin: { condition: (data) => data.showOnBanner === true, description: 'Optional. Blank = automatic, e.g. "Use o código X e ganhe 10% de desconto".' },
+    },
+    {
+      name: 'bannerTextEn',
+      type: 'text',
+      label: 'Announcement bar text — English',
+      admin: { condition: (data) => data.showOnBanner === true, description: 'Optional. Blank = automatic, e.g. "Use code X for 10% off".' },
+    },
     {
       name: 'availableAO',
       type: 'checkbox',

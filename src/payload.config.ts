@@ -32,6 +32,7 @@ import { HomeCollections } from './globals/HomeCollections'
 import { InstagramSpotlight } from './globals/InstagramSpotlight'
 import { AiMessagingSettings } from './globals/AiMessagingSettings'
 import { StorefrontContent } from './globals/StorefrontContent'
+import { AnnouncementBanner } from './globals/AnnouncementBanner'
 import { messagingWebhookEndpoints } from './endpoints/messagingWebhook'
 import { paymentsEndpoints } from './endpoints/payments'
 import { internalInvoiceEndpoints } from './endpoints/internalInvoices'
@@ -43,6 +44,7 @@ import { inventoryReservationEndpoints } from './endpoints/inventoryReservations
 import { instagramFeedEndpoints } from './endpoints/instagramFeed'
 import { couponsEndpoints } from './endpoints/coupons'
 import { taxRatesEndpoint } from './endpoints/taxRates'
+import { storefrontBannerEndpoint } from './endpoints/storefrontBanner'
 import { aiAssistantEndpoint, aiAssistantStatusEndpoint } from './endpoints/aiAssistant'
 import { instagramProfileEndpoint } from './endpoints/instagramProfile'
 import { robotsEndpoint, sitemapEndpoint } from './endpoints/seoFiles'
@@ -178,7 +180,7 @@ export default buildConfig({
   // this project (see products.tag_id's precedent) -- see
   // src/migrations/20260804_180000_home_content_split.ts for the data
   // migration that seeded the three new globals from them.
-  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight, AiMessagingSettings, StorefrontContent],
+  globals: [MarketSettings, InvoiceSettings, LegalContent, HomeHero, HomeCategories, HomeCollections, InstagramSpotlight, AiMessagingSettings, StorefrontContent, AnnouncementBanner],
   endpoints: [
     orderLookupEndpoint,
     // Phase 2: ...customerReturnEndpoints,
@@ -192,6 +194,7 @@ export default buildConfig({
     ...instagramFeedEndpoints,
     ...couponsEndpoints,
     taxRatesEndpoint,
+    storefrontBannerEndpoint,
     aiAssistantEndpoint,
     aiAssistantStatusEndpoint,
     instagramProfileEndpoint,

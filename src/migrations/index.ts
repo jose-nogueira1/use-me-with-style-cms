@@ -1,5 +1,6 @@
 import * as migration_20260910_160000_hero_image_positions from './20260910_160000_hero_image_positions';
 import * as migration_20261007_120000_vero_invoice_fields from './20261007_120000_vero_invoice_fields';
+import * as migration_20261008_120000_announcement_banner from './20261008_120000_announcement_banner';
 import * as migration_20260708_220620_initial from './20260708_220620_initial';
 import * as migration_20260709_171700_add_order_payment_reference from './20260709_171700_add_order_payment_reference';
 import * as migration_20260710_010000_add_order_lang from './20260710_010000_add_order_lang';
@@ -491,4 +492,5 @@ export const migrations = [
   { up: migration_20260904_010000_home_featured_products.up, down: migration_20260904_010000_home_featured_products.down, name: '20260904_010000_home_featured_products' },
   { up: migration_20260910_160000_hero_image_positions.up, down: migration_20260910_160000_hero_image_positions.down, name: '20260910_160000_hero_image_positions' },
   { up: migration_20261007_120000_vero_invoice_fields.up, down: migration_20261007_120000_vero_invoice_fields.down, name: '20261007_120000_vero_invoice_fields' },
+  { up: migration_20261008_120000_announcement_banner.up, down: migration_20261008_120000_announcement_banner.down, name: '20261008_120000_announcement_banner' },
 ];

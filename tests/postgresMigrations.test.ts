@@ -1,4 +1,6 @@
 import { up as heroPositionsUp, down as heroPositionsDown } from '../src/migrations/20260910_160000_hero_image_positions.ts'
+import { up as veroFieldsUp, down as veroFieldsDown } from '../src/migrations/20261007_120000_vero_invoice_fields.ts'
+import { up as bannerUp, down as bannerDown } from '../src/migrations/20261008_120000_announcement_banner.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { randomUUID } from 'node:crypto'
@@ -644,5 +646,37 @@ test('hero image positions preserve legacy framing and survive repeated migratio
     await heroPositionsDown({ db } as never)
     assert.deepEqual((await pool.query('SELECT * FROM home_hero')).rows, [{ id: 1, hero_headline_p_t: 'Current campaign' }])
     assert.deepEqual((await pool.query('SELECT * FROM _home_hero_v')).rows, [{ id: 1, version_hero_headline_p_t: 'Previous campaign' }])
+  })
+})
+
+test('Vero invoice fields leave existing invoices as internal documents and reverse cleanly', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`CREATE TABLE invoices (id serial PRIMARY KEY, invoice_number varchar NOT NULL); INSERT INTO invoices (invoice_number) VALUES ('UMWS-PT-2026-00001');`)
+    const db = drizzle(pool)
+    await veroFieldsUp({ db } as never)
+    await veroFieldsUp({ db } as never) // repeated run
+    const row = (await pool.query('SELECT * FROM invoices')).rows[0]
+    assert.deepEqual([row.provider, row.vero_id, row.atcud, row.agt_status, row.agt_errors], ['internal', null, null, null, null])
+    await pool.query(`UPDATE invoices SET provider = 'vero', agt_status = 'pending', agt_errors = '{"x":1}'::jsonb`)
+    await assert.rejects(pool.query(`UPDATE invoices SET agt_status = 'nope'`))
+    await veroFieldsDown({ db } as never)
+    assert.deepEqual((await pool.query('SELECT * FROM invoices')).rows, [{ id: 1, invoice_number: 'UMWS-PT-2026-00001' }])
+  })
+})
+
+test('announcement bar migration adds the global and coupon fields without disturbing coupons', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`CREATE TABLE coupons (id serial PRIMARY KEY, code varchar NOT NULL); INSERT INTO coupons (code) VALUES ('SAVE10');`)
+    const db = drizzle(pool)
+    await bannerUp({ db } as never)
+    await bannerUp({ db } as never) // repeated run
+    const coupon = (await pool.query('SELECT * FROM coupons')).rows[0]
+    assert.deepEqual([coupon.code, coupon.show_on_banner, coupon.banner_text_pt, coupon.banner_text_en], ['SAVE10', false, null, null])
+    await pool.query(`INSERT INTO announcement_banner DEFAULT VALUES`)
+    const banner = (await pool.query('SELECT * FROM announcement_banner')).rows[0]
+    assert.deepEqual([banner.angola_delivery_enabled, banner.portugal_delivery_enabled, banner.angola_delivery_text_pt], [true, true, null])
+    await bannerDown({ db } as never)
+    assert.deepEqual((await pool.query('SELECT * FROM coupons')).rows, [{ id: 1, code: 'SAVE10' }])
+    await assert.rejects(pool.query('SELECT * FROM announcement_banner'))
   })
 })

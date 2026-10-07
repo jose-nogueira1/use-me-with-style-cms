@@ -119,6 +119,7 @@ export interface Config {
     'instagram-spotlight': InstagramSpotlight;
     'ai-messaging-settings': AiMessagingSetting;
     'storefront-content': StorefrontContent;
+    'announcement-banner': AnnouncementBanner;
   };
   globalsSelect: {
     'market-settings': MarketSettingsSelect<false> | MarketSettingsSelect<true>;
@@ -130,6 +131,7 @@ export interface Config {
     'instagram-spotlight': InstagramSpotlightSelect<false> | InstagramSpotlightSelect<true>;
     'ai-messaging-settings': AiMessagingSettingsSelect<false> | AiMessagingSettingsSelect<true>;
     'storefront-content': StorefrontContentSelect<false> | StorefrontContentSelect<true>;
+    'announcement-banner': AnnouncementBannerSelect<false> | AnnouncementBannerSelect<true>;
   };
   locale: null;
   widgets: {
@@ -918,6 +920,18 @@ export interface Coupon {
    */
   maxRedemptionsPerEmail?: number | null;
   /**
+   * Promote this code in the scrolling bar above the storefront header. Only one code at a time: turning this on turns it off on the others. Shown only while the code is active, in date and not used up.
+   */
+  showOnBanner?: boolean | null;
+  /**
+   * Optional. Blank = automatic, e.g. "Use o código X e ganhe 10% de desconto".
+   */
+  bannerTextPt?: string | null;
+  /**
+   * Optional. Blank = automatic, e.g. "Use code X for 10% off".
+   */
+  bannerTextEn?: string | null;
+  /**
    * Uncheck to make this code invalid for Angola orders.
    */
   availableAO?: boolean | null;
@@ -1557,6 +1571,9 @@ export interface CouponsSelect<T extends boolean = true> {
   usageLimit?: T;
   usageCount?: T;
   maxRedemptionsPerEmail?: T;
+  showOnBanner?: T;
+  bannerTextPt?: T;
+  bannerTextEn?: T;
   availableAO?: T;
   availablePT?: T;
   updatedAt?: T;
@@ -2144,6 +2161,35 @@ export interface StorefrontContent {
   createdAt?: string | null;
 }
 /**
+ * The scrolling bar above the storefront header. Shows the free-delivery message and, optionally, one discount code (choose it on the coupon).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcement-banner".
+ */
+export interface AnnouncementBanner {
+  id: number;
+  angolaDeliveryEnabled?: boolean | null;
+  /**
+   * Optional. Blank = "Entrega grátis acima de <threshold>" from the market settings.
+   */
+  angolaDeliveryTextPt?: string | null;
+  /**
+   * Optional. Blank = "Free delivery over <threshold>".
+   */
+  angolaDeliveryTextEn?: string | null;
+  portugalDeliveryEnabled?: boolean | null;
+  /**
+   * Optional. Blank = "Entrega grátis acima de <threshold>" from the market settings.
+   */
+  portugalDeliveryTextPt?: string | null;
+  /**
+   * Optional. Blank = "Free delivery over <threshold>".
+   */
+  portugalDeliveryTextEn?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "market-settings_select".
  */
@@ -2442,6 +2488,21 @@ export interface StorefrontContentSelect<T extends boolean = true> {
   sizeGuideSeoTitleEN?: T;
   sizeGuideSeoDescriptionPT?: T;
   sizeGuideSeoDescriptionEN?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcement-banner_select".
+ */
+export interface AnnouncementBannerSelect<T extends boolean = true> {
+  angolaDeliveryEnabled?: T;
+  angolaDeliveryTextPt?: T;
+  angolaDeliveryTextEn?: T;
+  portugalDeliveryEnabled?: T;
+  portugalDeliveryTextPt?: T;
+  portugalDeliveryTextEn?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
