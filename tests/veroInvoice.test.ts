@@ -45,7 +45,7 @@ test('free delivery is shown as a zero-price line, with its coupon in the notes'
   const lines = buildVeroLines(o)
   assert.deepEqual(lines.at(-1) && [lines.at(-1)!.description, lines.at(-1)!.unitPrice], ['Portes de envio (grátis, cupão FREESHIP (free shipping))', 0])
   assert.equal(veroLinesTotal(lines), 500_000)
-  assert.match(veroNotes(o), /\| Cupão: FREESHIP/)
+  assert.equal(veroNotes(o), 'Encomenda UMWS-1')
 })
 
 test('a coupon discount gets its own explanatory zero-price line', () => {
@@ -73,7 +73,7 @@ test('sale and coupon discounts are described in text, not hidden', () => {
   })
   const [line] = buildVeroLines(o)
   assert.match(line.description, /Promoção -20%, preço original 25\.000,00 Kz/)
-  assert.match(veroNotes(o), /UMWS-1 \| Desconto \(BEMVINDA\): 1\.000,00 Kz/)
+  assert.equal(veroNotes(o), 'Encomenda UMWS-1')
   assert.equal(veroNotes(order({ orderNumber: 'X' })), 'Encomenda X')
   assert.equal(
     veroNotes(order({ orderNumber: 'X', paymentMethod: 'multicaixa_express', paymentReference: 'abc-123' })),

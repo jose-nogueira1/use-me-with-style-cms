@@ -33,13 +33,8 @@ function saleNote(item: OrderForInternalInvoice['items'][number]): string {
   return ` (Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%, preço original ${kz(item.regularUnitPrice)})`
 }
 
+// The coupon is not repeated here: it has its own line on the invoice.
 export function veroNotes(order: OrderForInternalInvoice): string {
-  // A free-delivery coupon has a label but no merchandise discount.
-  const coupon = order.discountAmount && order.discountAmount > 0
-    ? ` | Desconto${order.discountLabel ? ` (${order.discountLabel})` : ''}: ${kz(order.discountAmount)}, já incluído nos preços`
-    : order.discountLabel
-      ? ` | Cupão: ${order.discountLabel}`
-      : ''
   // multicaixa_express orders are the AppyPay ones; paymentReference holds the
   // AppyPay transaction id once the charge is verified.
   const method = order.paymentMethod === 'multicaixa_express'
@@ -48,7 +43,7 @@ export function veroNotes(order: OrderForInternalInvoice): string {
   const payment = method
     ? ` | Pagamento: ${method}${order.paymentReference ? `, ref. ${order.paymentReference}` : ''}`
     : ''
-  return `Encomenda ${order.orderNumber}${coupon}${payment}`
+  return `Encomenda ${order.orderNumber}${payment}`
 }
 
 // Vero rejects negative lines, so the coupon (and any rounding drift versus the
