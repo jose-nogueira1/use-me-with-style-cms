@@ -9,7 +9,6 @@ const VERO_BASE = 'https://api.vero.ao'
 // the org's regime in the Vero dashboard stays the single source of truth.
 // Confirm the code with the accountant.
 const EXEMPTION_CODE = 'M04'
-const CONSUMIDOR_FINAL = { externalId: 'consumidor_final', name: 'Consumidor Final', isConsumidorFinal: true }
 
 type VeroLine = { description: string; quantity: number; unitPrice: number; taxExemptionCode: string }
 type VeroInvoice = {
@@ -91,13 +90,17 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
 
 export const veroLinesTotal = (lines: VeroLine[]): number => lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
 
-function customerPayload(order: OrderForInternalInvoice) {
+// A buyer with a NIF is keyed by it. A buyer without one is still printed on the
+// invoice (name, address, contacts) but flagged Consumidor Final, which makes
+// Vero use the generic NIF 999999999. Keyed per order so a later order can never
+// rewrite the customer details of an already-issued fiscal document.
+export function customerPayload(order: OrderForInternalInvoice) {
   const nif = order.customerTaxId?.trim()
-  if (!nif) return CONSUMIDOR_FINAL
   return {
-    externalId: `nif_${nif}`,
+    externalId: nif ? `nif_${nif}` : `order_${order.orderNumber}`,
     name: order.customerName,
-    taxId: nif,
+    taxId: nif || undefined,
+    isConsumidorFinal: nif ? undefined : true,
     email: order.customerEmail,
     phone: order.customerPhone,
     addressLine1: order.customerAddress,

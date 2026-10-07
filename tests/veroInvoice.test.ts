@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildVeroLines, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
+import { buildVeroLines, customerPayload, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
 import type { OrderForInternalInvoice } from '../src/lib/internalInvoice.ts'
 
 const order = (over: Partial<OrderForInternalInvoice>): OrderForInternalInvoice => ({
@@ -68,4 +68,12 @@ test('sale and coupon discounts are described in text, not hidden', () => {
     veroNotes(order({ orderNumber: 'X', paymentMethod: 'multicaixa_express', paymentReference: 'abc-123' })),
     'Encomenda X | Pagamento: Multicaixa Express (AppyPay), ref. abc-123',
   )
+})
+
+test('buyers without a NIF keep their details and become Consumidor Final per order', () => {
+  const base = { orderNumber: 'AO-1', customerName: 'Ana Silva', customerEmail: 'ana@example.com', customerAddress: 'Luanda' }
+  const noNif = customerPayload(order(base))
+  assert.deepEqual([noNif.externalId, noNif.name, noNif.taxId, noNif.isConsumidorFinal], ['order_AO-1', 'Ana Silva', undefined, true])
+  const withNif = customerPayload(order({ ...base, customerTaxId: ' 5000123456 ' }))
+  assert.deepEqual([withNif.externalId, withNif.taxId, withNif.isConsumidorFinal], ['nif_5000123456', '5000123456', undefined])
 })
