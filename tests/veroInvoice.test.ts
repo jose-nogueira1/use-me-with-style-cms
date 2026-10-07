@@ -37,7 +37,15 @@ test('Vero lines sum exactly to the paid total, with shipping and a coupon folde
 test('a discount that does not divide by quantity splits the line instead of drifting', () => {
   const lines = buildVeroLines(order({ items: [item('A', 3, 100)], total: 100, discountAmount: 200 }))
   assert.equal(veroLinesTotal(lines), 10_000)
-  assert.deepEqual(lines.map((l) => [l.quantity, l.unitPrice]), [[2, 3333], [1, 3334]])
+  assert.deepEqual(lines.map((l) => [l.quantity, l.unitPrice]), [[2, 3333], [1, 3334], [1, 0]])
+})
+
+test('free delivery is shown as a zero-price line, with its coupon in the notes', () => {
+  const o = order({ items: [item('A', 1, 5_000)], shippingCost: 0, total: 5_000, discountLabel: 'FREESHIP (free shipping)' })
+  const lines = buildVeroLines(o)
+  assert.deepEqual(lines.at(-1) && [lines.at(-1)!.description, lines.at(-1)!.unitPrice], ['Portes de envio (grátis)', 0])
+  assert.equal(veroLinesTotal(lines), 500_000)
+  assert.match(veroNotes(o), /\| Cupão: FREESHIP/)
 })
 
 test('empty or free orders are refused rather than invoiced', () => {

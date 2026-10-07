@@ -31,13 +31,16 @@ const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimu
 function saleNote(item: OrderForInternalInvoice['items'][number]): string {
   if (!item.regularUnitPrice || item.regularUnitPrice <= item.unitPrice) return ''
   const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice) * 100)
-  return ` (Promoção -${pct}%, preço original ${kz(item.regularUnitPrice)})`
+  return ` (Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%, preço original ${kz(item.regularUnitPrice)})`
 }
 
 export function veroNotes(order: OrderForInternalInvoice): string {
+  // A free-delivery coupon has a label but no merchandise discount.
   const coupon = order.discountAmount && order.discountAmount > 0
     ? ` | Desconto${order.discountLabel ? ` (${order.discountLabel})` : ''}: ${kz(order.discountAmount)}, já incluído nos preços`
-    : ''
+    : order.discountLabel
+      ? ` | Cupão: ${order.discountLabel}`
+      : ''
   // multicaixa_express orders are the AppyPay ones; paymentReference holds the
   // AppyPay transaction id once the charge is verified.
   const method = order.paymentMethod === 'multicaixa_express'
@@ -75,7 +78,14 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
     if (item.qty - rem > 0) lines.push({ description, quantity: item.qty - rem, unitPrice: unit, taxExemptionCode: EXEMPTION_CODE })
     if (rem > 0) lines.push({ description, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
   })
-  if (shipping > 0) lines.push({ description: 'Portes de envio', quantity: 1, unitPrice: shipping, taxExemptionCode: EXEMPTION_CODE })
+  // Angola has no pickup option, so delivery is always part of the order; free
+  // delivery (threshold or coupon) is still shown, as a zero-price line.
+  lines.push({
+    description: shipping > 0 ? 'Portes de envio' : 'Portes de envio (grátis)',
+    quantity: 1,
+    unitPrice: shipping,
+    taxExemptionCode: EXEMPTION_CODE,
+  })
   return lines
 }
 
