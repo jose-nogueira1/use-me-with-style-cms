@@ -53,10 +53,17 @@ test('a coupon discount gets its own explanatory zero-price line', () => {
   const lines = buildVeroLines(o)
   assert.equal(veroLinesTotal(lines), 100)
   assert.deepEqual(lines.map((l) => [l.description, l.unitPrice]), [
-    ['A', 100],
+    ['A\nOriginal 10,00 Kz | Cupão -9,00 Kz', 100],
     ['Desconto TEST90 (90% off): -9,00 Kz (já incluído nos preços acima)', 0],
     ['Portes de envio (grátis)', 0],
   ])
+})
+
+test('the first line break keeps the product name apart from the price history', () => {
+  const [line] = buildVeroLines(order({ items: [item('Plain', 2, 500)], total: 1_000 }))
+  assert.equal(line.description, 'Plain') // no discount, so nothing below the name
+  const [split] = buildVeroLines(order({ items: [item('A', 3, 100)], total: 100 }))
+  assert.equal(split.description, 'A\nOriginal 100,00 Kz | Cupão -200,00 Kz')
 })
 
 test('empty or free orders are refused rather than invoiced', () => {
@@ -72,7 +79,7 @@ test('sale and coupon discounts are described in text, not hidden', () => {
     discountLabel: 'BEMVINDA',
   })
   const [line] = buildVeroLines(o)
-  assert.match(line.description, /Promoção -20%, preço original 25\.000,00 Kz/)
+  assert.deepEqual(line.description.split('\n'), ['Vestido', 'Original 25.000,00 Kz | Promoção -20% | Cupão -1.000,00 Kz'])
   assert.equal(veroNotes(o), 'Encomenda UMWS-1')
   assert.equal(veroNotes(order({ orderNumber: 'X' })), 'Encomenda X')
   assert.equal(

@@ -24,13 +24,23 @@ type VeroInvoice = {
 const cents = (value: number): number => Math.round((value + Number.EPSILON) * 100)
 const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} Kz`
 
-// Vero ignores discount fields on a line (checked in the sandbox), so sale and
-// coupon discounts are shown as text: the sale on the line, the coupon in the
-// notes (both print on the PDF). Prices on the lines are the amounts charged.
-function saleNote(item: OrderForInternalInvoice['items'][number]): string {
-  if (!item.regularUnitPrice || item.regularUnitPrice <= item.unitPrice) return ''
-  const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice) * 100)
-  return ` (Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%, preço original ${kz(item.regularUnitPrice)})`
+// Vero has no discount field (its API spec accepts only description, quantity,
+// price and tax per line), but its PDF puts everything after the first line
+// break of `description` into the "Descrição" column. That column flattens
+// further line breaks and cuts off after about two lines (~65 characters), so
+// the price history is one short " | "-separated line. The coupon's code is on
+// its own invoice line, not repeated here. Prices on the lines are the amounts
+// actually charged.
+function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number): string {
+  const onSale = Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice)
+  const details: string[] = []
+  if (onSale || couponCents > 0) details.push(`Original ${kz(onSale ? item.regularUnitPrice! : item.unitPrice)}`)
+  if (onSale) {
+    const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice!) * 100)
+    details.push(`Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%`)
+  }
+  if (couponCents > 0) details.push(`Cupão -${kz(couponCents / 100)}`)
+  return details.join(' | ')
 }
 
 // The coupon is not repeated here: it has its own line on the invoice.
@@ -64,13 +74,16 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
   order.items.forEach((item, i) => {
     const total = gross[i] - share[i]
     if (total < 0 || !Number.isInteger(item.qty) || item.qty < 1) throw new Error(`Invalid line for ${item.productName}`)
-    const description = invoiceLineDescription(item, 'pt') + saleNote(item)
+    const details = itemDetails(item, share[i])
+    const description = details ? `${invoiceLineDescription(item, 'pt')}\n${details}` : invoiceLineDescription(item, 'pt')
     const unit = Math.floor(total / item.qty)
     const rem = total - unit * item.qty
     // Quantity x unit price can't always hit `total` exactly, so the odd
     // cêntimos go on `rem` units priced one cêntimo higher.
-    if (item.qty - rem > 0) lines.push({ description, quantity: item.qty - rem, unitPrice: unit, taxExemptionCode: EXEMPTION_CODE })
-    if (rem > 0) lines.push({ description, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
+    lines.push({ description, quantity: item.qty - rem, unitPrice: unit, taxExemptionCode: EXEMPTION_CODE })
+    if (rem > 0) {
+      lines.push({ description: `${invoiceLineDescription(item, 'pt')}\nAjuste de arredondamento`, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
+    }
   })
   // Vero rejects negative lines, so the coupon is shown as an explanatory
   // zero-price line right under the goods (it is already inside their prices).
