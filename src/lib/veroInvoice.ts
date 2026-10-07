@@ -32,7 +32,7 @@ const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimu
 // accepts them in a fiscal document's description. The coupon's code is on its
 // own invoice line, not repeated here. Prices on the lines are the amounts
 // actually charged.
-function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number, withOriginal = true): string {
+function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number, withOriginal = true, couponLabel?: string | null): string {
   const onSale = Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice)
   const details: string[] = []
   if (withOriginal && (onSale || couponCents > 0)) details.push(`Original ${kz(onSale ? item.regularUnitPrice! : item.unitPrice)}`)
@@ -40,7 +40,7 @@ function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents
     const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice!) * 100)
     details.push(`Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%`)
   }
-  if (couponCents > 0) details.push(`Cupão -${kz(couponCents / 100)}`)
+  if (couponCents > 0) details.push(`Cupão${couponLabel ? ` ${couponLabel}` : ''} -${kz(couponCents / 100)}`)
   return details.join(' | ')
 }
 
@@ -90,6 +90,7 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   share[weights.map((w) => w > 0).lastIndexOf(true)] += reduction - share.reduce((a, b) => a + b, 0)
 
   const lines: VeroLine[] = []
+  let everyItemNative = useLineDiscount
   order.items.forEach((item, i) => {
     const total = gross[i] - share[i]
     if (total < 0 || !Number.isInteger(item.qty) || item.qty < 1) throw new Error(`Invalid line for ${item.productName}`)
@@ -102,7 +103,7 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
       const pct = discountPercentFor(full, paidUnit)
       const pctUp = rem > 0 ? discountPercentFor(full, paidUnit + 1) : 0
       if (pct !== null && pctUp !== null) {
-        const details = itemDetails(item, share[i], false)
+        const details = itemDetails(item, share[i], false, order.discountLabel)
         const line = (quantity: number, p: number, text: string): VeroLine => ({
           description: text,
           quantity,
@@ -115,6 +116,7 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
         return
       }
     }
+    everyItemNative = false // this item folds the discount into its price
     const details = itemDetails(item, share[i])
     const description = details ? `${name} (${details})` : name
     const unit = Math.floor(total / item.qty)
@@ -128,7 +130,10 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   })
   // Vero rejects negative lines, so the coupon is shown as an explanatory
   // zero-price line right under the goods (it is already inside their prices).
-  if (order.discountAmount && order.discountAmount > 0) {
+  // In line-discount mode every discounted item already carries the coupon (code
+  // and amount) in its own text and in Vero's own discount column and totals, so the
+  // explanatory zero line would only add a confusing "0,00" row.
+  if (order.discountAmount && order.discountAmount > 0 && !everyItemNative) {
     lines.push({
       description: `Desconto${order.discountLabel ? ` ${order.discountLabel}` : ' cupão'}: -${kz(order.discountAmount)} (já incluído nos preços acima)`,
       quantity: 1,

@@ -125,7 +125,8 @@ test('lineDiscount mode keeps the full price on the line and still sums to the p
   const [item] = lines
   assert.equal(item.unitPrice, 2_500_000) // full price, not the sale price
   assert.ok(item.lineDiscount && item.lineDiscount > 0 && item.lineDiscount < 100)
-  assert.equal(item.description, 'Vestido (Promoção -20% | Cupão -1.500,00 Kz)')
+  assert.equal(item.description, 'Vestido (Promoção -20% | Cupão X -1.500,00 Kz)')
+  assert.equal(lines.length, 2) // item + delivery: no zero-price coupon row
   assert.equal(veroLinesTotal(lines), 3_850_000)
 })
 
@@ -183,4 +184,12 @@ test('a percent coupon is shown only against items that were not on sale', () =>
   assert.match(sale2.description, /Cupão/)
   assert.match(regular2.description, /Cupão/)
   assert.equal(veroLinesTotal(buildVeroLines(fixed)), 2_850_000)
+})
+
+test('line-discount mode keeps the coupon row only when some item had to fold its discount', () => {
+  // a unit price of 1.000.000 Kz or more cannot use Vero's percentage safely
+  const big = order({ items: [{ productName: 'Big', qty: 1, unitPrice: 1_000_000 }], total: 900_000, discountAmount: 100_000, discountLabel: 'C (10% off)' })
+  const lines = buildVeroLines(big, undefined, true)
+  assert.ok(lines.some((l) => l.description.startsWith('Desconto C')))
+  assert.equal(veroLinesTotal(lines), 90_000_000)
 })
