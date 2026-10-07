@@ -75,8 +75,19 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   const reduction = grossSum - (cents(order.total) - shipping)
   if (!order.items.length || grossSum <= 0) throw new Error('Order has no payable merchandise')
 
-  const share = gross.map((g) => Math.round((reduction * g) / grossSum))
-  share[share.length - 1] += reduction - share.reduce((a, b) => a + b, 0)
+  // A percent-off coupon never discounts an item that is already on sale (see
+  // couponPricing.ts); fixed-amount coupons spread over the whole cart. The
+  // order only keeps the coupon's label ("CODE (10% off)" vs "CODE (discount)"),
+  // so that is how a percent coupon is recognised here.
+  const onSale = order.items.map((item) => Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice))
+  const percentCoupon = /% off\)$/.test(order.discountLabel ?? '')
+  const eligible = onSale.map((sale) => !(percentCoupon && sale))
+  const weightSum = gross.reduce((sum, g, i) => sum + (eligible[i] ? g : 0), 0)
+  if (weightSum <= 0) eligible.fill(true)
+  const weights = gross.map((g, i) => (eligible[i] ? g : 0))
+  const totalWeight = weights.reduce((a, b) => a + b, 0)
+  const share = weights.map((w) => Math.round((reduction * w) / totalWeight))
+  share[weights.map((w) => w > 0).lastIndexOf(true)] += reduction - share.reduce((a, b) => a + b, 0)
 
   const lines: VeroLine[] = []
   order.items.forEach((item, i) => {

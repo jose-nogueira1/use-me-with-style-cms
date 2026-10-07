@@ -152,9 +152,11 @@ test('lineDiscount mode is exact for thousands of random orders (Vero rounds the
       return { productName: `P${i}`, qty: 1 + Math.floor(rnd() * 9), unitPrice, regularUnitPrice: sale ? Math.round(unitPrice * (1.1 + rnd()) * 100) / 100 : undefined }
     })
     const merch = items.reduce((sum, it) => sum + Math.round(it.qty * it.unitPrice * 100), 0) / 100
-    const discountAmount = rnd() < 0.5 ? Math.round(rnd() * merch * 0.9 * 100) / 100 : 0
+    const percent = rnd() < 0.5
+    const eligibleMerch = items.reduce((sum, it) => sum + (percent && it.regularUnitPrice ? 0 : Math.round(it.qty * it.unitPrice * 100)), 0) / 100
+    const discountAmount = rnd() < 0.5 ? Math.round(rnd() * (percent ? eligibleMerch : merch) * 0.9 * 100) / 100 : 0
     const shippingCost = rnd() < 0.5 ? 3_500 : 0
-    const o = order({ items, shippingCost, discountAmount, discountLabel: discountAmount ? 'X' : undefined, total: Math.round((merch - discountAmount + shippingCost) * 100) / 100 })
+    const o = order({ items, shippingCost, discountAmount, discountLabel: discountAmount ? (percent ? 'X (10% off)' : 'X (discount)') : undefined, total: Math.round((merch - discountAmount + shippingCost) * 100) / 100 })
     const lines = buildVeroLines(o, undefined, true)
     assert.equal(veroLinesTotal(lines), Math.round(o.total * 100), JSON.stringify(o))
     for (const l of lines) {
@@ -162,4 +164,23 @@ test('lineDiscount mode is exact for thousands of random orders (Vero rounds the
       if (l.lineDiscount !== undefined) assert.ok(l.lineDiscount > 0 && l.lineDiscount <= 100 && Math.abs(l.lineDiscount * 1e6 - Math.round(l.lineDiscount * 1e6)) < 1e-6)
     }
   }
+})
+
+test('a percent coupon is shown only against items that were not on sale', () => {
+  const items = [
+    { productName: 'Sale', qty: 1, unitPrice: 20_000, regularUnitPrice: 25_000, saleDiscountPercentage: 20 },
+    { productName: 'Regular', qty: 1, unitPrice: 10_000 },
+  ]
+  // 10% off the non-sale item only: 1.000 Kz
+  const percent = order({ items, total: 29_000, discountAmount: 1_000, discountLabel: 'P10 (10% off)' })
+  const [sale, regular] = buildVeroLines(percent)
+  assert.doesNotMatch(sale.description, /Cupão/)
+  assert.match(regular.description, /Cupão -1\.000,00 Kz/)
+  assert.equal(veroLinesTotal(buildVeroLines(percent)), 2_900_000)
+  // a fixed coupon spreads over everything, sale item included
+  const fixed = order({ items, total: 28_500, discountAmount: 1_500, discountLabel: 'F15 (discount)' })
+  const [sale2, regular2] = buildVeroLines(fixed)
+  assert.match(sale2.description, /Cupão/)
+  assert.match(regular2.description, /Cupão/)
+  assert.equal(veroLinesTotal(buildVeroLines(fixed)), 2_850_000)
 })
