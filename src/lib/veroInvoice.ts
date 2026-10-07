@@ -1,6 +1,7 @@
 import type { Payload, PayloadRequest } from 'payload'
 
 import type { InvoiceAttachment } from './email'
+import { normalizeAngolaShipping } from './angolaShipping'
 import { customerPaymentMethodLabel, invoiceLineDescription, type OrderForInternalInvoice } from './internalInvoice'
 
 const VERO_BASE = 'https://api.vero.ao'
@@ -59,7 +60,11 @@ export function veroNotes(order: OrderForInternalInvoice): string {
 // paid total) is folded into the merchandise prices. Under 0% VAT this has no
 // tax effect. Every line is integer cêntimos x integer quantity, and the lines
 // always sum to exactly the paid total.
-export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
+// What delivery would have cost, and the free-delivery threshold, so a waived
+// delivery can still show its normal price (Kz).
+export type ShippingInfo = { regular: number; freeThreshold: number }
+
+export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: ShippingInfo): VeroLine[] {
   const gross = order.items.map((item) => cents(item.qty * item.unitPrice))
   const grossSum = gross.reduce((a, b) => a + b, 0)
   const shipping = cents(order.shippingCost)
@@ -95,16 +100,20 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
       taxExemptionCode: EXEMPTION_CODE,
     })
   }
-  // Angola has no pickup option, so delivery is always part of the order; free
-  // delivery (threshold or coupon) is still shown, as a zero-price line.
-  lines.push({
-    description: shipping > 0
-      ? 'Portes de envio'
-      : `Portes de envio (grátis${!order.discountAmount && order.discountLabel ? `, cupão ${order.discountLabel}` : ''})`,
-    quantity: 1,
-    unitPrice: shipping,
-    taxExemptionCode: EXEMPTION_CODE,
-  })
+  // Angola has no pickup option, so delivery is always part of the order. A
+  // waived delivery (threshold or free-delivery coupon) stays on the invoice as
+  // a zero-price line that says why and what it would normally cost.
+  let description = 'Portes de envio'
+  if (shipping === 0) {
+    const byCoupon = !order.discountAmount && order.discountLabel
+    const why = byCoupon
+      ? `Grátis por cupão ${order.discountLabel}`
+      : shippingInfo?.freeThreshold
+        ? `Grátis: compra acima de ${kz(shippingInfo.freeThreshold)}`
+        : 'Grátis'
+    description = `Portes de envio (${[shippingInfo?.regular ? `Original ${kz(shippingInfo.regular)}` : '', why].filter(Boolean).join(' | ')})`
+  }
+  lines.push({ description, quantity: 1, unitPrice: shipping, taxExemptionCode: EXEMPTION_CODE })
   return lines
 }
 
@@ -149,6 +158,24 @@ export async function fetchVeroPdf(pdfUrl: string): Promise<Buffer> {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`Vero PDF -> ${res.status}`)
   return Buffer.from(await res.arrayBuffer())
+}
+
+// Normal Angola delivery fee for this order's municipality, from the current
+// market settings. Informational only (shown on waived-delivery lines), so any
+// failure just means the line says "Grátis" without the original price.
+async function shippingInfoFor(
+  payload: Payload,
+  order: OrderForInternalInvoice,
+  req?: Partial<PayloadRequest>,
+): Promise<ShippingInfo | undefined> {
+  if (cents(order.shippingCost) > 0) return undefined
+  try {
+    const settings = await payload.findGlobal({ slug: 'market-settings', depth: 0, overrideAccess: true, req })
+    const { municipalityPrices, freeThreshold } = normalizeAngolaShipping(settings as never)
+    return { regular: municipalityPrices[order.deliveryCity ?? ''] ?? 0, freeThreshold }
+  } catch {
+    return undefined
+  }
 }
 
 // Issues the fiscal Factura-Recibo for a paid Angola order and stores it in the
@@ -212,7 +239,7 @@ export async function issueVeroInvoiceForOrder(
   }
 
   try {
-    const lines = buildVeroLines(order)
+    const lines = buildVeroLines(order, await shippingInfoFor(payload, order, req))
     const expected = cents(order.total)
     if (veroLinesTotal(lines) !== expected) throw new Error('Invoice lines do not add up to the paid total')
 

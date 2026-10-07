@@ -43,7 +43,7 @@ test('a discount that does not divide by quantity splits the line instead of dri
 test('free delivery is shown as a zero-price line, with its coupon in the notes', () => {
   const o = order({ items: [item('A', 1, 5_000)], shippingCost: 0, total: 5_000, discountLabel: 'FREESHIP (free shipping)' })
   const lines = buildVeroLines(o)
-  assert.deepEqual(lines.at(-1) && [lines.at(-1)!.description, lines.at(-1)!.unitPrice], ['Portes de envio (grátis, cupão FREESHIP (free shipping))', 0])
+  assert.deepEqual(lines.at(-1) && [lines.at(-1)!.description, lines.at(-1)!.unitPrice], ['Portes de envio (Grátis por cupão FREESHIP (free shipping))', 0])
   assert.equal(veroLinesTotal(lines), 500_000)
   assert.equal(veroNotes(o), 'Encomenda UMWS-1')
 })
@@ -55,7 +55,7 @@ test('a coupon discount gets its own explanatory zero-price line', () => {
   assert.deepEqual(lines.map((l) => [l.description, l.unitPrice]), [
     ['A (Original 10,00 Kz | Cupão -9,00 Kz)', 100],
     ['Desconto TEST90 (90% off): -9,00 Kz (já incluído nos preços acima)', 0],
-    ['Portes de envio (grátis)', 0],
+    ['Portes de envio (Grátis)', 0],
   ])
 })
 
@@ -72,6 +72,16 @@ test('no description ever contains a line break', () => {
   const lines = buildVeroLines(o)
   assert.ok(lines.length > 3)
   assert.ok(lines.every((l) => !/[\r\n]/.test(l.description)))
+})
+
+test('waived delivery says why and what it would normally cost', () => {
+  const shipping = { regular: 4_000, freeThreshold: 80_000 }
+  const byThreshold = buildVeroLines(order({ items: [item('A', 1, 90_000)], total: 90_000 }), shipping)
+  assert.equal(byThreshold.at(-1)?.description, 'Portes de envio (Original 4.000,00 Kz | Grátis: compra acima de 80.000,00 Kz)')
+  const byCoupon = buildVeroLines(order({ items: [item('A', 1, 5_000)], total: 5_000, discountLabel: 'FREESHIP (free shipping)' }), shipping)
+  assert.equal(byCoupon.at(-1)?.description, 'Portes de envio (Original 4.000,00 Kz | Grátis por cupão FREESHIP (free shipping))')
+  const paid = buildVeroLines(order({ items: [item('A', 1, 5_000)], shippingCost: 4_000, total: 9_000 }), shipping)
+  assert.deepEqual([paid.at(-1)?.description, paid.at(-1)?.unitPrice], ['Portes de envio', 400_000])
 })
 
 test('empty or free orders are refused rather than invoiced', () => {

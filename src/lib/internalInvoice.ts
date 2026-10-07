@@ -29,6 +29,9 @@ export type OrderForInternalInvoice = {
   customerPhone?: string
   customerTaxId?: string
   customerAddress: string
+  // Angola municipality (the delivery tariff key); used to show the normal
+  // delivery fee on waived-delivery Vero invoices.
+  deliveryCity?: string
   currency: 'Kz' | 'EUR'
   // PT-only, already computed server-side at order-create time (see
   // authoritativeOrder.ts) -- decides which of the three regional VAT rates
@@ -213,6 +216,7 @@ export function orderInvoiceInput(doc: Record<string, any>): OrderForInternalInv
     customerPhone: doc.customerPhone,
     customerTaxId: doc.taxId || undefined,
     customerAddress: addressParts.join(', '),
+    deliveryCity: doc.city || undefined,
     deliveryRegion: doc.deliveryRegion || undefined,
     currency: doc.currency,
     subtotal: doc.subtotal,
