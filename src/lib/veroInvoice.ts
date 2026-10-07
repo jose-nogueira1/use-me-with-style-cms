@@ -23,6 +23,23 @@ type VeroInvoice = {
 }
 
 const cents = (value: number): number => Math.round((value + Number.EPSILON) * 100)
+const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} Kz`
+
+// Vero ignores discount fields on a line (checked in the sandbox), so sale and
+// coupon discounts are shown as text: the sale on the line, the coupon in the
+// notes (both print on the PDF). Prices on the lines are the amounts charged.
+function saleNote(item: OrderForInternalInvoice['items'][number]): string {
+  if (!item.regularUnitPrice || item.regularUnitPrice <= item.unitPrice) return ''
+  const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice) * 100)
+  return ` (Promoção -${pct}%, preço original ${kz(item.regularUnitPrice)})`
+}
+
+export function veroNotes(order: OrderForInternalInvoice): string {
+  const coupon = order.discountAmount && order.discountAmount > 0
+    ? ` | Desconto${order.discountLabel ? ` (${order.discountLabel})` : ''}: ${kz(order.discountAmount)}, já incluído nos preços`
+    : ''
+  return `Encomenda ${order.orderNumber}${coupon}`
+}
 
 // Vero rejects negative lines, so the coupon (and any rounding drift versus the
 // paid total) is folded into the merchandise prices. Under 0% VAT this has no
@@ -42,7 +59,7 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
   order.items.forEach((item, i) => {
     const total = gross[i] - share[i]
     if (total < 0 || !Number.isInteger(item.qty) || item.qty < 1) throw new Error(`Invalid line for ${item.productName}`)
-    const description = invoiceLineDescription(item, 'pt')
+    const description = invoiceLineDescription(item, 'pt') + saleNote(item)
     const unit = Math.floor(total / item.qty)
     const rem = total - unit * item.qty
     // Quantity x unit price can't always hit `total` exactly, so the odd
@@ -168,7 +185,7 @@ export async function issueVeroInvoiceForOrder(
       documentType: 'FR',
       items: lines,
       idempotencyKey: `order_${order.orderNumber}`,
-      notes: `Encomenda ${order.orderNumber}`,
+      notes: veroNotes(order),
     })
     if (invoice.total !== expected) throw new Error(`Vero total ${invoice.total} differs from paid total ${expected}`)
 

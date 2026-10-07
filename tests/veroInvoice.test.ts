@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildVeroLines, veroLinesTotal } from '../src/lib/veroInvoice.ts'
+import { buildVeroLines, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
 import type { OrderForInternalInvoice } from '../src/lib/internalInvoice.ts'
 
 const order = (over: Partial<OrderForInternalInvoice>): OrderForInternalInvoice => ({
@@ -43,4 +43,17 @@ test('a discount that does not divide by quantity splits the line instead of dri
 test('empty or free orders are refused rather than invoiced', () => {
   assert.throws(() => buildVeroLines(order({ items: [], total: 0 })))
   assert.throws(() => buildVeroLines(order({ items: [item('A', 1, 0)], total: 0 })))
+})
+
+test('sale and coupon discounts are described in text, not hidden', () => {
+  const o = order({
+    items: [{ productName: 'Vestido', qty: 1, unitPrice: 20_000, regularUnitPrice: 25_000, saleDiscountPercentage: 20 }],
+    total: 19_000,
+    discountAmount: 1_000,
+    discountLabel: 'BEMVINDA',
+  })
+  const [line] = buildVeroLines(o)
+  assert.match(line.description, /Promoção -20%, preço original 25\.000,00 Kz/)
+  assert.match(veroNotes(o), /UMWS-1 \| Desconto \(BEMVINDA\): 1\.000,00 Kz/)
+  assert.equal(veroNotes(order({ orderNumber: 'X' })), 'Encomenda X')
 })
