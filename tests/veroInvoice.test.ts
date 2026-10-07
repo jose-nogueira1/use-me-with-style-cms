@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildVeroLines, customerPayload, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
+import { buildVeroLines, customerPayload, discountPercentFor, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
 import type { OrderForInternalInvoice } from '../src/lib/internalInvoice.ts'
 
 const order = (over: Partial<OrderForInternalInvoice>): OrderForInternalInvoice => ({
@@ -112,4 +112,54 @@ test('buyers without a NIF keep their details and become Consumidor Final per or
   assert.deepEqual([noNif.externalId, noNif.name, noNif.taxId, noNif.isConsumidorFinal], ['order_AO-1', 'Ana Silva', undefined, true])
   const withNif = customerPayload(order({ ...base, customerTaxId: ' 5000123456 ' }))
   assert.deepEqual([withNif.externalId, withNif.taxId, withNif.isConsumidorFinal], ['nif_5000123456', '5000123456', undefined])
+})
+
+test('lineDiscount mode keeps the full price on the line and still sums to the paid total', () => {
+  const o = order({
+    items: [{ productName: 'Vestido', qty: 2, unitPrice: 20_000, regularUnitPrice: 25_000, saleDiscountPercentage: 20 }],
+    total: 38_500,
+    discountAmount: 1_500,
+    discountLabel: 'X',
+  })
+  const lines = buildVeroLines(o, undefined, true)
+  const [item] = lines
+  assert.equal(item.unitPrice, 2_500_000) // full price, not the sale price
+  assert.ok(item.lineDiscount && item.lineDiscount > 0 && item.lineDiscount < 100)
+  assert.equal(item.description, 'Vestido (Promoção -20% | Cupão -1.500,00 Kz)')
+  assert.equal(veroLinesTotal(lines), 3_850_000)
+})
+
+test('without the flag no line carries lineDiscount', () => {
+  const o = order({ items: [item('A', 2, 100)], total: 100, discountAmount: 100 })
+  assert.ok(buildVeroLines(o).every((l) => l.lineDiscount === undefined))
+})
+
+test('discountPercentFor hits the exact discounted unit and refuses unsafe prices', () => {
+  assert.equal(discountPercentFor(1_000_000, 850_000), 15)
+  assert.equal(discountPercentFor(1_000_000, 1_000_000), 0)
+  assert.equal(discountPercentFor(1_000_000, 0), 100)
+  assert.equal(discountPercentFor(1_000_000, 1_000_001), null) // would need a surcharge
+  assert.equal(discountPercentFor(100_000_000, 50_000_000), null) // >= 1.000.000 Kz per unit
+})
+
+test('lineDiscount mode is exact for thousands of random orders (Vero rounds the discounted unit)', () => {
+  let seed = 12345
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296)
+  for (let n = 0; n < 3000; n++) {
+    const items = Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => {
+      const unitPrice = Math.round((1 + rnd() * 90_000) * 100) / 100
+      const sale = rnd() < 0.4
+      return { productName: `P${i}`, qty: 1 + Math.floor(rnd() * 9), unitPrice, regularUnitPrice: sale ? Math.round(unitPrice * (1.1 + rnd()) * 100) / 100 : undefined }
+    })
+    const merch = items.reduce((sum, it) => sum + Math.round(it.qty * it.unitPrice * 100), 0) / 100
+    const discountAmount = rnd() < 0.5 ? Math.round(rnd() * merch * 0.9 * 100) / 100 : 0
+    const shippingCost = rnd() < 0.5 ? 3_500 : 0
+    const o = order({ items, shippingCost, discountAmount, discountLabel: discountAmount ? 'X' : undefined, total: Math.round((merch - discountAmount + shippingCost) * 100) / 100 })
+    const lines = buildVeroLines(o, undefined, true)
+    assert.equal(veroLinesTotal(lines), Math.round(o.total * 100), JSON.stringify(o))
+    for (const l of lines) {
+      assert.ok(Number.isInteger(l.quantity) && l.quantity >= 1 && Number.isInteger(l.unitPrice))
+      if (l.lineDiscount !== undefined) assert.ok(l.lineDiscount > 0 && l.lineDiscount <= 100 && Math.abs(l.lineDiscount * 1e6 - Math.round(l.lineDiscount * 1e6)) < 1e-6)
+    }
+  }
 })

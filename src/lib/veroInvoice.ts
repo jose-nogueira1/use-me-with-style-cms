@@ -11,7 +11,8 @@ const VERO_BASE = 'https://api.vero.ao'
 // Confirm the code with the accountant.
 const EXEMPTION_CODE = 'M04'
 
-type VeroLine = { description: string; quantity: number; unitPrice: number; taxExemptionCode: string }
+// `lineDiscount` is a percentage of the unit price (Vero: 10 = 10%).
+type VeroLine = { description: string; quantity: number; unitPrice: number; taxExemptionCode: string; lineDiscount?: number }
 type VeroInvoice = {
   id: string
   number: string
@@ -31,10 +32,10 @@ const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimu
 // accepts them in a fiscal document's description. The coupon's code is on its
 // own invoice line, not repeated here. Prices on the lines are the amounts
 // actually charged.
-function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number): string {
+function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number, withOriginal = true): string {
   const onSale = Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice)
   const details: string[] = []
-  if (onSale || couponCents > 0) details.push(`Original ${kz(onSale ? item.regularUnitPrice! : item.unitPrice)}`)
+  if (withOriginal && (onSale || couponCents > 0)) details.push(`Original ${kz(onSale ? item.regularUnitPrice! : item.unitPrice)}`)
   if (onSale) {
     const pct = item.saleDiscountPercentage || Math.round((1 - item.unitPrice / item.regularUnitPrice!) * 100)
     details.push(`Promoção -${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(pct)}%`)
@@ -64,7 +65,10 @@ export function veroNotes(order: OrderForInternalInvoice): string {
 // delivery can still show its normal price (Kz).
 export type ShippingInfo = { regular: number; freeThreshold: number }
 
-export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: ShippingInfo): VeroLine[] {
+// `useLineDiscount` (env VERO_LINE_DISCOUNT=1) sends each discounted item at its
+// full price with Vero's `lineDiscount` percentage instead of folding the
+// discount into the price. Off until Vero confirms live honours the field.
+export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: ShippingInfo, useLineDiscount = false): VeroLine[] {
   const gross = order.items.map((item) => cents(item.qty * item.unitPrice))
   const grossSum = gross.reduce((a, b) => a + b, 0)
   const shipping = cents(order.shippingCost)
@@ -78,8 +82,29 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   order.items.forEach((item, i) => {
     const total = gross[i] - share[i]
     if (total < 0 || !Number.isInteger(item.qty) || item.qty < 1) throw new Error(`Invalid line for ${item.productName}`)
-    const details = itemDetails(item, share[i])
     const name = invoiceLineDescription(item, 'pt')
+    if (useLineDiscount) {
+      const onSale = Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice)
+      const full = cents(onSale ? item.regularUnitPrice! : item.unitPrice)
+      const paidUnit = Math.floor(total / item.qty)
+      const rem = total - paidUnit * item.qty
+      const pct = discountPercentFor(full, paidUnit)
+      const pctUp = rem > 0 ? discountPercentFor(full, paidUnit + 1) : 0
+      if (pct !== null && pctUp !== null) {
+        const details = itemDetails(item, share[i], false)
+        const line = (quantity: number, p: number, text: string): VeroLine => ({
+          description: text,
+          quantity,
+          unitPrice: full,
+          taxExemptionCode: EXEMPTION_CODE,
+          ...(p > 0 ? { lineDiscount: p } : {}),
+        })
+        lines.push(line(item.qty - rem, pct, details ? `${name} (${details})` : name))
+        if (rem > 0) lines.push(line(rem, pctUp, `${name} (ajuste de arredondamento)`))
+        return
+      }
+    }
+    const details = itemDetails(item, share[i])
     const description = details ? `${name} (${details})` : name
     const unit = Math.floor(total / item.qty)
     const rem = total - unit * item.qty
@@ -117,7 +142,23 @@ export function buildVeroLines(order: OrderForInternalInvoice, shippingInfo?: Sh
   return lines
 }
 
-export const veroLinesTotal = (lines: VeroLine[]): number => lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
+// Vero rounds the DISCOUNTED UNIT price half-up and then multiplies by the
+// quantity (checked against the sandbox: 32 of 32 cases; rounding the line total
+// instead would mismatch most quantity > 1 cases).
+export const veroUnitAfterDiscount = (unit: number, pct = 0): number => Math.round(unit * (1 - pct / 100))
+export const veroLineTotal = (l: VeroLine): number => l.quantity * veroUnitAfterDiscount(l.unitPrice, l.lineDiscount)
+export const veroLinesTotal = (lines: VeroLine[]): number => lines.reduce((sum, l) => sum + veroLineTotal(l), 0)
+
+// Percentage (up to 6 decimals, as Vero accepts) that turns `unit` into exactly
+// `target` after Vero's rounding, or null when that can't be guaranteed. The
+// rounding error of the percentage is at most unit / 2e8 cêntimos, so any unit
+// below 1.000.000,00 Kz (1e8 cêntimos) lands within 0.5 of `target`.
+export function discountPercentFor(unit: number, target: number): number | null {
+  if (target === unit) return 0
+  if (target > unit || target < 0 || unit >= 1e8) return null
+  const pct = Math.round(((unit - target) / unit) * 1e8) / 1e6
+  return veroUnitAfterDiscount(unit, pct) === target ? pct : null
+}
 
 // A buyer with a NIF is keyed by it. A buyer without one is still printed on the
 // invoice (name, address, contacts) but flagged Consumidor Final, which makes
@@ -239,7 +280,7 @@ export async function issueVeroInvoiceForOrder(
   }
 
   try {
-    const lines = buildVeroLines(order, await shippingInfoFor(payload, order, req))
+    const lines = buildVeroLines(order, await shippingInfoFor(payload, order, req), process.env.VERO_LINE_DISCOUNT === '1')
     const expected = cents(order.total)
     if (veroLinesTotal(lines) !== expected) throw new Error('Invoice lines do not add up to the paid total')
 
@@ -274,9 +315,9 @@ export async function issueVeroInvoiceForOrder(
           description: l.description,
           quantity: l.quantity,
           unitPrice: l.unitPrice / 100,
-          netAmount: (l.quantity * l.unitPrice) / 100,
+          netAmount: veroLineTotal(l) / 100,
           taxAmount: 0,
-          grossAmount: (l.quantity * l.unitPrice) / 100,
+          grossAmount: veroLineTotal(l) / 100,
         })),
         pdfFilename: filename,
         pdfData: { base64: pdf.toString('base64') },
