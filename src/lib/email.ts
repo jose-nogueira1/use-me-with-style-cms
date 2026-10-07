@@ -15,7 +15,8 @@ import type { Payload } from 'payload'
 // never fails because email isn't configured yet.
 export type EmailLang = 'pt' | 'en'
 
-export type InvoiceAttachment = { filename: string; content: Buffer }
+// `number` is set for fiscal (Vero/AGT) invoices; the internal PDF has none.
+export type InvoiceAttachment = { filename: string; content: Buffer; number?: string }
 
 // One line item as shown in the confirmation email. Deliberately its own
 // (slightly wider) shape than Orders.items -- it adds the resolved product
@@ -138,6 +139,7 @@ const CONFIRMATION_COPY: Record<
     supportBody: string
     emailLinkText: string
     invoiceNote: string
+    fiscalInvoiceNote: (number: string) => string
     footerTagline: string
     footerRights: (year: number) => string
   }
@@ -173,6 +175,7 @@ const CONFIRMATION_COPY: Record<
     supportBody: 'O email é o nosso canal oficial de apoio. Inclua o número da encomenda e um telefone de contacto; se necessário, entraremos em contacto diretamente.',
     emailLinkText: 'Escrever para o apoio ao cliente',
     invoiceNote: 'A sua fatura comercial (documento interno, não fiscal) segue em anexo neste email, em PDF.',
+    fiscalInvoiceNote: (number) => `A sua fatura n.º ${number} (documento fiscal certificado pela AGT) segue em anexo neste email, em PDF.`,
     footerTagline: 'Peças pensadas para durar, com um acabamento cuidado.',
     footerRights: (year) => `© ${year} Use Me With Style. Todos os direitos reservados.`,
   },
@@ -207,6 +210,7 @@ const CONFIRMATION_COPY: Record<
     supportBody: 'Email is our official support channel. Include your order number and a contact telephone number; if necessary, we will contact you directly.',
     emailLinkText: 'Email customer support',
     invoiceNote: 'Your commercial invoice (internal document, non-fiscal) is attached to this email as a PDF.',
+    fiscalInvoiceNote: (number) => `Your invoice no. ${number} (AGT-certified fiscal document) is attached to this email as a PDF.`,
     footerTagline: 'Pieces made to last, finished with care.',
     footerRights: (year) => `© ${year} Use Me With Style. All rights reserved.`,
   },
@@ -553,7 +557,7 @@ export function buildOrderConfirmationEmail(input: OrderConfirmationInput): {
     .join('')
 
   const invoiceNote = input.attachment
-    ? `<tr><td style="padding:24px 32px 0;"><div style="font-family:${SANS}; font-size:12px; line-height:19px; color:${INK_SOFT}; background-color:${IVORY}; border:1px solid ${HAIRLINE}; border-radius:4px; padding:14px 16px;">${escapeHtml(copy.invoiceNote)}</div></td></tr>`
+    ? `<tr><td style="padding:24px 32px 0;"><div style="font-family:${SANS}; font-size:12px; line-height:19px; color:${INK_SOFT}; background-color:${IVORY}; border:1px solid ${HAIRLINE}; border-radius:4px; padding:14px 16px;">${escapeHtml(input.attachment.number ? copy.fiscalInvoiceNote(input.attachment.number) : copy.invoiceNote)}</div></td></tr>`
     : ''
 
   // Email is the single public customer-support channel.

@@ -77,10 +77,22 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
     if (item.qty - rem > 0) lines.push({ description, quantity: item.qty - rem, unitPrice: unit, taxExemptionCode: EXEMPTION_CODE })
     if (rem > 0) lines.push({ description, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
   })
+  // Vero rejects negative lines, so the coupon is shown as an explanatory
+  // zero-price line right under the goods (it is already inside their prices).
+  if (order.discountAmount && order.discountAmount > 0) {
+    lines.push({
+      description: `Desconto${order.discountLabel ? ` ${order.discountLabel}` : ' cupão'}: -${kz(order.discountAmount)} (já incluído nos preços acima)`,
+      quantity: 1,
+      unitPrice: 0,
+      taxExemptionCode: EXEMPTION_CODE,
+    })
+  }
   // Angola has no pickup option, so delivery is always part of the order; free
   // delivery (threshold or coupon) is still shown, as a zero-price line.
   lines.push({
-    description: shipping > 0 ? 'Portes de envio' : 'Portes de envio (grátis)',
+    description: shipping > 0
+      ? 'Portes de envio'
+      : `Portes de envio (grátis${!order.discountAmount && order.discountLabel ? `, cupão ${order.discountLabel}` : ''})`,
     quantity: 1,
     unitPrice: shipping,
     taxExemptionCode: EXEMPTION_CODE,
@@ -237,7 +249,7 @@ export async function issueVeroInvoiceForOrder(
       file: { data: pdf, mimetype: 'application/pdf', name: filename, size: pdf.length },
       req,
     })
-    return { filename, content: pdf }
+    return { filename, content: pdf, number: invoice.number }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[invoice:vero-failed]', err)

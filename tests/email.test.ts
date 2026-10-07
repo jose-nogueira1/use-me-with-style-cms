@@ -214,6 +214,15 @@ test('invoice note is shown only when an attachment is passed', () => {
   assert.doesNotMatch(withoutAttachment.html, /attached to this email as a PDF/)
 })
 
+test('a fiscal invoice is named by its number and described as AGT-certified, not internal', () => {
+  const attachment = { filename: 'f.pdf', content: Buffer.from('x'), number: 'FR FR6326S47071N/1' }
+  const pt = buildOrderConfirmationEmail({ ...BASE, lang: 'pt', attachment })
+  assert.match(pt.html, /fatura n\.º FR FR6326S47071N\/1 \(documento fiscal certificado pela AGT\)/)
+  assert.doesNotMatch(pt.html, /não fiscal/)
+  const en = buildOrderConfirmationEmail({ ...BASE, lang: 'en', attachment })
+  assert.match(en.html, /invoice no\. FR FR6326S47071N\/1 \(AGT-certified fiscal document\)/)
+})
+
 test('order date is formatted per-locale and simply omitted when absent', () => {
   const withDate = buildOrderConfirmationEmail({ ...BASE, lang: 'en', orderDate: '2026-03-05T10:00:00.000Z' })
   assert.match(withDate.html, /March 05, 2026/)
