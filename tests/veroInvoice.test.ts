@@ -53,17 +53,25 @@ test('a coupon discount gets its own explanatory zero-price line', () => {
   const lines = buildVeroLines(o)
   assert.equal(veroLinesTotal(lines), 100)
   assert.deepEqual(lines.map((l) => [l.description, l.unitPrice]), [
-    ['A\nOriginal 10,00 Kz | Cupão -9,00 Kz', 100],
+    ['A (Original 10,00 Kz | Cupão -9,00 Kz)', 100],
     ['Desconto TEST90 (90% off): -9,00 Kz (já incluído nos preços acima)', 0],
     ['Portes de envio (grátis)', 0],
   ])
 })
 
-test('the first line break keeps the product name apart from the price history', () => {
-  const [line] = buildVeroLines(order({ items: [item('Plain', 2, 500)], total: 1_000 }))
-  assert.equal(line.description, 'Plain') // no discount, so nothing below the name
-  const [split] = buildVeroLines(order({ items: [item('A', 3, 100)], total: 100 }))
-  assert.equal(split.description, 'A\nOriginal 100,00 Kz | Cupão -200,00 Kz')
+test('no description ever contains a line break', () => {
+  const [plain] = buildVeroLines(order({ items: [item('Plain', 2, 500)], total: 1_000 }))
+  assert.equal(plain.description, 'Plain') // no discount, nothing appended
+  const o = order({
+    items: [{ productName: 'A', qty: 3, unitPrice: 100, regularUnitPrice: 150, saleDiscountPercentage: 33.33 }],
+    total: 100,
+    discountAmount: 200,
+    discountLabel: 'X (10% off)',
+    shippingCost: 0,
+  })
+  const lines = buildVeroLines(o)
+  assert.ok(lines.length > 3)
+  assert.ok(lines.every((l) => !/[\r\n]/.test(l.description)))
 })
 
 test('empty or free orders are refused rather than invoiced', () => {
@@ -79,7 +87,7 @@ test('sale and coupon discounts are described in text, not hidden', () => {
     discountLabel: 'BEMVINDA',
   })
   const [line] = buildVeroLines(o)
-  assert.deepEqual(line.description.split('\n'), ['Vestido', 'Original 25.000,00 Kz | Promoção -20% | Cupão -1.000,00 Kz'])
+  assert.equal(line.description, 'Vestido (Original 25.000,00 Kz | Promoção -20% | Cupão -1.000,00 Kz)')
   assert.equal(veroNotes(o), 'Encomenda UMWS-1')
   assert.equal(veroNotes(order({ orderNumber: 'X' })), 'Encomenda X')
   assert.equal(

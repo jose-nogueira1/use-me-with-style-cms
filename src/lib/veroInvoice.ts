@@ -25,11 +25,10 @@ const cents = (value: number): number => Math.round((value + Number.EPSILON) * 1
 const kz = (value: number): string => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} Kz`
 
 // Vero has no discount field (its API spec accepts only description, quantity,
-// price and tax per line), but its PDF puts everything after the first line
-// break of `description` into the "Descrição" column. That column flattens
-// further line breaks and cuts off after about two lines (~65 characters), so
-// the price history is one short " | "-separated line. The coupon's code is on
-// its own invoice line, not repeated here. Prices on the lines are the amounts
+// price and tax per line), so the price history is written into the line's
+// description, in parentheses. No line breaks: it is unclear whether the AGT
+// accepts them in a fiscal document's description. The coupon's code is on its
+// own invoice line, not repeated here. Prices on the lines are the amounts
 // actually charged.
 function itemDetails(item: OrderForInternalInvoice['items'][number], couponCents: number): string {
   const onSale = Boolean(item.regularUnitPrice && item.regularUnitPrice > item.unitPrice)
@@ -75,14 +74,15 @@ export function buildVeroLines(order: OrderForInternalInvoice): VeroLine[] {
     const total = gross[i] - share[i]
     if (total < 0 || !Number.isInteger(item.qty) || item.qty < 1) throw new Error(`Invalid line for ${item.productName}`)
     const details = itemDetails(item, share[i])
-    const description = details ? `${invoiceLineDescription(item, 'pt')}\n${details}` : invoiceLineDescription(item, 'pt')
+    const name = invoiceLineDescription(item, 'pt')
+    const description = details ? `${name} (${details})` : name
     const unit = Math.floor(total / item.qty)
     const rem = total - unit * item.qty
     // Quantity x unit price can't always hit `total` exactly, so the odd
     // cêntimos go on `rem` units priced one cêntimo higher.
     lines.push({ description, quantity: item.qty - rem, unitPrice: unit, taxExemptionCode: EXEMPTION_CODE })
     if (rem > 0) {
-      lines.push({ description: `${invoiceLineDescription(item, 'pt')}\nAjuste de arredondamento`, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
+      lines.push({ description: `${name} (ajuste de arredondamento)`, quantity: rem, unitPrice: unit + 1, taxExemptionCode: EXEMPTION_CODE })
     }
   })
   // Vero rejects negative lines, so the coupon is shown as an explanatory
