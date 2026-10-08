@@ -1,5 +1,6 @@
 export type BannerMarket = 'AO' | 'PT'
-export type BannerItem = { id: 'message' | 'coupon'; pt: string; en: string }
+// `code` (coupon items only) lets the storefront show the code itself in gold.
+export type BannerItem = { id: 'message' | 'coupon'; pt: string; en: string; code?: string }
 
 // The storefront announcement bar shows at most two things: the admin's own
 // message (when switched on) and one promoted discount code. These
@@ -71,5 +72,5 @@ export function couponBannerItem(coupon: BannerCoupon, market: BannerMarket, now
     pt = `Use o código ${code} e ganhe ${money(amount, market, 'pt')} de desconto`
     en = `Use code ${code} for ${money(amount, market, 'en')} off`
   }
-  return { id: 'coupon', pt: clean(coupon.bannerTextPt) ?? pt, en: clean(coupon.bannerTextEn) ?? en }
+  return { id: 'coupon', code, pt: clean(coupon.bannerTextPt) ?? pt, en: clean(coupon.bannerTextEn) ?? en }
 }

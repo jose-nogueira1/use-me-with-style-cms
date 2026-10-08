@@ -22,7 +22,7 @@ test('a message in one language is used for both', () => {
 })
 
 test('a promoted code reads naturally for each coupon type', () => {
-  assert.deepEqual(couponBannerItem(coupon(), 'AO', NOW), { id: 'coupon', pt: 'Use o código BEMVINDA10 e ganhe 10% de desconto', en: 'Use code BEMVINDA10 for 10% off' })
+  assert.deepEqual(couponBannerItem(coupon(), 'AO', NOW), { id: 'coupon', code: 'BEMVINDA10', pt: 'Use o código BEMVINDA10 e ganhe 10% de desconto', en: 'Use code BEMVINDA10 for 10% off' })
   const fixed = couponBannerItem(coupon({ type: 'fixed', percentOff: null, fixedOffAOKz: 1500, fixedOffPTEur: 5 }), 'AO', NOW)!
   assert.equal(fixed.pt, 'Use o código BEMVINDA10 e ganhe 1.500 Kz de desconto')
   assert.equal(fixed.en, 'Use code BEMVINDA10 for 1,500 Kz off')
