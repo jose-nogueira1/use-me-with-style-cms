@@ -1,8 +1,8 @@
 export type BannerMarket = 'AO' | 'PT'
-export type BannerItem = { id: 'delivery' | 'coupon'; pt: string; en: string }
+export type BannerItem = { id: 'message' | 'coupon'; pt: string; en: string }
 
-// The storefront announcement bar shows at most two things: the free-delivery
-// message (always on unless switched off) and one promoted discount code. These
+// The storefront announcement bar shows at most two things: the admin's own
+// message (when switched on) and one promoted discount code. These
 // helpers turn admin data into the bilingual texts; the endpoint just wires
 // them to the database.
 
@@ -16,18 +16,17 @@ function money(value: number, market: BannerMarket, lang: 'pt' | 'en'): string {
   return lang === 'pt' ? `${format('pt-PT')} €` : `€${format('en-US')}`
 }
 
-export type DeliveryBannerConfig = { enabled?: boolean | null; textPt?: string | null; textEn?: string | null }
+export type MessageBannerConfig = { enabled?: boolean | null; textPt?: string | null; textEn?: string | null }
 
-// Free-delivery message. Admin-edited text wins per language; otherwise it is
-// built from the market's free-delivery threshold so it can't drift from the
-// real rule.
-export function deliveryBannerItem(market: BannerMarket, threshold: number | null | undefined, config: DeliveryBannerConfig): BannerItem | null {
-  if (config.enabled === false) return null
-  const over = (lang: 'pt' | 'en') =>
-    threshold && threshold > 0
-      ? lang === 'pt' ? `Entrega grátis acima de ${money(threshold, market, 'pt')}` : `Free delivery over ${money(threshold, market, 'en')}`
-      : lang === 'pt' ? 'Entrega grátis' : 'Free delivery'
-  return { id: 'delivery', pt: clean(config.textPt) ?? over('pt'), en: clean(config.textEn) ?? over('en') }
+// The admin's own message (free delivery, a sale, opening hours, anything). Off
+// unless switched on; shows nothing while both texts are blank. If only one
+// language is filled in, it is used for both rather than leaving a gap.
+export function messageBannerItem(config: MessageBannerConfig): BannerItem | null {
+  if (config.enabled !== true) return null
+  const pt = clean(config.textPt)
+  const en = clean(config.textEn)
+  if (!pt && !en) return null
+  return { id: 'message', pt: (pt ?? en)!, en: (en ?? pt)! }
 }
 
 export type BannerCoupon = {

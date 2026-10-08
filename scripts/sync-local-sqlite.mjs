@@ -340,6 +340,38 @@ for (const [column, definition] of Object.entries(localMessageColumns)) {
   if (messageColumns.size > 0 && !messageColumns.has(column)) statements.push(`ALTER TABLE messages ADD COLUMN ${column} ${definition}`)
 }
 
+// Mirrors the Postgres-only migrations 20261007 (Vero), 20261008_120000
+// (announcement banner) and 20261008_180000 (Zygo zones / delivery reference).
+for (const [column, definition] of Object.entries({ provider: "TEXT DEFAULT 'internal'", vero_id: 'TEXT', vero_status: 'TEXT', atcud: 'TEXT', agt_status: 'TEXT', agt_errors: 'TEXT' })) {
+  if (!invoicesColumns.has(column)) statements.push(`ALTER TABLE invoices ADD COLUMN ${column} ${definition}`)
+}
+for (const [column, value] of Object.entries({ centro: 3500, sul: 3500, norte: 3500, periferia: 5500 })) {
+  if (!marketColumns.has(`angola_zone_price_${column}`)) statements.push(`ALTER TABLE market_settings ADD COLUMN angola_zone_price_${column} REAL DEFAULT ${value}`)
+}
+for (const market of ['angola', 'portugal']) {
+  if (!marketColumns.has(`${market}_free_shipping_enabled`)) statements.push(`ALTER TABLE market_settings ADD COLUMN ${market}_free_shipping_enabled INTEGER DEFAULT 0`)
+}
+if (!orderColumns.has('delivery_reference')) statements.push('ALTER TABLE orders ADD COLUMN delivery_reference TEXT')
+const couponColumns = await columns('coupons')
+for (const [column, definition] of Object.entries({ show_on_banner: 'INTEGER DEFAULT 0', banner_text_pt: 'TEXT', banner_text_en: 'TEXT' })) {
+  if (couponColumns.size > 0 && !couponColumns.has(column)) statements.push(`ALTER TABLE coupons ADD COLUMN ${column} ${definition}`)
+}
+const bannerColumns = await columns('announcement_banner')
+if (bannerColumns.size === 0) statements.push(`CREATE TABLE announcement_banner (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, angola_message_enabled INTEGER DEFAULT 0,
+  angola_message_text_pt TEXT, angola_message_text_en TEXT, portugal_message_enabled INTEGER DEFAULT 0,
+  portugal_message_text_pt TEXT, portugal_message_text_en TEXT,
+  updated_at TEXT DEFAULT (datetime('now')), created_at TEXT DEFAULT (datetime('now'))
+)`)
+// 20261009_140000: the free-delivery line became a free-form message.
+for (const market of ['angola', 'portugal']) {
+  for (const column of ['enabled', 'text_pt', 'text_en']) {
+    if (bannerColumns.has(`${market}_delivery_${column}`) && !bannerColumns.has(`${market}_message_${column}`)) {
+      statements.push(`ALTER TABLE announcement_banner RENAME COLUMN ${market}_delivery_${column} TO ${market}_message_${column}`)
+    }
+  }
+}
+
 if (statements.length > 0) await client.batch(statements, 'write')
 
 const initialStyleGuidePosts = [

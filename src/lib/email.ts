@@ -682,6 +682,8 @@ type OrderStatusEmailInput = {
   // courier), and 'delivered' emails never pass this at all.
   courierTrackingCode?: string | null
   courierTrackingUrl?: string
+  // Which courier the code belongs to (CTT in Portugal, Zygo in Angola); picks the link's wording.
+  courierProvider?: 'ctt' | 'zygo'
 }
 
 // Only the stage-specific copy lives here -- orderNumberLabel,
@@ -693,9 +695,9 @@ const STATUS_PROGRESS_LABELS: Record<EmailLang, [string, string, string]> = {
   pt: ['Confirmada', 'Enviada', 'Entregue'],
   en: ['Confirmed', 'Shipped', 'Delivered'],
 }
-const STATUS_CTT_CTA_TEXT: Record<EmailLang, string> = {
-  pt: 'SEGUIR NOS CTT',
-  en: 'TRACK WITH CTT',
+const STATUS_COURIER_CTA_TEXT: Record<'ctt' | 'zygo', Record<EmailLang, string>> = {
+  ctt: { pt: 'SEGUIR NOS CTT', en: 'TRACK WITH CTT' },
+  zygo: { pt: 'SEGUIR NA ZYGO', en: 'TRACK WITH ZYGO' },
 }
 const STATUS_STAGE_COPY: Record<
   OrderStatusEmailStage,
@@ -800,7 +802,7 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
     ? `
       <tr>
         <td class="ums-px" align="center" style="padding:14px 32px 0;">
-          <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; font-family:${SANS}; font-size:11px; letter-spacing:1.5px; color:${GOLD}; text-decoration:underline;">${escapeHtml(STATUS_CTT_CTA_TEXT[lang])}</a>
+          <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; font-family:${SANS}; font-size:11px; letter-spacing:1.5px; color:${GOLD}; text-decoration:underline;">${escapeHtml(STATUS_COURIER_CTA_TEXT[input.courierProvider ?? 'ctt'][lang])}</a>
         </td>
       </tr>`
     : ''

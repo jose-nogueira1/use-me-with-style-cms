@@ -27,6 +27,7 @@ export type AngolaShippingSettings = {
   angolaZonePriceSul?: number | null
   angolaZonePriceNorte?: number | null
   angolaZonePricePeriferia?: number | null
+  angolaFreeShippingEnabled?: boolean | null
   angolaFreeShippingThreshold?: number | null
 }
 
@@ -64,6 +65,8 @@ export function normalizeAngolaShipping(settings?: AngolaShippingSettings | null
   const threshold = Number(settings?.angolaFreeShippingThreshold)
   return {
     zonePrices,
+    // Off unless an admin switches it on (Market settings).
+    freeEnabled: settings?.angolaFreeShippingEnabled === true,
     freeThreshold: Number.isFinite(threshold) && threshold >= 0 ? threshold : DEFAULT_ANGOLA_FREE_SHIPPING_THRESHOLD,
   }
 }
@@ -75,6 +78,7 @@ export function angolaZonePrice(neighbourhood: string, settings?: AngolaShipping
 }
 
 export function angolaShippingCost(neighbourhood: string, merchandiseTotalAfterDiscount: number, settings?: AngolaShippingSettings | null): number {
-  if (merchandiseTotalAfterDiscount >= normalizeAngolaShipping(settings).freeThreshold) return 0
+  const { freeEnabled, freeThreshold } = normalizeAngolaShipping(settings)
+  if (freeEnabled && merchandiseTotalAfterDiscount >= freeThreshold) return 0
   return angolaZonePrice(neighbourhood, settings)
 }

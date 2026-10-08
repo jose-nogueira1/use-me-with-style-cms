@@ -1,6 +1,6 @@
 import type { Endpoint } from 'payload'
 
-import { couponBannerItem, deliveryBannerItem, type BannerCoupon, type BannerItem, type BannerMarket } from '../lib/announcementBanner'
+import { couponBannerItem, messageBannerItem, type BannerCoupon, type BannerItem, type BannerMarket } from '../lib/announcementBanner'
 
 // Public, read-only feed for the storefront announcement bar. Returns nothing
 // but display text, so the (admin-only) coupons and banner settings stay
@@ -13,14 +13,11 @@ export const storefrontBannerEndpoint: Endpoint = {
     const { payload } = req
     const items: BannerItem[] = []
     try {
-      const [banner, settings] = await Promise.all([
-        payload.findGlobal({ slug: 'announcement-banner', depth: 0, overrideAccess: true }),
-        payload.findGlobal({ slug: 'market-settings', depth: 0, overrideAccess: true }),
-      ])
-      const delivery = market === 'AO'
-        ? deliveryBannerItem('AO', settings.angolaFreeShippingThreshold, { enabled: banner.angolaDeliveryEnabled, textPt: banner.angolaDeliveryTextPt, textEn: banner.angolaDeliveryTextEn })
-        : deliveryBannerItem('PT', settings.portugalFreeShippingThreshold, { enabled: banner.portugalDeliveryEnabled, textPt: banner.portugalDeliveryTextPt, textEn: banner.portugalDeliveryTextEn })
-      if (delivery) items.push(delivery)
+      const banner = await payload.findGlobal({ slug: 'announcement-banner', depth: 0, overrideAccess: true })
+      const message = market === 'AO'
+        ? messageBannerItem({ enabled: banner.angolaMessageEnabled, textPt: banner.angolaMessageTextPt, textEn: banner.angolaMessageTextEn })
+        : messageBannerItem({ enabled: banner.portugalMessageEnabled, textPt: banner.portugalMessageTextPt, textEn: banner.portugalMessageTextEn })
+      if (message) items.push(message)
 
       const coupons = await payload.find({
         collection: 'coupons',

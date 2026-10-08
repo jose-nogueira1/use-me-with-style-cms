@@ -236,8 +236,9 @@ async function shippingInfoFor(
   if (cents(order.shippingCost) > 0) return undefined
   try {
     const settings = await payload.findGlobal({ slug: 'market-settings', depth: 0, overrideAccess: true, req })
-    const { freeThreshold } = normalizeAngolaShipping(settings as never)
-    return { regular: angolaZonePrice(order.deliveryCity ?? '', settings as never), freeThreshold }
+    const { freeEnabled, freeThreshold } = normalizeAngolaShipping(settings as never)
+    // 0 = no threshold: with free delivery switched off nothing reads as "reached".
+    return { regular: angolaZonePrice(order.deliveryCity ?? '', settings as never), freeThreshold: freeEnabled ? freeThreshold : 0 }
   } catch {
     return undefined
   }

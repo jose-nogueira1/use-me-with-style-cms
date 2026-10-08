@@ -1,4 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
+import { buildTrackingUrl, trackingProviderFor } from '../lib/messaging'
 
 const WINDOW_MS = 60_000
 const MAX_ATTEMPTS = 10
@@ -80,6 +81,9 @@ export const orderLookupEndpoint: Endpoint = {
             currency: order.currency,
             deliveryRegion: order.deliveryRegion,
             cttTrackingCode: order.cttTrackingCode,
+            // Who carries it and where the customer can follow it (CTT in Portugal, Zygo in Angola).
+            trackingProvider: trackingProviderFor(order.market),
+            trackingUrl: order.cttTrackingCode ? buildTrackingUrl(order.market, order.cttTrackingCode) : null,
             updatedAt: order.updatedAt,
             // Phase 2: returns: returns.docs.map(...)
           }

@@ -647,7 +647,7 @@ export interface Order {
   inventoryReservationReleasedAt?: string | null;
   deliveryMethod: 'ctt' | 'courier_pt' | 'courier_ao' | 'manual_ao';
   /**
-   * For CTT Registered orders, enter the code from the CTT receipt or shipping portal. It becomes visible in the customer order lookup.
+   * Portugal: the CTT code for Registered orders. Angola: the tracking number Zygo gives you. It is emailed to the customer when the order ships and shown in the order lookup.
    */
   cttTrackingCode?: string | null;
   /**
@@ -1675,9 +1675,13 @@ export interface MarketSetting {
    */
   angolaZonePricePeriferia: number;
   /**
+   * Off = every order pays the zone price. Coupons that give free delivery still work.
+   */
+  angolaFreeShippingEnabled?: boolean | null;
+  /**
    * Applied to the merchandise total after discounts.
    */
-  angolaFreeShippingThreshold: number;
+  angolaFreeShippingThreshold?: number | null;
   /**
    * Keep OFF until the Portuguese legal entity, invoicing process, and payment-provider accounts are approved. Turning this on re-enables PT checkout.
    */
@@ -1701,9 +1705,13 @@ export interface MarketSetting {
    */
   portugalTrackedShippingPrice: number;
   /**
+   * Off = every order pays the CTT price. Coupons that give free delivery still work.
+   */
+  portugalFreeShippingEnabled?: boolean | null;
+  /**
    * Applied to the merchandise total after coupons and other discounts.
    */
-  portugalFreeShippingThreshold: number;
+  portugalFreeShippingThreshold?: number | null;
   portugalStandardWeightLimitGrams: number;
   portugalHeavyMainlandShippingPrice: number;
   portugalHeavyIslandsShippingPrice: number;
@@ -2170,31 +2178,25 @@ export interface StorefrontContent {
   createdAt?: string | null;
 }
 /**
- * The scrolling bar above the storefront header. Shows the free-delivery message and, optionally, one discount code (choose it on the coupon).
+ * The scrolling bar above the storefront header. Shows a message you write (when switched on) and, optionally, one discount code (choose it on the coupon).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "announcement-banner".
  */
 export interface AnnouncementBanner {
   id: number;
-  angolaDeliveryEnabled?: boolean | null;
+  angolaMessageEnabled?: boolean | null;
   /**
-   * Optional. Blank = "Entrega grátis acima de <threshold>" from the market settings.
+   * If only one language is filled in, it is shown for both.
    */
-  angolaDeliveryTextPt?: string | null;
+  angolaMessageTextPt?: string | null;
+  angolaMessageTextEn?: string | null;
+  portugalMessageEnabled?: boolean | null;
   /**
-   * Optional. Blank = "Free delivery over <threshold>".
+   * If only one language is filled in, it is shown for both.
    */
-  angolaDeliveryTextEn?: string | null;
-  portugalDeliveryEnabled?: boolean | null;
-  /**
-   * Optional. Blank = "Entrega grátis acima de <threshold>" from the market settings.
-   */
-  portugalDeliveryTextPt?: string | null;
-  /**
-   * Optional. Blank = "Free delivery over <threshold>".
-   */
-  portugalDeliveryTextEn?: string | null;
+  portugalMessageTextPt?: string | null;
+  portugalMessageTextEn?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2217,6 +2219,7 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaZonePriceSul?: T;
   angolaZonePriceNorte?: T;
   angolaZonePricePeriferia?: T;
+  angolaFreeShippingEnabled?: T;
   angolaFreeShippingThreshold?: T;
   portugalPaymentsEnabled?: T;
   portugalManualCheckoutInstructionsPT?: T;
@@ -2225,6 +2228,7 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   portugalDeliveryMethods?: T;
   portugalStandardShippingPrice?: T;
   portugalTrackedShippingPrice?: T;
+  portugalFreeShippingEnabled?: T;
   portugalFreeShippingThreshold?: T;
   portugalStandardWeightLimitGrams?: T;
   portugalHeavyMainlandShippingPrice?: T;
@@ -2509,12 +2513,12 @@ export interface StorefrontContentSelect<T extends boolean = true> {
  * via the `definition` "announcement-banner_select".
  */
 export interface AnnouncementBannerSelect<T extends boolean = true> {
-  angolaDeliveryEnabled?: T;
-  angolaDeliveryTextPt?: T;
-  angolaDeliveryTextEn?: T;
-  portugalDeliveryEnabled?: T;
-  portugalDeliveryTextPt?: T;
-  portugalDeliveryTextEn?: T;
+  angolaMessageEnabled?: T;
+  angolaMessageTextPt?: T;
+  angolaMessageTextEn?: T;
+  portugalMessageEnabled?: T;
+  portugalMessageTextPt?: T;
+  portugalMessageTextEn?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

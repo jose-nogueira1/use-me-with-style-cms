@@ -351,13 +351,19 @@ export const Orders: CollectionConfig = {
       name: 'cttTrackingCode',
       type: 'text',
       index: true,
-      label: 'CTT tracking code',
+      label: 'Courier tracking code (CTT / Zygo)',
       hooks: {
         beforeValidate: [({ value }) => typeof value === 'string' ? value.trim().toUpperCase().replace(/\s/g, '') || null : value],
       },
-      validate: (value: unknown) => !value || /^[A-Z0-9]{8,40}$/.test(String(value)) || 'Enter a valid CTT tracking code (letters and numbers only).',
+      validate: (value: unknown, { siblingData }: { siblingData?: { market?: string } }) => {
+        if (!value) return true
+        // Zygo's code format is not documented, so Angola accepts letters, digits and - _ . /
+        return siblingData?.market === 'AO'
+          ? /^[A-Z0-9][A-Z0-9\-_./]{2,39}$/.test(String(value)) || 'Enter the Zygo tracking number (letters, numbers and - _ . / only).'
+          : /^[A-Z0-9]{8,40}$/.test(String(value)) || 'Enter a valid CTT tracking code (letters and numbers only).'
+      },
       admin: {
-        description: 'For CTT Registered orders, enter the code from the CTT receipt or shipping portal. It becomes visible in the customer order lookup.',
+        description: 'Portugal: the CTT code for Registered orders. Angola: the tracking number Zygo gives you. It is emailed to the customer when the order ships and shown in the order lookup.',
       },
     },
     {

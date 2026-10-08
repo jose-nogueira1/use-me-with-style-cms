@@ -79,6 +79,18 @@ export function buildCttTrackingUrl(code: string, lang: 'pt' | 'en' = 'pt'): str
   return `https://appserver2.ctt.pt/feapl_2/app/open/objectSearch/objectSearch.jspx?objects=${encodeURIComponent(code)}&request_locale=${lang === 'en' ? 'en' : 'pt'}`
 }
 
+// Angola deliveries go through Zygo, whose public tracking page takes the code
+// the customer pastes in. Its API is not live yet, so Use Me enters the code by
+// hand (same order field as the CTT code) and the email links to this page.
+export const ZYGO_TRACKING_URL = 'https://www.zygo.ao/rastreio'
+
+export type TrackingProvider = 'ctt' | 'zygo'
+export const trackingProviderFor = (market: unknown): TrackingProvider => (market === 'AO' ? 'zygo' : 'ctt')
+
+export function buildTrackingUrl(market: unknown, code: string, lang: 'pt' | 'en' = 'pt'): string {
+  return trackingProviderFor(market) === 'zygo' ? ZYGO_TRACKING_URL : buildCttTrackingUrl(code, lang)
+}
+
 export async function sendWhatsAppMessage(toPhone: string, message: string): Promise<void> {
   const token = process.env.WHATSAPP_ACCESS_TOKEN
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID

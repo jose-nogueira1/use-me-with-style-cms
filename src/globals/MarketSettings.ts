@@ -125,13 +125,20 @@ export const MarketSettings: GlobalConfig = {
       },
     })),
     {
+      name: 'angolaFreeShippingEnabled',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Angola: offer free delivery above a threshold',
+      admin: { description: 'Off = every order pays the zone price. Coupons that give free delivery still work.' },
+    },
+    {
       name: 'angolaFreeShippingThreshold',
       type: 'number',
       required: true,
       min: 0,
       defaultValue: 80000,
       label: 'Angola: free-delivery threshold (Kz)',
-      admin: { description: 'Applied to the merchandise total after discounts.' },
+      admin: { description: 'Applied to the merchandise total after discounts.', condition: (_, siblingData) => Boolean(siblingData?.angolaFreeShippingEnabled) },
     },
     {
       name: 'portugalPaymentsEnabled',
@@ -198,13 +205,20 @@ export const MarketSettings: GlobalConfig = {
       admin: { description: 'Customer charge for tracked CTT delivery below the free-delivery threshold.' },
     },
     {
+      name: 'portugalFreeShippingEnabled',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Portugal: offer free delivery above a threshold',
+      admin: { description: 'Off = every order pays the CTT price. Coupons that give free delivery still work.' },
+    },
+    {
       name: 'portugalFreeShippingThreshold',
       type: 'number',
       required: true,
       min: 0,
       defaultValue: 75,
       label: 'Portugal: free-delivery threshold (EUR)',
-      admin: { description: 'Applied to the merchandise total after coupons and other discounts.' },
+      admin: { description: 'Applied to the merchandise total after coupons and other discounts.', condition: (_, siblingData) => Boolean(siblingData?.portugalFreeShippingEnabled) },
     },
     {
       name: 'portugalStandardWeightLimitGrams',

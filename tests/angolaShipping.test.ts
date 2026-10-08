@@ -33,7 +33,7 @@ test('neighbourhood names match regardless of case and accents, and old municipa
 })
 
 test('admin zone prices override the defaults and the free threshold is judged after discounts', () => {
-  const settings = { angolaZonePriceCentro: 3000, angolaZonePricePeriferia: 6000, angolaFreeShippingThreshold: 100_000 }
+  const settings = { angolaZonePriceCentro: 3000, angolaZonePricePeriferia: 6000, angolaFreeShippingEnabled: true, angolaFreeShippingThreshold: 100_000 }
   assert.equal(angolaShippingCost('Mutamba', 50_000, settings), 3000)
   assert.equal(angolaShippingCost('Talatona', 50_000, settings), 3500) // untouched zone keeps its default
   assert.equal(angolaShippingCost('Zango', 50_000, settings), 6000)
@@ -41,6 +41,14 @@ test('admin zone prices override the defaults and the free threshold is judged a
   assert.equal(angolaShippingCost('Zango', 100_000, settings), 0)
   assert.equal(normalizeAngolaShipping({ angolaZonePriceSul: -1 as never }).zonePrices.sul, 3500) // invalid -> default
   assert.equal(normalizeAngolaShipping(null).freeThreshold, 80_000)
+})
+
+test('free delivery is off unless an admin switches it on', () => {
+  const off = { angolaFreeShippingThreshold: 100_000 }
+  assert.equal(angolaShippingCost('Zango', 1_000_000, off), 5500)
+  assert.equal(angolaShippingCost('Zango', 1_000_000, { ...off, angolaFreeShippingEnabled: false }), 5500)
+  assert.equal(angolaShippingCost('Zango', 1_000_000, null), 5500)
+  assert.equal(angolaShippingCost('Zango', 1_000_000, { ...off, angolaFreeShippingEnabled: true }), 0)
 })
 
 test('an old order stays editable, and changing its neighbourhood is checked', async () => {

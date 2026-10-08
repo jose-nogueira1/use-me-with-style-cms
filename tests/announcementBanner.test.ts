@@ -1,27 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { couponBannerItem, deliveryBannerItem, type BannerCoupon } from '../src/lib/announcementBanner.ts'
+import { couponBannerItem, messageBannerItem, type BannerCoupon } from '../src/lib/announcementBanner.ts'
 import { Coupons } from '../src/collections/Coupons.ts'
 import { storefrontBannerEndpoint } from '../src/endpoints/storefrontBanner.ts'
 
 const NOW = new Date('2026-10-08T12:00:00.000Z')
 const coupon = (over: Partial<BannerCoupon> = {}): BannerCoupon => ({ code: 'BEMVINDA10', type: 'percent', percentOff: 10, active: true, ...over })
 
-test('free-delivery text is built from the threshold, in both languages and currencies', () => {
-  assert.deepEqual(deliveryBannerItem('AO', 80_000, {}), { id: 'delivery', pt: 'Entrega grátis acima de 80.000 Kz', en: 'Free delivery over 80,000 Kz' })
-  const pt = deliveryBannerItem('PT', 75, {})!
-  assert.match(pt.pt, /^Entrega grátis acima de 75\s€$/)
-  assert.equal(pt.en, 'Free delivery over €75')
-  assert.equal(deliveryBannerItem('PT', 45.5, {})!.en, 'Free delivery over €45.50')
-  assert.deepEqual(deliveryBannerItem('AO', 0, {}), { id: 'delivery', pt: 'Entrega grátis', en: 'Free delivery' })
+test('the message is whatever the admin writes, and only while switched on', () => {
+  const on = { enabled: true, textPt: '  Entrega grátis em compras acima de 80 mil Kz  ', textEn: 'Free delivery over 80k Kz' }
+  assert.deepEqual(messageBannerItem(on), { id: 'message', pt: 'Entrega grátis em compras acima de 80 mil Kz', en: 'Free delivery over 80k Kz' })
+  assert.equal(messageBannerItem({ ...on, enabled: false }), null)
+  assert.equal(messageBannerItem({ textPt: 'x' }), null) // off by default
+  assert.equal(messageBannerItem({ enabled: true, textPt: '  ', textEn: null }), null) // nothing to show
 })
 
-test('admin text overrides each language independently; the switch removes the message', () => {
-  const item = deliveryBannerItem('AO', 80_000, { textPt: '  Entrega grátis em compras acima de 80 mil Kz  ' })!
-  assert.equal(item.pt, 'Entrega grátis em compras acima de 80 mil Kz')
-  assert.equal(item.en, 'Free delivery over 80,000 Kz')
-  assert.equal(deliveryBannerItem('AO', 80_000, { enabled: false }), null)
+test('a message in one language is used for both', () => {
+  assert.deepEqual(messageBannerItem({ enabled: true, textEn: 'Closed on Sunday' }), { id: 'message', pt: 'Closed on Sunday', en: 'Closed on Sunday' })
+  assert.deepEqual(messageBannerItem({ enabled: true, textPt: 'Fechado ao domingo' }), { id: 'message', pt: 'Fechado ao domingo', en: 'Fechado ao domingo' })
 })
 
 test('a promoted code reads naturally for each coupon type', () => {
@@ -65,19 +62,18 @@ test('turning "show on the announcement bar" on turns it off on every other coup
   assert.deepEqual(updates, [])
 })
 
-test('the public feed returns the delivery message, the live code and no secrets', async () => {
+test('the public feed returns the message, the live code and no secrets', async () => {
   const req = {
     url: 'http://x/api/storefront-banner?market=AO',
     payload: {
-      findGlobal: async ({ slug }: { slug: string }) =>
-        slug === 'announcement-banner' ? { angolaDeliveryEnabled: true } : { angolaFreeShippingThreshold: 80_000 },
+      findGlobal: async () => ({ angolaMessageEnabled: true, angolaMessageTextPt: 'Olá' }),
       find: async () => ({ docs: [{ code: 'BEMVINDA10', type: 'percent', percentOff: 10, active: true, usageCount: 3, description: 'internal note' }] }),
       logger: { error: () => undefined },
     },
   }
   const res = await storefrontBannerEndpoint.handler(req as never)
   const body = await res.json()
-  assert.deepEqual(body.items.map((i: { id: string }) => i.id), ['delivery', 'coupon'])
+  assert.deepEqual(body.items.map((i: { id: string }) => i.id), ['message', 'coupon'])
   assert.doesNotMatch(JSON.stringify(body), /internal note|usageCount/)
   assert.match(res.headers.get('Cache-Control') ?? '', /max-age=60/)
 

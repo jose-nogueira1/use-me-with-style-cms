@@ -12,6 +12,7 @@ export type PortugalDeliveryRegion = 'mainland' | 'madeira' | 'azores'
 export type PortugalShippingSettings = {
   portugalStandardShippingPrice?: number | null
   portugalTrackedShippingPrice?: number | null
+  portugalFreeShippingEnabled?: boolean | null
   portugalFreeShippingThreshold?: number | null
   portugalStandardWeightLimitGrams?: number | null
   portugalHeavyMainlandShippingPrice?: number | null
@@ -26,6 +27,8 @@ export function normalizePortugalShipping(settings?: PortugalShippingSettings | 
   return {
     standardPrice: nonNegative(settings?.portugalStandardShippingPrice, DEFAULT_PORTUGAL_SHIPPING.standardPrice),
     trackedPrice: nonNegative(settings?.portugalTrackedShippingPrice, DEFAULT_PORTUGAL_SHIPPING.trackedPrice),
+    // Off unless an admin switches it on (Market settings).
+    freeEnabled: settings?.portugalFreeShippingEnabled === true,
     freeThreshold: nonNegative(settings?.portugalFreeShippingThreshold, DEFAULT_PORTUGAL_SHIPPING.freeThreshold),
     standardWeightLimitGrams: nonNegative(settings?.portugalStandardWeightLimitGrams, DEFAULT_PORTUGAL_SHIPPING.standardWeightLimitGrams),
     heavyMainlandPrice: nonNegative(settings?.portugalHeavyMainlandShippingPrice, DEFAULT_PORTUGAL_SHIPPING.heavyMainlandPrice),
@@ -50,7 +53,7 @@ export function portugalShippingCost(
   region: PortugalDeliveryRegion = 'mainland',
 ): number {
   const values = normalizePortugalShipping(settings)
-  if (merchandiseTotalAfterDiscount >= values.freeThreshold) return 0
+  if (values.freeEnabled && merchandiseTotalAfterDiscount >= values.freeThreshold) return 0
   if (totalWeightGrams > values.standardWeightLimitGrams) {
     return region === 'mainland' ? values.heavyMainlandPrice : values.heavyIslandsPrice
   }

@@ -2,6 +2,9 @@ import { up as heroPositionsUp, down as heroPositionsDown } from '../src/migrati
 import { up as veroFieldsUp, down as veroFieldsDown } from '../src/migrations/20261007_120000_vero_invoice_fields.ts'
 import { up as bannerUp, down as bannerDown } from '../src/migrations/20261008_120000_announcement_banner.ts'
 import { up as zonesUp, down as zonesDown } from '../src/migrations/20261008_180000_zygo_delivery_zones.ts'
+import { up as bannerMessageUp, down as bannerMessageDown } from '../src/migrations/20261009_140000_announcement_message.ts'
+import { up as zygoFaqUp } from '../src/migrations/20261009_160000_zygo_tracking_faq.ts'
+import { up as freeToggleUp, down as freeToggleDown } from '../src/migrations/20261009_120000_free_delivery_toggle.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { randomUUID } from 'node:crypto'
@@ -712,5 +715,69 @@ test('Zygo zones migration adds prices and the reference, and rewrites only unto
     assert.match(about.about_angola_body_e_n, /delivery in Luanda by Zygo/)
     await zonesDown({ db } as never)
     assert.equal((await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'delivery_reference'`)).rows.length, 0)
+  })
+})
+
+test('free-delivery toggle migration starts switched off and rewrites only untouched FAQ defaults', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    const tail = ' Também fazemos envios internacionais; contacte o apoio para confirmar custo e prazo para o seu país.'
+    const oldDefault = `O valor exato é calculado no checkout antes de confirmar. A entrega é gratuita a partir de 80 000 Kz, depois de descontos.${tail}`
+    await pool.query(`
+      CREATE TABLE market_settings (id serial PRIMARY KEY);
+      INSERT INTO market_settings DEFAULT VALUES;
+      CREATE TABLE storefront_content_faq_entries (id varchar PRIMARY KEY, answer_p_t varchar, answer_e_n varchar, answer_p_t_p_t varchar, answer_e_n_p_t varchar);
+      INSERT INTO storefront_content_faq_entries (id, answer_p_t, answer_e_n) VALUES ('a', '${oldDefault}', 'Edited by an admin'), ('b', 'Resposta editada', NULL);
+    `)
+    const db = drizzle(pool)
+    await freeToggleUp({ db } as never)
+    await freeToggleUp({ db } as never) // repeated run
+    const settings = (await pool.query('SELECT * FROM market_settings')).rows[0]
+    assert.deepEqual([settings.angola_free_shipping_enabled, settings.portugal_free_shipping_enabled], [false, false])
+    const faq = (await pool.query('SELECT * FROM storefront_content_faq_entries ORDER BY id')).rows
+    assert.equal(faq[0].answer_p_t, `O valor exato é calculado no checkout antes de confirmar.${tail}`)
+    assert.equal(faq[0].answer_e_n, 'Edited by an admin')
+    assert.equal(faq[1].answer_p_t, 'Resposta editada')
+    await freeToggleDown({ db } as never)
+    assert.equal((await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'market_settings' AND column_name LIKE '%free_shipping%'`)).rows.length, 0)
+  })
+})
+
+test('announcement message migration renames the delivery columns and switches off unused ones', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE announcement_banner (id serial PRIMARY KEY,
+        angola_delivery_enabled boolean DEFAULT true, angola_delivery_text_pt varchar, angola_delivery_text_en varchar,
+        portugal_delivery_enabled boolean DEFAULT true, portugal_delivery_text_pt varchar, portugal_delivery_text_en varchar);
+      INSERT INTO announcement_banner (angola_delivery_text_pt, portugal_delivery_text_en) VALUES ('Frete especial', NULL);
+    `)
+    const db = drizzle(pool)
+    await bannerMessageUp({ db } as never)
+    await bannerMessageUp({ db } as never) // repeated run
+    const row = (await pool.query('SELECT * FROM announcement_banner')).rows[0]
+    assert.deepEqual([row.angola_message_enabled, row.angola_message_text_pt], [true, 'Frete especial']) // kept
+    assert.equal(row.portugal_message_enabled, false) // no text: automatic wording is gone, so off
+    await pool.query('INSERT INTO announcement_banner DEFAULT VALUES')
+    assert.equal((await pool.query('SELECT portugal_message_enabled FROM announcement_banner ORDER BY id DESC LIMIT 1')).rows[0].portugal_message_enabled, false) // new default
+    await bannerMessageDown({ db } as never)
+    assert.ok('angola_delivery_text_pt' in (await pool.query('SELECT * FROM announcement_banner')).rows[0])
+  })
+})
+
+test('Zygo tracking FAQ migration rewrites only the untouched default answer', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE storefront_content_faq_entries (id varchar PRIMARY KEY, answer_p_t varchar, answer_e_n varchar);
+      INSERT INTO storefront_content_faq_entries VALUES
+        ('a', 'Use o número da encomenda e o email utilizado na compra na página Consultar encomenda.', 'Edited by an admin'),
+        ('b', 'Resposta editada', NULL);
+    `)
+    const db = drizzle(pool)
+    await zygoFaqUp({ db } as never)
+    await zygoFaqUp({ db } as never) // repeated run
+    const rows = (await pool.query('SELECT * FROM storefront_content_faq_entries ORDER BY id')).rows
+    assert.match(rows[0].answer_p_t, /zygo\.ao\/rastreio/)
+    assert.equal(rows[0].answer_p_t.match(/zygo\.ao/g).length, 1) // not appended twice
+    assert.equal(rows[0].answer_e_n, 'Edited by an admin')
+    assert.equal(rows[1].answer_p_t, 'Resposta editada')
   })
 })

@@ -1,6 +1,6 @@
 import type { CollectionAfterChangeHook, Payload } from 'payload'
 
-import { buildCttTrackingUrl } from '../lib/messaging'
+import { buildTrackingUrl, trackingProviderFor } from '../lib/messaging'
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../lib/email'
 import type { OrderConfirmationItemInput } from '../lib/email'
 import { generateInternalInvoiceForOrder, orderInvoiceInput } from '../lib/internalInvoice'
@@ -59,15 +59,18 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
   // CTT tracking code added (2026-08-01, alongside the shipped/delivered
   // emails below) -- an admin often only gets the tracking code from the
   // courier AFTER clicking "mark as shipped" (or fills it in separately,
-  // out of order), so the shipped notice above can't always include it.
+  // out of order), so the shipped notice above can't always include it. Only once
+  // the order is actually shipped: a code saved earlier just rides along on the
+  // shipped email, so the customer is never told "shipped" too soon.
   // This closes that gap on its own: whenever cttTrackingCode goes from
   // empty to set, on ANY update, send a dedicated notice -- independent of
   // whatever else changed in the same request. Guarded to skip a request
   // that's ALSO justShipped, so a code entered at the exact same moment as
   // the shipped transition doesn't fire two separate emails.
   const justAddedTracking =
-    operation === 'update' && !previousDoc?.cttTrackingCode && !!doc.cttTrackingCode && !justShipped
-  const trackingUrl = doc.cttTrackingCode ? buildCttTrackingUrl(doc.cttTrackingCode, doc.lang === 'en' ? 'en' : 'pt') : undefined
+    operation === 'update' && !previousDoc?.cttTrackingCode && !!doc.cttTrackingCode && !justShipped && doc.status === 'shipped'
+  const trackingUrl = doc.cttTrackingCode ? buildTrackingUrl(doc.market, doc.cttTrackingCode, doc.lang === 'en' ? 'en' : 'pt') : undefined
+  const courierProvider = trackingProviderFor(doc.market)
 
   // Shipped and delivered updates remain transactional emails.
   if (justShipped) {
@@ -80,6 +83,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       stage: 'shipped',
       courierTrackingCode: doc.cttTrackingCode || undefined,
       courierTrackingUrl: trackingUrl,
+      courierProvider,
     })
   }
   if (justDelivered) {
@@ -104,6 +108,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       stage: 'shipped',
       courierTrackingCode: doc.cttTrackingCode,
       courierTrackingUrl: trackingUrl,
+      courierProvider,
     })
   }
 

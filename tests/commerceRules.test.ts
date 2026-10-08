@@ -207,23 +207,27 @@ test('releaseCouponRedemption is a no-op for an unknown or blank code', async ()
   assert.equal(updateCalled, false)
 })
 
-test('Portugal shipping is authoritative, method-specific, and free from EUR 75 after discounts', () => {
-  assert.equal(authoritativeShippingCost('PT', 'ctt', 74.99), 4.9)
-  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 74.99), 6.9)
-  assert.equal(authoritativeShippingCost('PT', 'ctt', 75), 0)
-  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100), 0)
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Mutamba'), 3500) // Centro
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Talatona'), 3500) // Sul
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Cazenga'), 3500) // Norte
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Zango'), 5500) // Periferia
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 80_000, undefined, 'Zango'), 0)
-  const custom = { portugalStandardShippingPrice: 5.5, portugalTrackedShippingPrice: 8, portugalFreeShippingThreshold: 90 }
+test('Portugal shipping is authoritative, method-specific, and free from EUR 75 after discounts once switched on', () => {
+  const freeOn = { portugalFreeShippingEnabled: true, angolaFreeShippingEnabled: true }
+  // Free delivery is off by default: nothing is free until an admin enables it.
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 1000), 4.9)
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 1_000_000, undefined, 'Zango'), 5500)
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 74.99, freeOn), 4.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 74.99, freeOn), 6.9)
+  assert.equal(authoritativeShippingCost('PT', 'ctt', 75, freeOn), 0)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100, freeOn), 0)
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Mutamba'), 3500) // Centro
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Talatona'), 3500) // Sul
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Cazenga'), 3500) // Norte
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Zango'), 5500) // Periferia
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 80_000, freeOn, 'Zango'), 0)
+  const custom = { portugalFreeShippingEnabled: true, portugalStandardShippingPrice: 5.5, portugalTrackedShippingPrice: 8, portugalFreeShippingThreshold: 90 }
   assert.equal(authoritativeShippingCost('PT', 'ctt', 75, custom), 5.5)
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 89.99, custom), 8)
   assert.equal(authoritativeShippingCost('PT', 'ctt', 90, custom), 0)
-  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, undefined, undefined, 2500, '1000-001'), 9.9)
-  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, undefined, undefined, 2500, '9000-001'), 14.9)
-  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 75, undefined, undefined, 2500, '9500-001'), 0)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, freeOn, undefined, 2500, '1000-001'), 9.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 50, freeOn, undefined, 2500, '9000-001'), 14.9)
+  assert.equal(authoritativeShippingCost('PT', 'courier_pt', 75, freeOn, undefined, 2500, '9500-001'), 0)
 })
 
 test('Portuguese postal codes classify mainland, Madeira and the Azores', () => {
@@ -272,7 +276,7 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
       : { docs: [coupon] },
     count: async () => ({ totalDocs: 0 }),
     update: async () => coupon,
-    findGlobal: async () => ({ portugalPaymentsEnabled: true }),
+    findGlobal: async () => ({ portugalPaymentsEnabled: true, portugalFreeShippingEnabled: true }),
   }
   // Product 4 is on sale (salePTEur: 40) -- no percent coupon should apply
   // (2026-08-04 rule), so this cart legitimately has no eligible subtotal.
@@ -315,13 +319,13 @@ test('authoritative order ignores submitted prices and applies sale, coupon and 
     req: { payload, url: 'http://localhost/api/orders' },
   } as never), /already on sale/)
 
-  payload.findGlobal = async () => ({ portugalPaymentsEnabled: false })
+  payload.findGlobal = async () => ({ portugalPaymentsEnabled: false, portugalFreeShippingEnabled: true })
   await assert.rejects(() => applyAuthoritativeOrderValues({
     data: { market: 'PT', paymentMethod: 'mbway', deliveryMethod: 'ctt' },
     operation: 'create',
     req: { payload, url: 'http://localhost/api/orders' },
   } as never), /temporarily unavailable/)
-  payload.findGlobal = async () => ({ portugalPaymentsEnabled: true })
+  payload.findGlobal = async () => ({ portugalPaymentsEnabled: true, portugalFreeShippingEnabled: true })
 
   shippingWeightGrams = 1200
   await assert.rejects(() => applyAuthoritativeOrderValues({
