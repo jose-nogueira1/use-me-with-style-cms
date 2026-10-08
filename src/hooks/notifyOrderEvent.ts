@@ -97,7 +97,8 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
     })
   }
 
-  // If tracking is added after shipment, send an updated shipping email.
+  // If the number is added after the shipped email went out, send the short tracking
+  // follow-up (not a second "shipped" notice).
   if (justAddedTracking && trackingUrl) {
     await sendOrderStatusEmail(req.payload, {
       to: doc.customerEmail,
@@ -105,7 +106,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       customerName: doc.customerName,
       customerFirstName: doc.customerFirstName || undefined,
       lang: doc.lang,
-      stage: 'shipped',
+      stage: 'tracking',
       courierTrackingCode: doc.cttTrackingCode,
       courierTrackingUrl: trackingUrl,
       courierProvider,

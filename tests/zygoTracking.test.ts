@@ -66,8 +66,13 @@ test('a Zygo number saved before dispatch rides on the shipped email; saved afte
   assert.equal(shipped.length, 1)
   assert.match(shipped[0].html, /ZY-12345/)
   assert.match(shipped[0].html, /zygo\.ao\/rastreio/)
-  // shipped first, number arrives later: a dedicated email
-  assert.equal((await run({ status: 'shipped' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })).length, 1)
-  // shipped and code entered together: still one email
-  assert.equal((await run({ status: 'processing' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })).length, 1)
+  // shipped first, number arrives later: ONE short tracking email (not a repeat of "shipped")
+  const late = await run({ status: 'shipped' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })
+  assert.equal(late.length, 1)
+  assert.match(late[0].html, /Já pode acompanhar/)
+  assert.doesNotMatch(late[0].html, /foi enviada e está a caminho/)
+  // shipped and code entered in the same save: still one email, the shipped one
+  const together = await run({ status: 'processing' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })
+  assert.equal(together.length, 1)
+  assert.match(together[0].html, /foi enviada e está a caminho/)
 })

@@ -662,7 +662,9 @@ export async function sendOrderConfirmationEmail(
 // with Jay-P before this was written. Still deliberately a separate,
 // lighter template from the confirmation email above (no price breakdown
 // -- there's nothing new to confirm financially at these stages).
-export type OrderStatusEmailStage = 'shipped' | 'delivered'
+// 'tracking' is the short follow-up sent when a tracking number is added AFTER the
+// shipped email already went out (it is not a second "shipped" notice).
+export type OrderStatusEmailStage = 'shipped' | 'tracking' | 'delivered'
 
 type OrderStatusEmailInput = {
   to: string
@@ -695,10 +697,18 @@ const STATUS_PROGRESS_LABELS: Record<EmailLang, [string, string, string]> = {
   pt: ['Confirmada', 'Enviada', 'Entregue'],
   en: ['Confirmed', 'Shipped', 'Delivered'],
 }
-const STATUS_COURIER_CTA_TEXT: Record<'ctt' | 'zygo', Record<EmailLang, string>> = {
-  ctt: { pt: 'SEGUIR NOS CTT', en: 'TRACK WITH CTT' },
-  zygo: { pt: 'SEGUIR NA ZYGO', en: 'TRACK WITH ZYGO' },
+// Wording of the tracking card, per courier (CTT in Portugal, Zygo in Angola).
+const STATUS_COURIER_COPY: Record<'ctt' | 'zygo', Record<EmailLang, { label: string; hint: string; cta: string }>> = {
+  ctt: {
+    pt: { label: 'Rastreio CTT', hint: 'Use este código no site dos CTT para ver onde está a sua encomenda.', cta: 'SEGUIR NOS CTT' },
+    en: { label: 'CTT tracking', hint: 'Use this code on the CTT website to see where your order is.', cta: 'TRACK WITH CTT' },
+  },
+  zygo: {
+    pt: { label: 'Rastreio Zygo', hint: 'Cole este número na página de rastreio da Zygo para ver onde está a sua encomenda.', cta: 'SEGUIR NA ZYGO' },
+    en: { label: 'Zygo tracking', hint: "Paste this number on Zygo's tracking page to see where your order is.", cta: 'TRACK WITH ZYGO' },
+  },
 }
+const STATUS_VIEW_ORDER_TEXT: Record<EmailLang, string> = { pt: 'Ver a minha encomenda', en: 'View my order' }
 const STATUS_STAGE_COPY: Record<
   OrderStatusEmailStage,
   Record<
@@ -726,6 +736,22 @@ const STATUS_STAGE_COPY: Record<
       eyebrow: 'SHIPPED',
       heading: (firstName) => `On its way, ${firstName}.`,
       body: "Your order has shipped and is on its way. We'll send one last message to confirm once it's delivered.",
+    },
+  },
+  tracking: {
+    pt: {
+      subject: (orderNumber) => `Rastreio da encomenda ${orderNumber} -- Use Me With Style`,
+      preheader: (firstName) => `${firstName}, já pode acompanhar a sua encomenda.`,
+      eyebrow: 'RASTREIO',
+      heading: (firstName) => `Já pode acompanhar, ${firstName}.`,
+      body: 'Já temos o número de rastreio da sua encomenda. Use-o para ver onde ela está.',
+    },
+    en: {
+      subject: (orderNumber) => `Tracking for order ${orderNumber} -- Use Me With Style`,
+      preheader: (firstName) => `${firstName}, you can now follow your order.`,
+      eyebrow: 'TRACKING',
+      heading: (firstName) => `Follow it now, ${firstName}.`,
+      body: 'We now have the tracking number for your order. Use it to see where it is.',
     },
   },
   delivered: {
@@ -787,25 +813,54 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
   const firstName = resolveFirstName(input.customerName, input.customerFirstName) || input.customerName
   const subject = stageCopy.subject(input.orderNumber)
   const preheader = stageCopy.preheader(firstName)
-  const activeIndex = input.stage === 'shipped' ? 1 : 2
+  const activeIndex = input.stage === 'delivered' ? 2 : 1
 
-  const detailsSection = input.courierTrackingCode
+  // Tracking card: the number large and easy to copy, what to do with it, and the courier's
+  // own button. When it is shown, "view my order" drops to a quiet text link so the two
+  // calls to action don't compete; without a number the order button stays the main one.
+  const courierCopy = STATUS_COURIER_COPY[input.courierProvider ?? 'ctt'][lang]
+  const trackingCard = input.courierTrackingCode
     ? `
       <tr>
-        <td class="ums-px" style="padding:24px 32px 0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${renderDetailBlock(confirmationCopy.trackingCodeLabel, [escapeHtml(input.courierTrackingCode)])}</tr></table>
+        <td class="ums-px" style="padding:28px 32px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${HAIRLINE}; background-color:${IVORY};">
+            <tr>
+              <td align="center" style="padding:24px 20px 26px;">
+                <div style="font-family:${SANS}; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:${GOLD};">${escapeHtml(courierCopy.label)}</div>
+                <div style="font-family:${SERIF}; font-size:26px; line-height:32px; letter-spacing:2px; color:${INK}; margin-top:10px; word-break:break-all;">${escapeHtml(input.courierTrackingCode)}</div>
+                <div style="font-family:${SANS}; font-size:13px; line-height:20px; color:${INK_SOFT}; margin:10px auto 0; max-width:360px;">${escapeHtml(courierCopy.hint)}</div>
+                ${input.courierTrackingUrl
+                  ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px auto 0;"><tr>
+                  <td align="center" bgcolor="${BLACK}" style="border-radius:2px; background-color:${BLACK}; border:1px solid ${GOLD};">
+                    <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; padding:14px 30px; font-family:${SANS}; font-size:12px; letter-spacing:2px; font-weight:700; color:${GOLD_ON_BLACK}; text-decoration:none; text-transform:uppercase;">${escapeHtml(courierCopy.cta)}</a>
+                  </td></tr></table>`
+                  : ''}
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>`
     : ''
 
-  const cttButton = input.courierTrackingUrl
+  const orderLink = trackingCard
     ? `
-      <tr>
-        <td class="ums-px" align="center" style="padding:14px 32px 0;">
-          <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; font-family:${SANS}; font-size:11px; letter-spacing:1.5px; color:${GOLD}; text-decoration:underline;">${escapeHtml(STATUS_COURIER_CTA_TEXT[input.courierProvider ?? 'ctt'][lang])}</a>
-        </td>
-      </tr>`
-    : ''
+          <tr>
+            <td class="ums-px" align="center" style="padding:22px 32px 8px;">
+              <a href="${escapeHtml(trackingUrl)}" target="_blank" style="font-family:${SANS}; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:${GOLD}; text-decoration:underline;">${escapeHtml(STATUS_VIEW_ORDER_TEXT[lang])}</a>
+            </td>
+          </tr>`
+    : `
+          <tr>
+            <td class="ums-px" align="center" style="padding:32px 32px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="${BLACK}" style="border-radius:2px; background-color:${BLACK}; border:1px solid ${GOLD};">
+                    <a href="${escapeHtml(trackingUrl)}" target="_blank" style="display:inline-block; padding:15px 34px; font-family:${SANS}; font-size:12px; letter-spacing:2px; font-weight:700; color:${GOLD_ON_BLACK}; text-decoration:none; text-transform:uppercase;">${escapeHtml(confirmationCopy.ctaText)}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
 
   const year = new Date().getFullYear()
   const supportEmail = process.env.CONTACT_EMAIL || 'support@usemewithstyle.shop'
@@ -820,19 +875,8 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
             </td>
           </tr>
           ${renderStatusProgressTracker(STATUS_PROGRESS_LABELS[lang], activeIndex)}
-          ${detailsSection}
-          ${cttButton}
-          <tr>
-            <td class="ums-px" align="center" style="padding:32px 32px 8px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td align="center" bgcolor="${BLACK}" style="border-radius:2px; background-color:${BLACK}; border:1px solid ${GOLD};">
-                    <a href="${escapeHtml(trackingUrl)}" target="_blank" style="display:inline-block; padding:15px 34px; font-family:${SANS}; font-size:12px; letter-spacing:2px; font-weight:700; color:${GOLD_ON_BLACK}; text-decoration:none; text-transform:uppercase;">${escapeHtml(confirmationCopy.ctaText)}</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          ${trackingCard}
+          ${orderLink}
           <tr>
             <td class="ums-px" style="padding:44px 32px 0;">
               <div style="font-family:${SERIF}; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:${INK}; border-bottom:1px solid ${INK}; padding-bottom:10px;">${escapeHtml(confirmationCopy.supportHeading)}</div>

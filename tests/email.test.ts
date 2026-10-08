@@ -399,11 +399,11 @@ test('status email progress marker highlights up through the current stage: ship
 
 test('status email shows the tracking code and CTT link only when provided, independently of each other', () => {
   const neither = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
-  assert.doesNotMatch(neither.html, /Código de rastreio/)
+  assert.doesNotMatch(neither.html, /Rastreio CTT/)
   assert.doesNotMatch(neither.html, /SEGUIR NOS CTT/)
 
   const codeOnly = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', courierTrackingCode: 'RR123456789PT' })
-  assert.match(codeOnly.html, /Código de rastreio/)
+  assert.match(codeOnly.html, /Rastreio CTT/)
   assert.match(codeOnly.html, /RR123456789PT/)
   assert.doesNotMatch(codeOnly.html, /SEGUIR NOS CTT/)
 
@@ -413,7 +413,7 @@ test('status email shows the tracking code and CTT link only when provided, inde
     courierTrackingCode: 'RR123456789PT',
     courierTrackingUrl: 'https://www.ctt.pt/track?objects=RR123456789PT',
   })
-  assert.match(both.html, /Código de rastreio/)
+  assert.match(both.html, /Rastreio CTT/)
   assert.match(both.html, /SEGUIR NOS CTT/)
   assert.match(both.html, /href="https:\/\/www\.ctt\.pt\/track\?objects=RR123456789PT"/)
 
@@ -471,4 +471,27 @@ test('the point of reference is printed with the delivery address, in the custom
   assert.match(buildOrderConfirmationEmail({ ...BASE, lang: 'pt', address }).html, /Ponto de referência: Junto ao Kero/)
   assert.match(buildOrderConfirmationEmail({ ...BASE, lang: 'en', address }).html, /Landmark: Junto ao Kero/)
   assert.doesNotMatch(buildOrderConfirmationEmail({ ...BASE, lang: 'pt', address: { ...address, reference: '  ' } }).html, /Ponto de referência/)
+})
+
+test('with a tracking number the email leads with the courier card; the order link becomes a quiet text link', () => {
+  const zygo = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', courierTrackingCode: 'ZG-2026-004815', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'zygo' })
+  assert.match(zygo.html, /Rastreio Zygo/)
+  assert.match(zygo.html, /ZG-2026-004815/)
+  assert.match(zygo.html, /Cole este número/)
+  assert.match(zygo.html, /SEGUIR NA ZYGO/)
+  assert.match(zygo.html, /Ver a minha encomenda/)
+  assert.doesNotMatch(zygo.html, /ACOMPANHAR A MINHA ENCOMENDA/) // no second big button competing with Zygo's
+  // without a number the order button stays the main action
+  const plain = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
+  assert.match(plain.html, /ACOMPANHAR A MINHA ENCOMENDA/)
+  assert.doesNotMatch(plain.html, /Ver a minha encomenda/)
+})
+
+test('the tracking follow-up is its own short email, not a second "shipped" notice', () => {
+  const email = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'tracking', courierTrackingCode: 'ZG-1', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'zygo' })
+  assert.match(email.subject, /^Rastreio da encomenda/)
+  assert.match(email.html, /Já pode acompanhar/)
+  assert.doesNotMatch(email.html, /foi enviada e está a caminho/)
+  const en = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'tracking', courierTrackingCode: 'ZG-1', courierProvider: 'zygo' })
+  assert.match(en.subject, /^Tracking for order/)
 })
