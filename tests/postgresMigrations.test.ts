@@ -3,6 +3,7 @@ import { up as veroFieldsUp, down as veroFieldsDown } from '../src/migrations/20
 import { up as bannerUp, down as bannerDown } from '../src/migrations/20261008_120000_announcement_banner.ts'
 import { up as zonesUp, down as zonesDown } from '../src/migrations/20261008_180000_zygo_delivery_zones.ts'
 import { up as bannerMessageUp, down as bannerMessageDown } from '../src/migrations/20261009_140000_announcement_message.ts'
+import { up as multicaixaWordingUp } from '../src/migrations/20261010_120000_multicaixa_only_wording.ts'
 import { up as zygoFaqUp } from '../src/migrations/20261009_160000_zygo_tracking_faq.ts'
 import { up as freeToggleUp, down as freeToggleDown } from '../src/migrations/20261009_120000_free_delivery_toggle.ts'
 import assert from 'node:assert/strict'
@@ -779,5 +780,23 @@ test('Zygo tracking FAQ migration rewrites only the untouched default answer', {
     assert.equal(rows[0].answer_p_t.match(/zygo\.ao/g).length, 1) // not appended twice
     assert.equal(rows[0].answer_e_n, 'Edited by an admin')
     assert.equal(rows[1].answer_p_t, 'Resposta editada')
+  })
+})
+
+test('Multicaixa-only wording migration fixes untouched defaults and leaves edited texts alone', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    await pool.query(`
+      CREATE TABLE storefront_content (id serial PRIMARY KEY, home_seo_description_angola_p_t varchar, home_seo_description_angola_e_n varchar, about_angola_body_p_t varchar, about_angola_body_e_n varchar);
+      INSERT INTO storefront_content (home_seo_description_angola_p_t, home_seo_description_angola_e_n, about_angola_body_p_t, about_angola_body_e_n) VALUES
+        ('Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express ou Referência. Preços em Kz e apoio local.', 'Edited by an admin, Express or Reference', NULL, 'In the Angola store, prices are shown in Kz, with delivery in Luanda by Zygo and payment by Multicaixa Express or Reference. For other destinations, support confirms the available options.');
+    `)
+    const db = drizzle(pool)
+    await multicaixaWordingUp({ db } as never)
+    await multicaixaWordingUp({ db } as never) // repeated run
+    const row = (await pool.query('SELECT * FROM storefront_content')).rows[0]
+    assert.equal(row.home_seo_description_angola_p_t, 'Compre moda desportiva feminina com entrega em Luanda e pagamento por Multicaixa Express. Preços em Kz e apoio local.')
+    assert.equal(row.home_seo_description_angola_e_n, 'Edited by an admin, Express or Reference')
+    assert.equal(row.about_angola_body_p_t, null)
+    assert.doesNotMatch(row.about_angola_body_e_n, /Reference/)
   })
 })

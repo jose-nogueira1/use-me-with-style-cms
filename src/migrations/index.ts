@@ -5,6 +5,7 @@ import * as migration_20261008_180000_zygo_delivery_zones from './20261008_18000
 import * as migration_20261009_120000_free_delivery_toggle from './20261009_120000_free_delivery_toggle';
 import * as migration_20261009_140000_announcement_message from './20261009_140000_announcement_message';
 import * as migration_20261009_160000_zygo_tracking_faq from './20261009_160000_zygo_tracking_faq';
+import * as migration_20261010_120000_multicaixa_only_wording from './20261010_120000_multicaixa_only_wording';
 import * as migration_20260708_220620_initial from './20260708_220620_initial';
 import * as migration_20260709_171700_add_order_payment_reference from './20260709_171700_add_order_payment_reference';
 import * as migration_20260710_010000_add_order_lang from './20260710_010000_add_order_lang';
@@ -501,4 +502,5 @@ export const migrations = [
   { up: migration_20261009_120000_free_delivery_toggle.up, down: migration_20261009_120000_free_delivery_toggle.down, name: '20261009_120000_free_delivery_toggle' },
   { up: migration_20261009_140000_announcement_message.up, down: migration_20261009_140000_announcement_message.down, name: '20261009_140000_announcement_message' },
   { up: migration_20261009_160000_zygo_tracking_faq.up, down: migration_20261009_160000_zygo_tracking_faq.down, name: '20261009_160000_zygo_tracking_faq' },
+  { up: migration_20261010_120000_multicaixa_only_wording.up, down: migration_20261010_120000_multicaixa_only_wording.down, name: '20261010_120000_multicaixa_only_wording' },
 ];
