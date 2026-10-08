@@ -44,7 +44,7 @@ export const PAYMENT_METHODS = [
 export const DELIVERY_METHODS = [
   { label: 'CTT Standard - untracked (PT)', value: 'ctt' },
   { label: 'CTT Registered - tracked (PT)', value: 'courier_pt' },
-  { label: 'Local courier (AO)', value: 'courier_ao' },
+  { label: 'Zygo (AO)', value: 'courier_ao' },
   { label: 'Manual coordination (AO, legacy)', value: 'manual_ao' },
 ] as const
 
@@ -194,6 +194,13 @@ export const Orders: CollectionConfig = {
       required: true,
       label: 'House number / other',
       admin: { description: 'House number, floor/door, or other locator info -- collected for both Angola and Portugal orders since 2026-08-04.' },
+    },
+    {
+      name: 'deliveryReference',
+      type: 'text',
+      maxLength: 200,
+      label: 'Delivery point of reference (AO)',
+      admin: { description: 'Landmark the courier (Zygo) uses to find the address -- collected on the Angola checkout since 2026-10-08.' },
     },
     {
       name: 'postalCode',

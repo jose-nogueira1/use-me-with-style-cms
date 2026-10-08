@@ -49,6 +49,8 @@ export type OrderConfirmationAddressInput = {
   postalCode?: string | null
   city?: string | null
   country?: string | null
+  /** Angola: landmark for the courier (Orders.deliveryReference). */
+  reference?: string | null
 }
 
 type OrderConfirmationInput = {
@@ -131,6 +133,7 @@ const CONFIRMATION_COPY: Record<
     paymentHeading: string
     deliveryHeading: string
     addressHeading: string
+    referenceLabel: string
     trackingCodeLabel: string
     ctaText: string
     nextStepsHeading: string
@@ -163,6 +166,7 @@ const CONFIRMATION_COPY: Record<
     paymentHeading: 'Pagamento',
     deliveryHeading: 'Entrega',
     addressHeading: 'Morada de entrega',
+    referenceLabel: 'Ponto de referência',
     trackingCodeLabel: 'Código de rastreio',
     ctaText: 'ACOMPANHAR A MINHA ENCOMENDA',
     nextStepsHeading: 'O que se segue?',
@@ -198,6 +202,7 @@ const CONFIRMATION_COPY: Record<
     paymentHeading: 'Payment',
     deliveryHeading: 'Delivery',
     addressHeading: 'Delivery address',
+    referenceLabel: 'Landmark',
     trackingCodeLabel: 'Tracking code',
     ctaText: 'TRACK MY ORDER',
     nextStepsHeading: 'What happens next?',
@@ -235,7 +240,7 @@ const PAYMENT_METHOD_LABELS: Record<string, Record<EmailLang, string>> = {
 const DELIVERY_METHOD_LABELS: Record<string, Record<EmailLang, string>> = {
   ctt: { pt: 'CTT Standard (sem rastreio)', en: 'CTT Standard (untracked)' },
   courier_pt: { pt: 'CTT Registado (com rastreio)', en: 'CTT Registered (tracked)' },
-  courier_ao: { pt: 'Estafeta local', en: 'Local courier' },
+  courier_ao: { pt: 'Zygo', en: 'Zygo' },
   manual_ao: { pt: 'Coordenação manual', en: 'Manual coordination' },
 }
 
@@ -284,13 +289,14 @@ function formatOrderDate(value: string | Date | undefined, lang: EmailLang): str
 // join spirit as notifyOrderEvent.ts's own address-for-the-invoice
 // assembly, just multi-line instead of comma-joined (reads better as a
 // mailing-address block).
-function addressLines(address: OrderConfirmationAddressInput | undefined): string[] {
+function addressLines(address: OrderConfirmationAddressInput | undefined, referenceLabel = 'Ponto de referência'): string[] {
   if (!address) return []
   const line1 = address.line1?.trim()
   const line2 = address.line2?.trim()
   const cityLine = [address.postalCode?.trim(), address.city?.trim()].filter(Boolean).join(' ')
   const country = address.country?.trim()
-  return [line1, line2, cityLine, country].filter((line): line is string => Boolean(line && line.length > 0))
+  const reference = address.reference?.trim() ? `${referenceLabel}: ${address.reference.trim()}` : undefined
+  return [line1, line2, cityLine, country, reference].filter((line): line is string => Boolean(line && line.length > 0))
 }
 
 function renderItemRow(item: OrderConfirmationItemInput, currency: string, lang: EmailLang, copy: (typeof CONFIRMATION_COPY)[EmailLang]): string {
@@ -520,7 +526,7 @@ export function buildOrderConfirmationEmail(input: OrderConfirmationInput): {
     deliveryLabelRaw ? escapeHtml(deliveryLabelRaw) : '',
     input.courierTrackingCode ? `${escapeHtml(copy.trackingCodeLabel)}: ${escapeHtml(input.courierTrackingCode)}` : '',
   ].filter(Boolean)
-  const addrLines = addressLines(input.address).map((line) => escapeHtml(line))
+  const addrLines = addressLines(input.address, copy.referenceLabel).map((line) => escapeHtml(line))
 
   const detailCells = [
     paymentLabel ? renderDetailBlock(copy.paymentHeading, [escapeHtml(paymentLabel)]) : '',

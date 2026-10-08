@@ -4,7 +4,7 @@ import type { GlobalConfig } from 'payload'
 // by JOS-20's acceptance criteria. Deliberately data-driven (not hard-coded
 // in the frontend).
 //
-// Angola payment is Multicaixa Express via AppyPay; delivery is local courier.
+// Angola payment is Multicaixa Express via AppyPay; delivery is by Zygo (zygo.ao).
 // `angolaPaymentLive` remains the explicit operational switch: AppyPay is
 // configured in code and the environment, but the administrator controls
 // when buyers see the live widget.
@@ -90,18 +90,40 @@ export const MarketSettings: GlobalConfig = {
       defaultValue: ['courier_ao'],
       options: ['courier_ao'],
     },
-    {
-      name: 'angolaMunicipalityPrices',
-      type: 'json',
+    // Angola delivery is done by Zygo in four zones (2026-10-08). The 16 Luanda
+    // municipality prices that used to live here are replaced by the four zone
+    // prices below; the old field is commented out, not deleted, and its database
+    // column is kept (made nullable by the migration) in case it is needed again.
+    // {
+    //   name: 'angolaMunicipalityPrices',
+    //   type: 'json',
+    //   required: true,
+    //   defaultValue: {
+    //     Luanda: 3000, Cacuaco: 5000, Cazenga: 3500, Viana: 6000, Belas: 6500, Talatona: 4000,
+    //     Mussulo: 8000, Sambizanga: 3000, Rangel: 3000, Maianga: 2500, Samba: 3500, Camama: 4500,
+    //     Mulenvos: 5500, Kilamba: 5000, 'Hoji Ya Henda': 3500, Ingombota: 2500,
+    //   },
+    //   label: 'Angola: Luanda municipality delivery prices (Kz)',
+    //   admin: { description: 'Placeholder local-courier prices. Edit the Kz value for any municipality; keep all 16 keys.' },
+    // },
+    ...(['Centro', 'Sul', 'Norte', 'Periferia'] as const).map((zone) => ({
+      name: `angolaZonePrice${zone}`,
+      type: 'number' as const,
       required: true,
-      defaultValue: {
-        Luanda: 3000, Cacuaco: 5000, Cazenga: 3500, Viana: 6000, Belas: 6500, Talatona: 4000,
-        Mussulo: 8000, Sambizanga: 3000, Rangel: 3000, Maianga: 2500, Samba: 3500, Camama: 4500,
-        Mulenvos: 5500, Kilamba: 5000, 'Hoji Ya Henda': 3500, Ingombota: 2500,
+      min: 0,
+      defaultValue: zone === 'Periferia' ? 5500 : 3500,
+      label: `Angola: Zygo delivery price — ${zone} zone (Kz)`,
+      admin: {
+        description:
+          zone === 'Centro'
+            ? 'Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cassenda.'
+            : zone === 'Sul'
+              ? 'Talatona, Patriota, Belas, Camama, Benfica.'
+              : zone === 'Norte'
+                ? 'Vila Alice, Sambizanga, Rangel, Cazenga, Hoji ya Henda.'
+                : 'Viana, Kilamba, Zango, Cacuaco, Funda.',
       },
-      label: 'Angola: Luanda municipality delivery prices (Kz)',
-      admin: { description: 'Placeholder local-courier prices. Edit the Kz value for any municipality; keep all 16 keys.' },
-    },
+    })),
     {
       name: 'angolaFreeShippingThreshold',
       type: 'number',

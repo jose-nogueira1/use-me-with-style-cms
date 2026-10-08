@@ -76,7 +76,7 @@ test('About defaults preserve the approved story and add factual AO/PT presence 
     return field.defaultValue
   }
   assert.match(String(fieldDefault('aboutStoryBodyPT')), /Com atuação em Angola e Portugal/)
-  assert.match(String(fieldDefault('aboutAngolaBodyPT')), /16 municípios de Luanda/)
+  assert.match(String(fieldDefault('aboutAngolaBodyPT')), /entrega em Luanda pela Zygo/)
   assert.match(String(fieldDefault('aboutPortugalBodyPT')), /CTT/)
   const values = fieldDefault('aboutValues')
   assert.ok(Array.isArray(values))

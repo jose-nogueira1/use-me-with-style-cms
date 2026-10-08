@@ -2,7 +2,7 @@ import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { effectiveUnitPrice, isProductOnSale } from './salePricing'
 import { claimCouponRedemption } from './couponPricing'
 import { normalizePortugalShipping, portugalDeliveryRegion, portugalShippingCost, type PortugalShippingSettings } from './portugalShipping'
-import { angolaShippingCost, canonicalLuandaMunicipality, type AngolaShippingSettings } from './angolaShipping'
+import { angolaShippingCost, canonicalAngolaNeighbourhood, type AngolaShippingSettings } from './angolaShipping'
 
 type Market = 'AO' | 'PT'
 
@@ -57,11 +57,11 @@ export function authoritativeShippingCost(
   deliveryMethod: string,
   merchandiseTotalAfterDiscount: number,
   settings?: (PortugalShippingSettings & AngolaShippingSettings) | null,
-  municipality?: string,
+  neighbourhood?: string,
   totalWeightGrams = 0,
   postalCode?: string,
 ): number {
-  if (market === 'AO') return angolaShippingCost(municipality ?? '', merchandiseTotalAfterDiscount, settings)
+  if (market === 'AO') return angolaShippingCost(neighbourhood ?? '', merchandiseTotalAfterDiscount, settings)
   return portugalShippingCost(deliveryMethod, merchandiseTotalAfterDiscount, settings, totalWeightGrams, portugalDeliveryRegion(postalCode) ?? 'mainland')
 }
 
@@ -98,6 +98,7 @@ function relationshipId(value: SubmittedOrderItem['product']): string | number |
 export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async ({
   data,
   operation,
+  originalDoc,
   req,
   context,
 }) => {
@@ -109,10 +110,12 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       if (!deliveryRegion) badRequest('A valid Portuguese postal code is required.')
       return { ...data, country: 'Portugal', deliveryRegion }
     }
-    if (data.market === 'AO' && data.city) {
-      const municipality = canonicalLuandaMunicipality(data.city)
-      if (!municipality) badRequest('Select a valid Luanda municipality.')
-      return { ...data, country: 'Angola', city: municipality, deliveryRegion: null }
+    // Only a changed neighbourhood is validated: orders placed before the Zygo
+    // zones keep their old municipality name and must stay editable.
+    if (data.market === 'AO' && data.city && data.city !== originalDoc?.city) {
+      const neighbourhood = canonicalAngolaNeighbourhood(data.city)
+      if (!neighbourhood) badRequest('Select a valid delivery neighbourhood.')
+      return { ...data, country: 'Angola', city: neighbourhood, deliveryRegion: null }
     }
     return data
   }
@@ -369,8 +372,8 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
-  const municipality = market === 'AO' ? canonicalLuandaMunicipality(data.city) : null
-  if (market === 'AO' && !municipality) badRequest('Select a valid Luanda municipality.')
+  const neighbourhood = market === 'AO' ? canonicalAngolaNeighbourhood(data.city) : null
+  if (market === 'AO' && !neighbourhood) badRequest('Select a valid delivery neighbourhood.')
   const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null
   if (market === 'PT' && !deliveryRegion) badRequest('A valid Portuguese postal code is required.')
   const portugalSettings = normalizePortugalShipping(shippingSettings)
@@ -379,7 +382,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
   const shippingCost = freeShipping
     ? 0
-    : authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, municipality ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
+    : authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, neighbourhood ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
 
   return {
     ...data,
@@ -392,7 +395,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     subtotal,
     shippingCost,
     country: market === 'PT' ? 'Portugal' : 'Angola',
-    city: municipality ?? data.city,
+    city: neighbourhood ?? data.city,
     deliveryRegion,
     couponCode: couponCode ?? null,
     discountAmount,

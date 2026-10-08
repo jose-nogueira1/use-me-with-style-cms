@@ -579,6 +579,10 @@ export interface Order {
    */
   addressLine2: string;
   /**
+   * Landmark the courier (Zygo) uses to find the address -- collected on the Angola checkout since 2026-10-08.
+   */
+  deliveryReference?: string | null;
+  /**
    * CTT format 0000-000 -- validated client-side on the PT storefront, not collected for Angola.
    */
   postalCode?: string | null;
@@ -1351,6 +1355,7 @@ export interface OrdersSelect<T extends boolean = true> {
   lang?: T;
   address?: T;
   addressLine2?: T;
+  deliveryReference?: T;
   postalCode?: T;
   deliveryRegion?: T;
   city?: T;
@@ -1654,17 +1659,21 @@ export interface MarketSetting {
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
   angolaDeliveryMethods?: 'courier_ao'[] | null;
   /**
-   * Placeholder local-courier prices. Edit the Kz value for any municipality; keep all 16 keys.
+   * Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cassenda.
    */
-  angolaMunicipalityPrices:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
+  angolaZonePriceCentro: number;
+  /**
+   * Talatona, Patriota, Belas, Camama, Benfica.
+   */
+  angolaZonePriceSul: number;
+  /**
+   * Vila Alice, Sambizanga, Rangel, Cazenga, Hoji ya Henda.
+   */
+  angolaZonePriceNorte: number;
+  /**
+   * Viana, Kilamba, Zango, Cacuaco, Funda.
+   */
+  angolaZonePricePeriferia: number;
   /**
    * Applied to the merchandise total after discounts.
    */
@@ -2204,7 +2213,10 @@ export interface MarketSettingsSelect<T extends boolean = true> {
   angolaBankTransferInstructionsEN?: T;
   angolaPaymentMethods?: T;
   angolaDeliveryMethods?: T;
-  angolaMunicipalityPrices?: T;
+  angolaZonePriceCentro?: T;
+  angolaZonePriceSul?: T;
+  angolaZonePriceNorte?: T;
+  angolaZonePricePeriferia?: T;
   angolaFreeShippingThreshold?: T;
   portugalPaymentsEnabled?: T;
   portugalManualCheckoutInstructionsPT?: T;

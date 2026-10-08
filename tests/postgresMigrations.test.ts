@@ -1,6 +1,7 @@
 import { up as heroPositionsUp, down as heroPositionsDown } from '../src/migrations/20260910_160000_hero_image_positions.ts'
 import { up as veroFieldsUp, down as veroFieldsDown } from '../src/migrations/20261007_120000_vero_invoice_fields.ts'
 import { up as bannerUp, down as bannerDown } from '../src/migrations/20261008_120000_announcement_banner.ts'
+import { up as zonesUp, down as zonesDown } from '../src/migrations/20261008_180000_zygo_delivery_zones.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { randomUUID } from 'node:crypto'
@@ -678,5 +679,38 @@ test('announcement bar migration adds the global and coupon fields without distu
     await bannerDown({ db } as never)
     assert.deepEqual((await pool.query('SELECT * FROM coupons')).rows, [{ id: 1, code: 'SAVE10' }])
     await assert.rejects(pool.query('SELECT * FROM announcement_banner'))
+  })
+})
+
+test('Zygo zones migration adds prices and the reference, and rewrites only untouched delivery texts', { skip: !adminUrl }, async () => {
+  await withDatabase(async (pool) => {
+    const oldFaq = 'Entregamos por estafeta local nos 16 municípios de Luanda. O custo é calculado pela localização e apresentado no checkout; depois da confirmação, a equipa coordena consigo o horário de entrega. Não prometemos um prazo de 24 horas sem confirmação prévia.'
+    await pool.query(`
+      CREATE TABLE market_settings (id serial PRIMARY KEY, angola_municipality_prices jsonb NOT NULL);
+      INSERT INTO market_settings (angola_municipality_prices) VALUES ('{"Mussulo": 8000}');
+      CREATE TABLE orders (id serial PRIMARY KEY, city varchar);
+      INSERT INTO orders (city) VALUES ('Mussulo');
+      CREATE TABLE storefront_content (id serial PRIMARY KEY, about_angola_body_p_t varchar, about_angola_body_e_n varchar);
+      INSERT INTO storefront_content (about_angola_body_p_t, about_angola_body_e_n) VALUES ('Texto editado pelo administrador', 'In the Angola store, prices are shown in Kz, with courier delivery across Luanda’s 16 municipalities and payment by Multicaixa Express or Reference. For other destinations, support confirms the available options.');
+      CREATE TABLE storefront_content_faq_entries (id varchar PRIMARY KEY, answer_p_t varchar NOT NULL, answer_e_n varchar NOT NULL);
+      INSERT INTO storefront_content_faq_entries VALUES ('a', '${oldFaq}', 'Custom English answer'), ('b', 'Resposta editada', 'Custom');
+    `)
+    const db = drizzle(pool)
+    await zonesUp({ db } as never)
+    await zonesUp({ db } as never) // repeated run
+    const settings = (await pool.query('SELECT * FROM market_settings')).rows[0]
+    assert.deepEqual([settings.angola_zone_price_centro, settings.angola_zone_price_sul, settings.angola_zone_price_norte, settings.angola_zone_price_periferia].map(Number), [3500, 3500, 3500, 5500])
+    assert.deepEqual(settings.angola_municipality_prices, { Mussulo: 8000 }) // old data kept
+    await pool.query('UPDATE market_settings SET angola_municipality_prices = NULL') // no longer required
+    assert.equal((await pool.query('SELECT delivery_reference FROM orders')).rows[0].delivery_reference, null)
+    const faq = (await pool.query('SELECT id, answer_p_t, answer_e_n FROM storefront_content_faq_entries ORDER BY id')).rows
+    assert.match(faq[0].answer_p_t, /através da Zygo/)
+    assert.equal(faq[0].answer_e_n, 'Custom English answer')
+    assert.equal(faq[1].answer_p_t, 'Resposta editada')
+    const about = (await pool.query('SELECT * FROM storefront_content')).rows[0]
+    assert.equal(about.about_angola_body_p_t, 'Texto editado pelo administrador')
+    assert.match(about.about_angola_body_e_n, /delivery in Luanda by Zygo/)
+    await zonesDown({ db } as never)
+    assert.equal((await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'delivery_reference'`)).rows.length, 0)
   })
 })

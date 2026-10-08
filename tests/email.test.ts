@@ -202,7 +202,7 @@ test('unknown payment/delivery method values fall back to the raw stored value i
   assert.equal(paymentMethodLabel('bank_transfer_ao', 'pt'), 'Transferência bancária')
   assert.equal(paymentMethodLabel('some_future_method', 'en'), 'some_future_method')
   assert.equal(paymentMethodLabel(undefined, 'en'), undefined)
-  assert.equal(deliveryMethodLabel('courier_ao', 'en'), 'Local courier')
+  assert.equal(deliveryMethodLabel('courier_ao', 'en'), 'Zygo')
   assert.equal(deliveryMethodLabel(null, 'pt'), undefined)
 })
 
@@ -464,4 +464,11 @@ test('status email shares the same branded shell as the order-confirmation email
   assert.doesNotMatch(html, /<script/i)
   const preheaderDiv = html.match(/<div style="display:none;[^"]*">\s*([^\n<]+)/)
   assert.ok(preheaderDiv, 'expected a hidden preheader div')
+})
+
+test('the point of reference is printed with the delivery address, in the customer\'s language', () => {
+  const address = { line1: 'Rua da Missão 12', line2: 'Apto 4', city: 'Talatona', country: 'Angola', reference: 'Junto ao Kero' }
+  assert.match(buildOrderConfirmationEmail({ ...BASE, lang: 'pt', address }).html, /Ponto de referência: Junto ao Kero/)
+  assert.match(buildOrderConfirmationEmail({ ...BASE, lang: 'en', address }).html, /Landmark: Junto ao Kero/)
+  assert.doesNotMatch(buildOrderConfirmationEmail({ ...BASE, lang: 'pt', address: { ...address, reference: '  ' } }).html, /Ponto de referência/)
 })

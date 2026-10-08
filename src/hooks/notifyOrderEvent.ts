@@ -200,6 +200,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
           postalCode: order.postalCode || undefined,
           city: order.city,
           country: order.country,
+          reference: order.deliveryReference,
         },
         attachment,
       })

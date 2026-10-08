@@ -212,9 +212,11 @@ test('Portugal shipping is authoritative, method-specific, and free from EUR 75 
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 74.99), 6.9)
   assert.equal(authoritativeShippingCost('PT', 'ctt', 75), 0)
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100), 0)
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Ingombota'), 2500)
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Mussulo'), 8000)
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 80_000, undefined, 'Mussulo'), 0)
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Mutamba'), 3500) // Centro
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Talatona'), 3500) // Sul
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Cazenga'), 3500) // Norte
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, undefined, 'Zango'), 5500) // Periferia
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 80_000, undefined, 'Zango'), 0)
   const custom = { portugalStandardShippingPrice: 5.5, portugalTrackedShippingPrice: 8, portugalFreeShippingThreshold: 90 }
   assert.equal(authoritativeShippingCost('PT', 'ctt', 75, custom), 5.5)
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 89.99, custom), 8)
@@ -363,6 +365,21 @@ test('authoritative orders price fixed kits and snapshot exact component variant
     operation: 'create',
     req: { payload, url: 'http://localhost/api/orders' },
   } as never)
+
+  assert.equal(data?.city, 'Maianga')
+  assert.equal(data?.shippingCost, 3500) // Centro zone
+  const periphery = await applyAuthoritativeOrderValues({
+    data: { ...input, city: 'zango' },
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never)
+  assert.equal(periphery?.city, 'Zango') // canonical spelling is stored
+  assert.equal(periphery?.shippingCost, 5500) // Periferia zone
+  await assert.rejects(() => applyAuthoritativeOrderValues({
+    data: { ...input, city: 'Mussulo' }, // a former municipality Zygo does not serve
+    operation: 'create',
+    req: { payload, url: 'http://localhost/api/orders' },
+  } as never), /neighbourhood/i)
 
   assert.equal(data?.items?.[0]?.productType, 'bundle')
   assert.equal(data?.items?.[0]?.unitPrice, 12_000)

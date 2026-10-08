@@ -166,7 +166,7 @@ test('public cancellation token cancels a pending AppyPay order and releases thr
     const createResponse = await createEndpoint.handler({
       json: async () => ({
         market: 'AO', customerName: 'Test Buyer', customerPhone: '+244923000000', customerEmail: 'test@example.com',
-        address: 'Rua Teste', addressLine2: '10', city: 'Luanda', country: 'Angola', items: [], currency: 'Kz',
+        address: 'Rua Teste', addressLine2: '10', city: 'Talatona', country: 'Angola', items: [], currency: 'Kz',
         subtotal: 21500, shippingCost: 0, total: 21500, paymentMethod: 'multicaixa_express', deliveryMethod: 'courier_ao',
       }),
       payload,
@@ -219,7 +219,7 @@ test('signed AppyPay status lookup exposes the webhook payment result without ch
     const createResponse = await createEndpoint.handler({
       json: async () => ({
         market: 'AO', customerName: 'Test Buyer', customerPhone: '+244923000000', customerEmail: 'test@example.com',
-        address: 'Rua Teste', addressLine2: '10', city: 'Luanda', country: 'Angola', items: [], currency: 'Kz',
+        address: 'Rua Teste', addressLine2: '10', city: 'Talatona', country: 'Angola', items: [], currency: 'Kz',
         subtotal: 21500, shippingCost: 0, total: 21500, paymentMethod: 'multicaixa_express', deliveryMethod: 'courier_ao',
       }),
       payload,

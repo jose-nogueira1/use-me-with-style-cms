@@ -1,7 +1,7 @@
 import type { Payload, PayloadRequest } from 'payload'
 
 import type { InvoiceAttachment } from './email'
-import { normalizeAngolaShipping } from './angolaShipping'
+import { angolaZonePrice, normalizeAngolaShipping } from './angolaShipping'
 import { customerPaymentMethodLabel, invoiceLineDescription, type OrderForInternalInvoice } from './internalInvoice'
 
 const VERO_BASE = 'https://api.vero.ao'
@@ -236,8 +236,8 @@ async function shippingInfoFor(
   if (cents(order.shippingCost) > 0) return undefined
   try {
     const settings = await payload.findGlobal({ slug: 'market-settings', depth: 0, overrideAccess: true, req })
-    const { municipalityPrices, freeThreshold } = normalizeAngolaShipping(settings as never)
-    return { regular: municipalityPrices[order.deliveryCity ?? ''] ?? 0, freeThreshold }
+    const { freeThreshold } = normalizeAngolaShipping(settings as never)
+    return { regular: angolaZonePrice(order.deliveryCity ?? '', settings as never), freeThreshold }
   } catch {
     return undefined
   }
