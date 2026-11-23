@@ -24,8 +24,8 @@ jobs:
       - name: Release expired inventory reservations
         run: node scripts/operations-monitor.mjs --mode=inventory
         env:
-          OPS_CMS_URL: https://cms.usemewithstyle.shop
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          OPS_CMS_URL: ${{ vars.OPS_CMS_URL || 'https://cms.usemewithstyle.shop' }}
+          CRON_SECRET: ${{ secrets.USEME_CMS_CRON_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           RESEND_FROM_NAME: Use Me With Style Operations

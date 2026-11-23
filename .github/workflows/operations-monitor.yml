@@ -30,9 +30,11 @@ jobs:
       - name: Check storefronts, CMS, Meta webhook, and inventory cleanup
         run: node scripts/operations-monitor.mjs --mode=platform
         env:
-          OPS_CMS_URL: https://cms.usemewithstyle.shop
+          OPS_CMS_URL: ${{ vars.OPS_CMS_URL || 'https://cms.usemewithstyle.shop' }}
+          OPS_PROTECTED_PREVIEW_URL: ${{ vars.OPS_PROTECTED_PREVIEW_URL }}
+          OPS_META_WEBHOOK_ENABLED: ${{ vars.OPS_META_WEBHOOK_ENABLED }}
           OPS_STOREFRONT_URLS: https://usemewithstyle.shop,https://ao.usemewithstyle.shop,https://pt.usemewithstyle.shop
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_SECRET: ${{ secrets.USEME_CMS_CRON_SECRET }}
           META_WEBHOOK_VERIFY_TOKEN: ${{ secrets.META_WEBHOOK_VERIFY_TOKEN }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}

@@ -46,3 +46,11 @@ The backup passphrase is stored as a GitHub Actions secret and in José's macOS 
 - Any failed independent cleanup execution: verify the scheduler and CMS availability.
 
 Use `requestId` to correlate a browser/deployment request with server logs. `durationMs` supports basic latency monitoring without recording customer data.
+
+## Raisa’s hosting migration
+
+The CMS for the handover is `https://use-me-with-style-cms-production-cb93153d.up.railway.app`. The `inventory-cleanup` service in the same Railway project runs `scripts/release-expired-reservations.mjs` every five minutes. Its `CRON_SECRET` references the CMS service variable. The repository secret `USEME_CMS_CRON_SECRET` authenticates the independent GitHub heartbeat and monitor.
+
+Set `OPS_CMS_URL` in GitHub Actions to the new CMS origin. `OPS_PROTECTED_PREVIEW_URL` enables a separate check for the handover preview’s Vercel sign-in redirect. The public storefront checks continue against the live domains. Signed-in preview content is checked in the browser. During handover, `OPS_META_WEBHOOK_ENABLED=false` defers the Meta handshake until that integration is configured. At domain cutover, update the CMS origin, retire the preview check, and enable the Meta check when the integration is ready.
+
+The November 23 recovery rehearsal used the Keychain entry `UseMeWithStyle-GitHub-Database-Backup`. José will hand this passphrase to Raisa privately. Keep the recovery key separate from the encrypted artifact.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { runOperationsMonitor } from '../scripts/operations-monitor.mjs'
+import { checkPreviewProtection, runOperationsMonitor } from '../scripts/operations-monitor.mjs'
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status,
@@ -79,4 +79,18 @@ test('a failed platform check sends an operations alert and fails closed', async
   assert.equal(result.ok, false)
   assert.equal(result.failures[0].check, 'storefronts')
   assert.deepEqual(result.alert, { check: 'email_accepted' })
+})
+
+test('a protected preview must redirect to Vercel SSO for the requested URL', async () => {
+  const preview = 'https://example.vercel.app/catalogo'
+  const env = { OPS_PROTECTED_PREVIEW_URL: preview }
+  const location = 'https://vercel.com/sso-api?url=' + encodeURIComponent(preview)
+  await checkPreviewProtection({ env, fetchImpl: async (url, options) => {
+    assert.equal(url.href, preview)
+    assert.equal(options.redirect, 'manual')
+    return Response.redirect(location, 302)
+  } })
+  for (const response of [new Response('Sign in'), Response.redirect('https://vercel.com/login', 302)]) {
+    await assert.rejects(checkPreviewProtection({ env, fetchImpl: async () => response }))
+  }
 })

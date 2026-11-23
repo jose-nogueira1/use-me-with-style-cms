@@ -39,6 +39,19 @@ export async function checkStorefronts({ env, fetchImpl }) {
   return { check: 'storefronts', count: storefronts.length }
 }
 
+// Standard Vercel Protection redirects anonymous visitors to its sign-in page.
+// Check that boundary separately from the public storefront content checks.
+export async function checkPreviewProtection({ env, fetchImpl }) {
+  const preview = new URL(env.OPS_PROTECTED_PREVIEW_URL)
+  const response = await fetchImpl(preview, { redirect: 'manual', signal: AbortSignal.timeout(20_000) })
+  const location = new URL(response.headers.get('location') || '/', preview)
+  if (response.status !== 302 || location.origin !== 'https://vercel.com'
+    || location.pathname !== '/sso-api' || location.searchParams.get('url') !== preview.href) {
+    throw new Error('Protected preview did not return its expected Vercel sign-in redirect.')
+  }
+  return { check: 'preview_protection' }
+}
+
 export async function checkCms({ env, fetchImpl }) {
   const cmsUrl = env.OPS_CMS_URL || DEFAULT_CMS_URL
   const response = await request(fetchImpl, new URL('/api/globals/storefront-content?depth=0', cmsUrl))
@@ -133,7 +146,8 @@ export async function runOperationsMonitor({ mode = 'platform', env = process.en
     : [
         ['storefronts', checkStorefronts],
         ['cms', checkCms],
-        ['meta_webhook', checkMetaWebhook],
+        ...(env.OPS_PROTECTED_PREVIEW_URL ? [['preview_protection', checkPreviewProtection]] : []),
+        ...(env.OPS_META_WEBHOOK_ENABLED === 'false' ? [] : [['meta_webhook', checkMetaWebhook]]),
         ['inventory_cleanup', runInventoryCleanup],
       ]
   const results = []
