@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { mkdtemp, open, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -15,10 +16,14 @@ let running = false
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.match(/^Bearer (\S+)$/)?.[1]
-  if (!token) return new Response(null, { status: 401, headers })
+  const transferKey = request.headers.get('x-backup-transfer-key')
+  if (!token || !transferKey || !/^[a-f0-9]{64}$/.test(transferKey)) return new Response(null, { status: 401, headers })
+  // Bind the one-time encryption key to GitHub's signature. A bearer token alone
+  // cannot be repurposed to request a copy encrypted under another key.
+  const keyHash = createHash('sha256').update(transferKey).digest('hex')
   try {
     const { payload } = await jwtVerify(token, keys, {
-      issuer, audience: 'useme-production-postgres-backup', algorithms: ['RS256'],
+      issuer, audience: 'useme-production-postgres-backup-' + keyHash, algorithms: ['RS256'],
       requiredClaims: ['exp', 'iat', 'nbf'], maxTokenAge: '6 minutes',
     })
     if (payload.repository_id !== '1294229742' || payload.repository_owner_id !== '360419208' ||
@@ -31,7 +36,7 @@ export async function POST(request: Request) {
     return new Response(null, { status: 401, headers })
   }
 
-  if (!process.env.BACKUP_ENCRYPTION_PASSPHRASE || !process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL) {
     return new Response(null, { status: 503, headers })
   }
   if (running) return new Response(null, { status: 409, headers })
@@ -41,7 +46,14 @@ export async function POST(request: Request) {
     dir = await mkdtemp(join(tmpdir(), 'useme-encrypted-backup-'))
     const file = join(dir, 'database.dump.enc')
     // Return only a fully written ciphertext file after both pg_dump and openssl exit successfully.
-    await promisify(execFile)('bash', ['scripts/encrypted-database-backup.sh', file])
+    await promisify(execFile)('bash', ['scripts/encrypted-database-backup.sh', file], {
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        PATH: process.env.PATH,
+        DATABASE_URL: process.env.DATABASE_URL,
+        BACKUP_TRANSFER_KEY: transferKey,
+      },
+    })
     const handle = await open(file, 'r')
     const size = (await handle.stat()).size
     const body = Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>

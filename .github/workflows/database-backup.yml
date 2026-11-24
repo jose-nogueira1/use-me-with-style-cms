@@ -21,19 +21,32 @@ jobs:
     steps:
       - name: Fetch encrypted dump from the private Railway database
         env:
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
           CMS_ORIGIN: ${{ vars.OPS_CMS_URL }}
         run: |
           set -euo pipefail
           umask 077
           test "$CMS_ORIGIN" = "https://use-me-with-style-cms-production-cb93153d.up.railway.app"
+          test -n "$BACKUP_ENCRYPTION_PASSPHRASE"
+          export BACKUP_TRANSFER_KEY=$(openssl rand -hex 32)
+          test "${#BACKUP_TRANSFER_KEY}" -eq 64
+          echo "::add-mask::$BACKUP_TRANSFER_KEY"
+          key_hash=$(printf %s "$BACKUP_TRANSFER_KEY" | sha256sum | cut -d' ' -f1)
           bearer=$(curl --fail --silent --show-error \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=useme-production-postgres-backup" | jq -er '.value')
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=useme-production-postgres-backup-$key_hash" | jq -er '.value')
           echo "::add-mask::$bearer"
           archive="$RUNNER_TEMP/useme-postgres-${GITHUB_RUN_ID}.dump.enc"
+          transfer=$(mktemp)
+          trap 'rm -f "$transfer"' EXIT
           curl --fail --silent --show-error --max-time 240 \
             -X POST -H "Authorization: Bearer $bearer" \
-            "$CMS_ORIGIN/api/operations/database-backup" -o "$archive"
+            -H "X-Backup-Transfer-Key: $BACKUP_TRANSFER_KEY" \
+            "$CMS_ORIGIN/api/operations/database-backup" -o "$transfer"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
+            -pass env:BACKUP_TRANSFER_KEY -in "$transfer" |
+            openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -md sha256 \
+              -pass env:BACKUP_ENCRYPTION_PASSPHRASE -out "$archive"
           test -s "$archive"
           echo "artifact_path=$archive" >> "$GITHUB_ENV"
 
