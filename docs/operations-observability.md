@@ -28,15 +28,15 @@ The production monitor also checks the root, Angola, and Portugal storefronts, t
 
 Required GitHub configuration:
 
-- Secrets: `CRON_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `DATABASE_PUBLIC_URL`, `BACKUP_ENCRYPTION_PASSPHRASE`.
+- Secrets: `CRON_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `BACKUP_ENCRYPTION_PASSPHRASE`.
 - Variable: `OPS_ALERT_EMAIL`.
 - Alert mailbox: `usemewithstyle.master@gmail.com`, controlled by José and Raisa.
 
 ## Database backup retention
 
-`.github/workflows/database-backup.yml` creates a PostgreSQL 18 custom-format logical dump every day at 02:20 UTC, validates its restore manifest, encrypts it with AES-256-CBC/PBKDF2, removes the plaintext, and retains the encrypted artifact for 14 days. This provides a 24-hour operational RPO. The Gate 3 isolated restore rehearsal measured a 205-second database restore; allow a 30-minute operational RTO for download, decryption, provisioning, restore, validation, and DNS/application recovery steps.
+`.github/workflows/database-backup.yml` creates a PostgreSQL 18 custom-format logical dump every day at 02:20 UTC, encrypts it inside the CMS with AES-256-CBC and PBKDF2-SHA256 (200,000 iterations), and retains the encrypted GitHub artifact for 14 days. Each run streams the decrypted archive into an isolated PostgreSQL 18 instance and queries the restored products and orders before upload. This provides a 24-hour operational RPO. The Gate 3 isolated restore rehearsal measured a 205-second database restore; allow a 30-minute operational RTO for download, decryption, provisioning, restore, validation, and DNS/application recovery steps.
 
-The backup passphrase is stored as a GitHub Actions secret and in José's macOS Keychain. Never paste it into tickets, documentation, chat, or workflow logs. A restore must target a newly created isolated database first; compare table row-count evidence before any production recovery decision.
+The CMS uses the Railway service secret `BACKUP_ENCRYPTION_PASSPHRASE`. GitHub holds the matching Actions secret for restore checks. The backup endpoint verifies a short-lived GitHub OIDC token for the backup workflow on the transferred repository’s main branch. PostgreSQL stays on the Railway private network. Never paste it into tickets, documentation, chat, or workflow logs. A restore must target a newly created isolated database first; compare table row-count evidence before any production recovery decision.
 
 ## Recommended alerts
 
@@ -53,6 +53,6 @@ The CMS for the handover is `https://use-me-with-style-cms-production-cb93153d.u
 
 Set `OPS_CMS_URL` in GitHub Actions to the new CMS origin. `OPS_PROTECTED_PREVIEW_URL` enables a separate check for the handover preview’s Vercel sign-in redirect. The public storefront checks continue against the live domains. Signed-in preview content is checked in the browser. During handover, `OPS_META_WEBHOOK_ENABLED=false` defers the Meta handshake until that integration is configured. At domain cutover, update the CMS origin, retire the preview check, and enable the Meta check when the integration is ready.
 
-The November 23 recovery rehearsal used the Keychain entry `UseMeWithStyle-GitHub-Database-Backup`. José will hand this passphrase to Raisa privately. Keep the recovery key separate from the encrypted artifact.
+The November 23 recovery rehearsal used the Keychain entry `UseMeWithStyle-GitHub-Database-Backup`. José confirmed that Raisa received the recovery passphrase through their private channel. Keep the recovery key separate from the encrypted artifact.
 
 To rebuild the Railway timer, copy `ops/inventory-cleanup.Dockerfile` as `Dockerfile` and `scripts/release-expired-reservations.mjs` into an empty directory. Upload that directory with `railway up <directory> --path-as-root --service inventory-cleanup --environment production` from the linked project. Keep the service’s five-minute cron schedule and restart policy `NEVER`. The worker runs with `--inventory-only` so the timer cannot trigger the messaging queue.
