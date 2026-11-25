@@ -4,7 +4,7 @@ import type { GlobalConfig } from 'payload'
 // by JOS-20's acceptance criteria. Deliberately data-driven (not hard-coded
 // in the frontend).
 //
-// Angola payment is Multicaixa Express via AppyPay; delivery is by Zygo (zygo.ao).
+// Angola payment is Multicaixa Express via AppyPay; delivery is by local courier.
 // `angolaPaymentLive` remains the explicit operational switch: AppyPay is
 // configured in code and the environment, but the administrator controls
 // when buyers see the live widget.
@@ -90,7 +90,7 @@ export const MarketSettings: GlobalConfig = {
       defaultValue: ['courier_ao'],
       options: ['courier_ao'],
     },
-    // Angola delivery is done by Zygo in four zones (2026-10-08). The 16 Luanda
+    // Angola delivery is done by local courier in four zones (2026-10-08). The 16 Luanda
     // municipality prices that used to live here are replaced by the four zone
     // prices below; the old field is commented out, not deleted, and its database
     // column is kept (made nullable by the migration) in case it is needed again.
@@ -112,7 +112,7 @@ export const MarketSettings: GlobalConfig = {
       required: true,
       min: 0,
       defaultValue: zone === 'Periferia' ? 5500 : 3500,
-      label: `Angola: Zygo delivery price — ${zone} zone (Kz)`,
+      label: `Angola: Local courier delivery price — ${zone} zone (Kz)`,
       admin: {
         description:
           zone === 'Centro'

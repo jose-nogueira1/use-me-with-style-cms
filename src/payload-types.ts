@@ -579,7 +579,7 @@ export interface Order {
    */
   addressLine2: string;
   /**
-   * Landmark the courier (Zygo) uses to find the address -- collected on the Angola checkout since 2026-10-08.
+   * Landmark the local courier uses to find the address -- collected on the Angola checkout since 2026-10-08.
    */
   deliveryReference?: string | null;
   /**
@@ -647,7 +647,7 @@ export interface Order {
   inventoryReservationReleasedAt?: string | null;
   deliveryMethod: 'ctt' | 'courier_pt' | 'courier_ao' | 'manual_ao';
   /**
-   * Portugal: the CTT code for Registered orders. Angola: the tracking number Zygo gives you. It is emailed to the customer when the order ships and shown in the order lookup.
+   * Portugal: the CTT code for Registered orders. Angola: an optional reference from the local courier. It is emailed to the customer when the order ships and shown in the order lookup.
    */
   cttTrackingCode?: string | null;
   /**

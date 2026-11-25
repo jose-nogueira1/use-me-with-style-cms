@@ -11,7 +11,7 @@ import {
 } from '../src/lib/angolaShipping.ts'
 import { applyAuthoritativeOrderValues } from '../src/lib/authoritativeOrder.ts'
 
-test('every Zygo neighbourhood belongs to exactly one zone, with the agreed default prices', () => {
+test('every local courier neighbourhood belongs to exactly one zone, with the agreed default prices', () => {
   const all = Object.values(ANGOLA_DELIVERY_ZONES).flat()
   assert.equal(all.length, 21)
   assert.equal(new Set(all).size, 21)

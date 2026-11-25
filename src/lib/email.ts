@@ -240,7 +240,7 @@ const PAYMENT_METHOD_LABELS: Record<string, Record<EmailLang, string>> = {
 const DELIVERY_METHOD_LABELS: Record<string, Record<EmailLang, string>> = {
   ctt: { pt: 'CTT Standard (sem rastreio)', en: 'CTT Standard (untracked)' },
   courier_pt: { pt: 'CTT Registado (com rastreio)', en: 'CTT Registered (tracked)' },
-  courier_ao: { pt: 'Zygo', en: 'Zygo' },
+  courier_ao: { pt: 'Estafeta local', en: 'Local courier' },
   manual_ao: { pt: 'Coordenação manual', en: 'Manual coordination' },
 }
 
@@ -684,8 +684,8 @@ type OrderStatusEmailInput = {
   // courier), and 'delivered' emails never pass this at all.
   courierTrackingCode?: string | null
   courierTrackingUrl?: string
-  // Which courier the code belongs to (CTT in Portugal, Zygo in Angola); picks the link's wording.
-  courierProvider?: 'ctt' | 'zygo'
+  // Which courier the code belongs to (CTT in Portugal, local courier in Angola); picks the link's wording.
+  courierProvider?: 'ctt' | 'courier_ao'
 }
 
 // Only the stage-specific copy lives here -- orderNumberLabel,
@@ -697,15 +697,15 @@ const STATUS_PROGRESS_LABELS: Record<EmailLang, [string, string, string]> = {
   pt: ['Confirmada', 'Enviada', 'Entregue'],
   en: ['Confirmed', 'Shipped', 'Delivered'],
 }
-// Wording of the tracking card, per courier (CTT in Portugal, Zygo in Angola).
-const STATUS_COURIER_COPY: Record<'ctt' | 'zygo', Record<EmailLang, { label: string; hint: string; cta: string }>> = {
+// Wording of the tracking card, per courier (CTT in Portugal, local courier in Angola).
+const STATUS_COURIER_COPY: Record<'ctt' | 'courier_ao', Record<EmailLang, { label: string; hint: string; cta: string }>> = {
   ctt: {
     pt: { label: 'Rastreio CTT', hint: 'Use este código no site dos CTT para ver onde está a sua encomenda.', cta: 'SEGUIR NOS CTT' },
     en: { label: 'CTT tracking', hint: 'Use this code on the CTT website to see where your order is.', cta: 'TRACK WITH CTT' },
   },
-  zygo: {
-    pt: { label: 'Rastreio Zygo', hint: 'Cole este número na página de rastreio da Zygo para ver onde está a sua encomenda.', cta: 'SEGUIR NA ZYGO' },
-    en: { label: 'Zygo tracking', hint: "Paste this number on Zygo's tracking page to see where your order is.", cta: 'TRACK WITH ZYGO' },
+  courier_ao: {
+    pt: { label: 'Referência do estafeta', hint: 'Indique esta referência quando contactar a equipa sobre a entrega.', cta: '' },
+    en: { label: 'Courier reference', hint: "Quote this reference when contacting our team about delivery.", cta: '' },
   },
 }
 const STATUS_VIEW_ORDER_TEXT: Record<EmailLang, string> = { pt: 'Ver a minha encomenda', en: 'View my order' }
@@ -829,7 +829,7 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
                 <div style="font-family:${SANS}; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:${GOLD};">${escapeHtml(courierCopy.label)}</div>
                 <div style="font-family:${SERIF}; font-size:26px; line-height:32px; letter-spacing:2px; color:${INK}; margin-top:10px; word-break:break-all;">${escapeHtml(input.courierTrackingCode)}</div>
                 <div style="font-family:${SANS}; font-size:13px; line-height:20px; color:${INK_SOFT}; margin:10px auto 0; max-width:360px;">${escapeHtml(courierCopy.hint)}</div>
-                ${input.courierTrackingUrl
+                ${input.courierProvider !== 'courier_ao' && input.courierTrackingUrl
                   ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px auto 0;"><tr>
                   <td align="center" bgcolor="${BLACK}" style="border-radius:2px; background-color:${BLACK}; border:1px solid ${GOLD};">
                     <a href="${escapeHtml(input.courierTrackingUrl)}" target="_blank" style="display:inline-block; padding:14px 30px; font-family:${SANS}; font-size:12px; letter-spacing:2px; font-weight:700; color:${GOLD_ON_BLACK}; text-decoration:none; text-transform:uppercase;">${escapeHtml(courierCopy.cta)}</a>
