@@ -173,6 +173,18 @@ export const veroUnitAfterDiscount = (unit: number, pct = 0): number => Math.rou
 export const veroLineTotal = (l: VeroLine): number => l.quantity * veroUnitAfterDiscount(l.unitPrice, l.lineDiscount)
 export const veroLinesTotal = (lines: VeroLine[]): number => lines.reduce((sum, l) => sum + veroLineTotal(l), 0)
 
+// Vero rejects zero-value fiscal lines. Keep their descriptions on the PDF
+// as notes and submit only the amounts actually paid.
+export function veroDocument(order: OrderForInternalInvoice, lines: VeroLine[]) {
+  const items = lines.filter((line) => veroLineTotal(line) > 0)
+  const notes = [veroNotes(order), ...lines.filter((line) => veroLineTotal(line) === 0)
+    .map((line) => `${line.quantity > 1 ? `${line.quantity} × ` : ''}${line.description}: 0,00 Kz`)].join(' | ')
+  if (!items.length || veroLinesTotal(items) !== cents(order.total)) {
+    throw new Error('Invoice lines do not add up to a positive paid total')
+  }
+  return { items, notes }
+}
+
 // Percentage (up to 6 decimals, as Vero accepts) that turns `unit` into exactly
 // `target` after Vero's rounding, or null when that can't be guaranteed. The
 // rounding error of the percentage is at most unit / 2e8 cêntimos, so any unit
@@ -307,31 +319,27 @@ export async function issueVeroInvoiceForOrder(
   try {
     const lines = buildVeroLines(order, await shippingInfoFor(payload, order, req), process.env.VERO_LINE_DISCOUNT === '1')
     const expected = cents(order.total)
-    if (veroLinesTotal(lines) !== expected) throw new Error('Invoice lines do not add up to the paid total')
+    const document = veroDocument(order, lines)
 
     const customer = await veroRequest<{ id: string }>('POST', '/customers/ensure', customerPayload(order))
     const invoice = await veroRequest<VeroInvoice>('POST', '/invoices', {
       customerId: customer.id,
       documentType: 'FR',
-      items: lines,
+      ...document,
       idempotencyKey: `order_${order.orderNumber}`,
-      notes: veroNotes(order),
     })
     if (invoice.total !== expected) throw new Error(`Vero total ${invoice.total} differs from paid total ${expected}`)
 
     const pdf = await fetchVeroPdf(invoice.pdfUrl)
     const filename = `${invoice.number.replace(/[^A-Za-z0-9-]/g, '-')}.pdf`
-    // A failed attempt left by an earlier run would trip the unique relatedOrder.
-    if (existing.docs.length) {
-      await payload.delete({ collection: 'invoices', id: existing.docs[0].id, overrideAccess: true, req })
-    }
-    await payload.create({
-      collection: 'invoices',
+    const write = {
+      collection: 'invoices' as const,
       overrideAccess: true,
       data: {
         ...snapshot,
         invoiceNumber: invoice.number,
-        status: 'issued',
+        status: 'issued' as const,
+        errorMessage: null,
         veroId: invoice.id,
         veroStatus: invoice.status,
         atcud: invoice.atcud,
@@ -349,7 +357,9 @@ export async function issueVeroInvoiceForOrder(
       },
       file: { data: pdf, mimetype: 'application/pdf', name: filename, size: pdf.length },
       req,
-    })
+    }
+    if (existing.docs.length) await payload.update({ ...write, id: existing.docs[0].id })
+    else await payload.create(write)
     return { filename, content: pdf, number: invoice.number }
   } catch (err) {
     // eslint-disable-next-line no-console

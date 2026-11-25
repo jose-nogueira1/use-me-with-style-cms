@@ -19,8 +19,17 @@ export const Invoices: CollectionConfig = {
     delete: ({ req }) => Boolean(req.user),
   },
   upload: {
+    filesRequiredOnCreate: false,
     staticDir: 'invoices',
     mimeTypes: ['application/pdf'],
+  },
+  hooks: {
+    beforeValidate: [({ data, operation, req }) => {
+      if (operation === 'create' && data?.status !== 'failed' && !req.file) {
+        throw new Error('An issued invoice requires a PDF.')
+      }
+      return data
+    }],
   },
   fields: [
     { name: 'relatedOrder', type: 'relationship', relationTo: 'orders', required: true, unique: true },

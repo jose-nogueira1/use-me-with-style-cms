@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildVeroLines, customerPayload, discountPercentFor, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
+import { buildVeroLines, customerPayload, discountPercentFor, veroDocument, veroLinesTotal, veroNotes } from '../src/lib/veroInvoice.ts'
 import type { OrderForInternalInvoice } from '../src/lib/internalInvoice.ts'
 
 const order = (over: Partial<OrderForInternalInvoice>): OrderForInternalInvoice => ({
@@ -198,4 +198,19 @@ test('line-discount mode keeps the coupon row only when some item had to fold it
   const lines = buildVeroLines(big, undefined, true)
   assert.ok(lines.some((l) => l.description.startsWith('Desconto C')))
   assert.equal(veroLinesTotal(lines), 90_000_000)
+})
+
+test('live Vero document bills a 1 Kz item and 1 Kz shipping as two positive lines', () => {
+  const o = order({ items: [item('A', 1, 1)], shippingCost: 1, total: 2 })
+  const doc = veroDocument(o, buildVeroLines(o))
+  assert.deepEqual(doc.items.map(line => line.unitPrice), [100, 100])
+  assert.equal(veroLinesTotal(doc.items), 200)
+})
+
+test('zero-price delivery and coupon explanations go in fiscal notes', () => {
+  const o = order({ items: [item('A', 1, 2)], total: 1, discountAmount: 1, discountLabel: 'TEST' })
+  const doc = veroDocument(o, buildVeroLines(o))
+  assert.deepEqual(doc.items.map(line => line.unitPrice), [100])
+  assert.match(doc.notes, /Portes de envio/)
+  assert.match(doc.notes, /Desconto TEST/)
 })
