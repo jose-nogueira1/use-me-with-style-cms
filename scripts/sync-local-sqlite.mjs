@@ -686,6 +686,24 @@ if (!statusHistoryExists) {
   console.log('Created local SQLite orders_status_history table.')
 }
 
+if ((await columns('orders_appy_pay_attempts')).size === 0) {
+  await client.execute(`
+    CREATE TABLE orders_appy_pay_attempts (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      id text PRIMARY KEY NOT NULL,
+      merchant_transaction_id text NOT NULL,
+      transaction_id text NOT NULL,
+      response_code real,
+      response_message text,
+      verified_at text,
+      late_success_at text
+    )
+  `)
+}
+await client.execute('CREATE INDEX IF NOT EXISTS orders_appy_pay_attempts_parent_id_idx ON orders_appy_pay_attempts ("_parent_id")')
+await client.execute('CREATE INDEX IF NOT EXISTS orders_appy_pay_attempts_merchant_transaction_id_idx ON orders_appy_pay_attempts (merchant_transaction_id)')
+
 // New global (2026-08-02, Instagram feed curation -- see
 // src/migrations/20260802_150000_instagram_spotlight.ts for the Postgres
 // version). Entirely new table, not just an added column, so push:false

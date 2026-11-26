@@ -1,4 +1,5 @@
-import type { Endpoint, PayloadRequest } from 'payload'
+import { APIError, type Endpoint, type PayloadRequest } from 'payload'
+import type { Order } from '../payload-types'
 import { commitTransaction, initTransaction, killTransaction } from 'payload'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { sql } from 'drizzle-orm'
@@ -16,7 +17,7 @@ import {
   latestAppyPayResponse,
   type AppyPayCharge,
 } from '../lib/payments/appypay'
-import { releaseCouponRedemption } from '../lib/couponPricing'
+import { claimCouponRedemption, releaseCouponRedemption } from '../lib/couponPricing'
 
 // Real Stripe + PayPal integration (JOS-61). Both gateways only support EUR
 // here -- enforced below -- which covers Portugal directly and, since
@@ -169,6 +170,34 @@ function appyPayCancellationToken(merchantTransactionId: string): string {
   return createHmac('sha256', secret).update(`appypay-cancel:${merchantTransactionId}`).digest('base64url')
 }
 
+export function appyPayRetryCredentials(order: Order) {
+  if (
+    order.market !== 'AO' || order.currency !== 'Kz' ||
+    order.paymentMethod !== 'multicaixa_express' || order.paymentStatus !== 'failed' ||
+    !['payment_review', 'cancelled'].includes(order.status ?? '') ||
+    order.inventoryReservationStatus !== 'released' ||
+    order.appyPayStatus !== 'Failed' || !order.appyPayTransactionId ||
+    !order.appyPayVerifiedAt || !order.appyPayMerchantTransactionId ||
+    order.appyPayAttempts?.some((attempt) => attempt.lateSuccessAt)
+  ) return null
+
+  return {
+    merchantTransactionId: order.appyPayMerchantTransactionId,
+    cancellationToken: appyPayCancellationToken(order.appyPayMerchantTransactionId),
+  }
+}
+
+function appyPayRetryResult(order: Order) {
+  const merchantTransactionId = String(order.appyPayMerchantTransactionId)
+  return Response.json({
+    orderNumber: order.orderNumber,
+    merchantTransactionId,
+    cancellationToken: appyPayCancellationToken(merchantTransactionId),
+    reservationExpiresAt: order.inventoryReservationExpiresAt,
+    amount: order.total,
+  })
+}
+
 function isAppyPayWebhookAuthorized(req: PayloadRequest): boolean {
   const username = process.env.APPY_PAY_WEBHOOK_USERNAME
   const password = process.env.APPY_PAY_WEBHOOK_PASSWORD
@@ -276,6 +305,11 @@ export async function applyVerifiedAppyPayCharge(
   } catch (err) {
     if (ownsTransaction) await killTransaction(req)
     throw err
+  }
+
+  if (current.appyPayMerchantTransactionId !== merchantTransactionId) {
+    if (ownsTransaction) await killTransaction(req)
+    throw new Error('AppyPay payment attempt changed during verification')
   }
 
   const existingTransactionId = String(current.appyPayTransactionId ?? '')
@@ -415,6 +449,7 @@ const appyPayCreateOrder: Endpoint = {
         merchantTransactionId,
         cancellationToken: appyPayCancellationToken(merchantTransactionId),
         reservationExpiresAt: updated.inventoryReservationExpiresAt,
+        amount: updated.total,
       })
     } catch (err) {
       req.payload.logger.error({ err }, '[payments:appypay:create-order-failed]')
@@ -472,6 +507,113 @@ const appyPayCancelOrder: Endpoint = {
       await releaseCouponRedemption(req, String(order.couponCode))
     }
     return Response.json({ cancelled: true })
+  },
+}
+
+const appyPayRetryOrder: Endpoint = {
+  path: '/payments/appypay/retry-order',
+  method: 'post',
+  handler: async (req) => {
+    const body = await readJsonBody<{ merchantTransactionId?: string; cancellationToken?: string }>(req)
+    const merchantTransactionId = body?.merchantTransactionId
+    if (typeof merchantTransactionId !== 'string' || !/^[a-zA-Z0-9]{1,15}$/.test(merchantTransactionId) ||
+        typeof body?.cancellationToken !== 'string' ||
+        !safeEqual(body.cancellationToken, appyPayCancellationToken(merchantTransactionId))) {
+      return Response.json({ error: 'Invalid retry token.' }, { status: 403 })
+    }
+
+    const ownsTransaction = await initTransaction(req)
+    try {
+      const matches = await req.payload.find({
+        collection: 'orders',
+        where: { or: [
+          { appyPayMerchantTransactionId: { equals: merchantTransactionId } },
+          { 'appyPayAttempts.merchantTransactionId': { equals: merchantTransactionId } },
+        ] },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+      if (!matches.docs[0]) throw new APIError('Order was not found.', 404)
+      const orderId = matches.docs[0].id
+      await lockOrderRow(req, orderId)
+      const order = await req.payload.findByID({
+        collection: 'orders', id: orderId, depth: 0, overrideAccess: true, req,
+      })
+
+      if (order.appyPayMerchantTransactionId !== merchantTransactionId &&
+          order.appyPayAttempts?.at(-1)?.merchantTransactionId === merchantTransactionId &&
+          order.paymentStatus === 'pending' && order.status === 'new' &&
+          order.inventoryReservationStatus === 'active' && !order.appyPayStatus &&
+          Date.parse(order.inventoryReservationExpiresAt ?? '') > Date.now()) {
+        if (ownsTransaction) await commitTransaction(req)
+        return appyPayRetryResult(order)
+      }
+
+      if (order.appyPayMerchantTransactionId !== merchantTransactionId || !appyPayRetryCredentials(order) || !order.appyPayTransactionId) {
+        throw new APIError('This payment is unavailable for retry. Check the order status.', 409)
+      }
+      const previousCharge = await getAppyPayCharge(order.appyPayTransactionId, merchantTransactionId)
+      if (previousCharge.status !== 'Failed' || previousCharge.id !== order.appyPayTransactionId ||
+          previousCharge.merchantTransactionId !== merchantTransactionId ||
+          previousCharge.currency !== 'AOA' || !appyPayAmountMatches(previousCharge.amount, order.total)) {
+        throw new APIError('The previous payment is still being checked.', 409)
+      }
+
+      if (order.couponCode) {
+        const claim = await claimCouponRedemption(req, {
+          code: order.couponCode,
+          market: 'AO',
+          pricingMarket: 'AO',
+          retryOrderId: order.id,
+          subtotal: order.subtotal,
+          eligibleSubtotal: order.items.reduce((sum, item) =>
+            sum + (Number(item.saleDiscountAmount) > 0 ? 0 : item.unitPrice * item.qty), 0),
+          customerEmail: order.customerEmail,
+        })
+        if (!claim.valid || claim.discountAmount !== (order.discountAmount ?? 0) ||
+            (claim.freeShipping && order.shippingCost !== 0)) {
+          throw new APIError('The original discount is unavailable for this order.', 409)
+        }
+      }
+
+      const updated = await req.payload.update({
+        collection: 'orders', id: orderId, overrideAccess: true, req,
+        context: { appyPayRetry: true },
+        data: {
+          status: 'new',
+          paymentStatus: 'pending',
+          appyPayAttempts: [...(order.appyPayAttempts ?? []), {
+            merchantTransactionId,
+            transactionId: order.appyPayTransactionId,
+            responseCode: order.appyPayResponseCode,
+            responseMessage: order.appyPayResponseMessage,
+            verifiedAt: order.appyPayVerifiedAt,
+          }],
+          appyPayMerchantTransactionId: newAppyPayMerchantTransactionId(),
+          appyPayTransactionId: null,
+          appyPayStatus: null,
+          appyPayPaymentMethod: null,
+          appyPayResponseCode: null,
+          appyPayResponseMessage: null,
+          appyPayReferenceEntity: null,
+          appyPayReferenceNumber: null,
+          appyPayReferenceDueDate: null,
+          appyPayVerifiedAt: null,
+          paymentReference: null,
+        },
+      })
+      if (ownsTransaction) await commitTransaction(req)
+      return appyPayRetryResult(updated)
+    } catch (err) {
+      if (ownsTransaction) await killTransaction(req)
+      if (err instanceof APIError && [404, 409].includes(err.status)) {
+        return Response.json({ error: err.message }, { status: err.status })
+      }
+      req.payload.logger.error({ err, merchantTransactionId }, '[payments:appypay:retry-failed]')
+      return Response.json({ error: 'Could not start a new payment attempt.' }, { status: 503 })
+    }
   },
 }
 
@@ -534,6 +676,44 @@ const appyPayWebhook: Endpoint = {
     })
     const order = matches.docs[0]
     if (!order) {
+      const archived = await req.payload.find({
+        collection: 'orders',
+        where: { 'appyPayAttempts.merchantTransactionId': { equals: body.merchantTransactionId } },
+        limit: 1, depth: 0, overrideAccess: true,
+      })
+      const archivedOrder = archived.docs[0]
+      if (archivedOrder) {
+        if (body.responseStatus.status !== 'Success') return new Response('OK')
+        const ownsTransaction = await initTransaction(req)
+        try {
+          await lockOrderRow(req, archivedOrder.id)
+          const current = await req.payload.findByID({
+            collection: 'orders', id: archivedOrder.id, depth: 0, overrideAccess: true, req,
+          })
+          const attempt = current.appyPayAttempts?.find((item) => item.merchantTransactionId === body.merchantTransactionId)
+          if (attempt && !attempt.lateSuccessAt && attempt.transactionId === body.id) {
+            const charge = await getAppyPayCharge(body.id, body.merchantTransactionId)
+            if (charge.status !== 'Success' || charge.id !== body.id ||
+                charge.merchantTransactionId !== body.merchantTransactionId ||
+                charge.currency !== 'AOA' || !appyPayAmountMatches(charge.amount, current.total)) {
+              throw new Error('Archived AppyPay payment could not be verified')
+            }
+            await req.payload.update({
+              collection: 'orders', id: current.id, overrideAccess: true, req,
+              data: { appyPayAttempts: current.appyPayAttempts?.map((item) =>
+                item.id === attempt.id ? { ...item, lateSuccessAt: new Date().toISOString() } : item) },
+            })
+            req.payload.logger.error({ orderId: current.id, transactionId: charge.id },
+              '[payments:appypay:archived-charge-paid-review-required]')
+          }
+          if (ownsTransaction) await commitTransaction(req)
+          return new Response('OK')
+        } catch (err) {
+          if (ownsTransaction) await killTransaction(req)
+          req.payload.logger.error({ err, orderId: archivedOrder.id }, '[payments:appypay:archived-charge-check-failed]')
+          return new Response('Could not verify archived payment', { status: 500 })
+        }
+      }
       req.payload.logger.error(
         { merchantTransactionId: body.merchantTransactionId },
         '[payments:appypay:webhook-order-not-found]',
@@ -802,6 +982,7 @@ export const paymentsEndpoints: Endpoint[] = [
   appyPayCreateOrder,
   appyPayCancelOrder,
   appyPayOrderStatus,
+  appyPayRetryOrder,
   appyPayWebhook,
   appyPayReconcile,
   stripeCreateSession,

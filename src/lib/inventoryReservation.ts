@@ -253,6 +253,16 @@ export const manageInventoryReservation: CollectionBeforeChangeHook = async ({
   const nextPaymentStatus = String(data.paymentStatus ?? original.paymentStatus ?? '')
   const nextOrderStatus = String(data.status ?? original.status ?? '')
 
+  if (context.appyPayRetry === true && original.inventoryReservationStatus === 'released' && nextPaymentStatus === 'pending') {
+    await applyStockDelta(req, original, 'reserve')
+    return {
+      ...data,
+      inventoryReservationStatus: 'active',
+      inventoryReservationExpiresAt: reservationExpiry(original.paymentMethod),
+      inventoryReservationReleasedAt: null,
+    }
+  }
+
   if (original.inventoryReservationStatus === 'active') {
     const terminalState = reservationTerminalState(nextPaymentStatus, nextOrderStatus)
     if (terminalState === 'committed') {

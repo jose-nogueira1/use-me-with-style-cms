@@ -64,6 +64,7 @@ export async function resolveCoupon(
     // silently reject) based on payment method rather than the actual
     // storefront the customer is on.
     market: Market
+    retryOrderId?: number
     // The market whose currency this order actually settles in -- used
     // only for min-order-value and fixed-amount lookups, same meaning as
     // Checkout.tsx/authoritativeOrder.ts's usesEurSettlement.
@@ -138,6 +139,7 @@ export async function resolveCoupon(
           // which is why an order counts against this limit right up until
           // it's cancelled, never after.
           { status: { not_equals: 'cancelled' } },
+          ...(params.retryOrderId === undefined ? [] : [{ id: { not_equals: params.retryOrderId } }]),
         ],
       },
       overrideAccess: true,

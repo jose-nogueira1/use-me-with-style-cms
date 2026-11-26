@@ -670,6 +670,17 @@ export interface Order {
   appyPayReferenceNumber?: string | null;
   appyPayReferenceDueDate?: string | null;
   appyPayVerifiedAt?: string | null;
+  appyPayAttempts?:
+    | {
+        merchantTransactionId: string;
+        transactionId: string;
+        responseCode?: number | null;
+        responseMessage?: string | null;
+        verifiedAt?: string | null;
+        lateSuccessAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Automatic log of every status change -- who changed it and when. Not manually editable.
    */
@@ -1407,6 +1418,17 @@ export interface OrdersSelect<T extends boolean = true> {
   appyPayReferenceNumber?: T;
   appyPayReferenceDueDate?: T;
   appyPayVerifiedAt?: T;
+  appyPayAttempts?:
+    | T
+    | {
+        merchantTransactionId?: T;
+        transactionId?: T;
+        responseCode?: T;
+        responseMessage?: T;
+        verifiedAt?: T;
+        lateSuccessAt?: T;
+        id?: T;
+      };
   statusHistory?:
     | T
     | {

@@ -1,4 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
+import { appyPayRetryCredentials } from './payments'
 import { buildTrackingUrl, trackingProviderFor } from '../lib/messaging'
 
 const WINDOW_MS = 60_000
@@ -77,6 +78,7 @@ export const orderLookupEndpoint: Endpoint = {
             orderNumber: order.orderNumber,
             status: order.status,
             paymentStatus: order.paymentStatus,
+            paymentRetry: appyPayRetryCredentials(order),
             total: order.total,
             currency: order.currency,
             deliveryRegion: order.deliveryRegion,

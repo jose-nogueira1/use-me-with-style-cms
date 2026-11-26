@@ -123,7 +123,8 @@ export const Orders: CollectionConfig = {
           originalDoc?.status === 'cancelled' &&
           data.status &&
           data.status !== 'cancelled' &&
-          !context.lateVerifiedPayment
+          !context.lateVerifiedPayment &&
+          !context.appyPayRetry
         ) {
           throw new APIError('This order is cancelled and cannot be reopened. Create a new order instead.', 400, null, true)
         }
@@ -406,6 +407,19 @@ export const Orders: CollectionConfig = {
     { name: 'appyPayReferenceNumber', type: 'text', admin: { readOnly: true } },
     { name: 'appyPayReferenceDueDate', type: 'date', admin: { readOnly: true } },
     { name: 'appyPayVerifiedAt', type: 'date', admin: { readOnly: true } },
+    {
+      name: 'appyPayAttempts',
+      type: 'array',
+      admin: { readOnly: true },
+      fields: [
+        { name: 'merchantTransactionId', type: 'text', required: true, index: true },
+        { name: 'transactionId', type: 'text', required: true },
+        { name: 'responseCode', type: 'number' },
+        { name: 'responseMessage', type: 'text' },
+        { name: 'verifiedAt', type: 'date' },
+        { name: 'lateSuccessAt', type: 'date' },
+      ],
+    },
     // Status-change audit trail (2026-08-01 request: accountability once
     // more than one admin touches an order -- "who changed what, when").
     // An array field, same mechanism `items` above already uses (a child

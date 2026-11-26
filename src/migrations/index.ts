@@ -1,5 +1,6 @@
 import * as migration_20261126_160000_restore_zygo from './20261126_160000_restore_zygo';
 import * as migration_20261126_190000_extend_luanda_coverage from './20261126_190000_extend_luanda_coverage';
+import * as migration_20261126_230000_appypay_attempts from './20261126_230000_appypay_attempts';
 import * as migration_20260910_160000_hero_image_positions from './20260910_160000_hero_image_positions';
 import * as migration_20261007_120000_vero_invoice_fields from './20261007_120000_vero_invoice_fields';
 import * as migration_20261008_120000_announcement_banner from './20261008_120000_announcement_banner';
@@ -507,4 +508,5 @@ export const migrations = [
   { up: migration_20261010_120000_multicaixa_only_wording.up, down: migration_20261010_120000_multicaixa_only_wording.down, name: '20261010_120000_multicaixa_only_wording' },
   { up: migration_20261126_160000_restore_zygo.up, down: migration_20261126_160000_restore_zygo.down, name: '20261126_160000_restore_zygo' },
   { up: migration_20261126_190000_extend_luanda_coverage.up, down: migration_20261126_190000_extend_luanda_coverage.down, name: '20261126_190000_extend_luanda_coverage' },
+  { up: migration_20261126_230000_appypay_attempts.up, down: migration_20261126_230000_appypay_attempts.down, name: '20261126_230000_appypay_attempts' },
 ];

@@ -800,3 +800,19 @@ test('Multicaixa-only wording migration fixes untouched defaults and leaves edit
     assert.doesNotMatch(row.about_angola_body_e_n, /Reference/)
   })
 })
+
+test('AppyPay attempt history belongs to the existing order', { skip: !adminUrl }, async () => {
+  const { up: attemptsUp } = await import('../src/migrations/20261126_230000_appypay_attempts.ts')
+  await withDatabase(async (pool) => {
+    await pool.query('CREATE TABLE orders (id serial PRIMARY KEY)')
+    await pool.query('INSERT INTO orders DEFAULT VALUES')
+    await attemptsUp({ db: drizzle(pool) } as never)
+    await pool.query(`
+      INSERT INTO orders_appy_pay_attempts ("_order", "_parent_id", id, merchant_transaction_id, transaction_id, response_code)
+      VALUES (1, 1, 'attempt-1', 'old-charge', 'gateway-1', 211)
+    `)
+    assert.equal((await pool.query('SELECT response_code FROM orders_appy_pay_attempts')).rows[0].response_code, '211')
+    await pool.query('DELETE FROM orders WHERE id = 1')
+    assert.equal((await pool.query('SELECT id FROM orders_appy_pay_attempts')).rowCount, 0)
+  })
+})

@@ -244,3 +244,74 @@ test('signed AppyPay status lookup exposes the webhook payment result without ch
     else process.env.PAYLOAD_SECRET = previousSecret
   }
 })
+
+test('a verified failure opens one new AppyPay attempt on the same order', async (t) => {
+  const retry = paymentsEndpoints.find((endpoint) => endpoint.path === '/payments/appypay/retry-order')
+  assert.ok(retry)
+  const { appyPayRetryCredentials } = await import('../src/endpoints/payments.ts')
+  const env = {
+    ORDER_CANCELLATION_SECRET: 'retry-test-secret',
+    APPY_PAY_CLIENT_ID: 'test-client',
+    APPY_PAY_CLIENT_SECRET: 'test-secret',
+    APPY_PAY_OAUTH_RESOURCE: 'test-resource',
+    APPY_PAY_OAUTH_TOKEN_URL: 'https://appy.test/token',
+    APPY_PAY_API_BASE_URL: 'https://appy.test',
+  }
+  const previousEnv = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]))
+  Object.assign(process.env, env)
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  })
+  const gatewayCharge = { ...successfulCharge, paymentMethod: 'GPO', status: 'Failed' }
+  t.mock.method(globalThis, 'fetch', async (url: URL | string) => Response.json(
+    String(url).endsWith('/token') ? { access_token: 'fixture', expires_in: 0 } : { payment: gatewayCharge },
+  ))
+
+  let order = {
+    ...validOrder,
+    status: 'payment_review',
+    paymentStatus: 'failed',
+    appyPayStatus: 'Failed',
+    appyPayTransactionId: gatewayCharge.id,
+    appyPayResponseCode: 211,
+    appyPayVerifiedAt: new Date().toISOString(),
+    appyPayAttempts: [] as Array<{ merchantTransactionId: string; responseCode: number }>,
+    inventoryReservationExpiresAt: '',
+  }
+  const credentials = appyPayRetryCredentials(order as never)
+  assert.ok(credentials)
+  let writes = 0
+  const handler = () => retry.handler({
+    json: async () => credentials,
+    payload: {
+      db: fakeTransactionDb(),
+      find: async () => ({ docs: [{ id: order.id }] }),
+      findByID: async () => order,
+      update: async ({ data, context }: { data: Partial<typeof order>; context: object }) => {
+        writes += 1
+        assert.deepEqual(context, { appyPayRetry: true })
+        order = {
+          ...order, ...data,
+          inventoryReservationStatus: 'active',
+          inventoryReservationExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        }
+        return order
+      },
+      logger: { error: () => {} },
+    },
+  } as never)
+
+  const response = await handler()
+  assert.equal(response.status, 200)
+  const next = await response.json()
+  assert.equal(next.orderNumber, validOrder.orderNumber)
+  assert.equal(next.amount, validOrder.total)
+  assert.notEqual(next.merchantTransactionId, credentials.merchantTransactionId)
+  assert.equal(order.paymentStatus, 'pending')
+  assert.equal(order.appyPayAttempts[0].responseCode, 211)
+  assert.deepEqual(await (await handler()).json(), next)
+  assert.equal(writes, 1)
+})
