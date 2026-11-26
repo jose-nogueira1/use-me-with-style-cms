@@ -1659,11 +1659,11 @@ export interface MarketSetting {
   angolaPaymentMethods?: ('multicaixa_express' | 'stripe' | 'paypal')[] | null;
   angolaDeliveryMethods?: 'courier_ao'[] | null;
   /**
-   * Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cazenga.
+   * Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cazenga, Ilha de Luanda.
    */
   angolaZonePriceCentro: number;
   /**
-   * Talatona, Patriota, Belas, Camama, Benfica.
+   * Talatona, Patriota, Belas, Camama, Benfica, Morro Bento.
    */
   angolaZonePriceSul: number;
   /**

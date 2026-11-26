@@ -13,10 +13,10 @@ import { applyAuthoritativeOrderValues } from '../src/lib/authoritativeOrder.ts'
 
 test('every Zygo neighbourhood belongs to exactly one zone, with the agreed default prices', () => {
   const all = Object.values(ANGOLA_DELIVERY_ZONES).flat()
-  assert.equal(all.length, 21)
-  assert.equal(new Set(all).size, 21)
+  assert.equal(all.length, 23)
+  assert.equal(new Set(all).size, 23)
   const zones = Object.fromEntries(Object.entries(ANGOLA_DELIVERY_ZONES).map(([zone, names]) => [zone, names.length]))
-  assert.deepEqual(zones, { centro: 6, sul: 5, norte: 5, periferia: 5 })
+  assert.deepEqual(zones, { centro: 7, sul: 6, norte: 5, periferia: 5 })
   for (const name of ['Ingombotas', 'Maianga', 'Alvalade', 'Maculusso', 'Mutamba', 'Cassenda', 'Talatona', 'Patriota', 'Belas', 'Camama', 'Benfica', 'Vila Alice', 'Sambizanga', 'Rangel', 'Cazenga']) {
     assert.equal(angolaZonePrice(name), 3500, name)
   }
@@ -36,6 +36,8 @@ test('neighbourhood names match regardless of case and accents, and old municipa
 
 test('admin zone prices override the defaults and the free threshold is judged after discounts', () => {
   const settings = { angolaZonePriceCentro: 3000, angolaZonePricePeriferia: 6000, angolaFreeShippingEnabled: true, angolaFreeShippingThreshold: 100_000 }
+  assert.equal(angolaShippingCost('Ilha de Luanda', 50_000, settings), 3000)
+  assert.equal(angolaShippingCost('Morro Bento', 50_000, settings), 3500)
   assert.equal(angolaShippingCost('Mutamba', 50_000, settings), 3000)
   assert.equal(angolaShippingCost('Talatona', 50_000, settings), 3500) // untouched zone keeps its default
   assert.equal(angolaShippingCost('Zango', 50_000, settings), 6000)

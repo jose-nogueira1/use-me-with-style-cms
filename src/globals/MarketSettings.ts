@@ -116,9 +116,9 @@ export const MarketSettings: GlobalConfig = {
       admin: {
         description:
           zone === 'Centro'
-            ? 'Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cazenga.'
+            ? 'Ingombotas, Maianga, Alvalade, Maculusso, Mutamba, Cazenga, Ilha de Luanda.'
             : zone === 'Sul'
-              ? 'Talatona, Patriota, Belas, Camama, Benfica.'
+              ? 'Talatona, Patriota, Belas, Camama, Benfica, Morro Bento.'
               : zone === 'Norte'
                 ? 'Vila Alice, Sambizanga, Rangel, Cassenda, Hoji ya Henda.'
                 : 'Viana, Kilamba, Zango, Cacuaco, Funda.',
