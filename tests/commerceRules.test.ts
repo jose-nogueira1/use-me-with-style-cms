@@ -635,3 +635,24 @@ test('regional VAT: Angola is flat, Portugal picks the rate for the order\'s del
   assert.equal(resolveVatRate(global, 'PT', null), 23)
   assert.equal(resolveVatRate(global, 'PT', undefined), 23)
 })
+
+test('1 Kz test delivery requires exclusively server-identified test products', async () => {
+  const payload = {
+    findGlobal: async () => ({ angolaFreeShippingEnabled: true, angolaFreeShippingThreshold: 1 }),
+    findByID: async ({id}: {id: number}) => ({
+      id, slug: id === 1 ? 't-shirt-de-teste' : 'regular', name: 'Shirt', active: true,
+      availableAO: true, priceAOKz: 1, pricePTEur: 0.01,
+      variants: [{ id: 'one', stockAO: 10, stockPT: 10 }],
+    }),
+  }
+  const quote = (ids: number[]) => applyAuthoritativeOrderValues({
+    data: { market: 'AO', city: 'Zona de teste', paymentMethod: 'multicaixa_express',
+      deliveryMethod: 'courier_ao', items: ids.map(product => ({product, variantId: 'one', qty: 1})) },
+    operation: 'create', req: {payload, url: 'http://localhost/api/orders'},
+  } as never)
+  const result = await quote([1])
+  assert.equal(result?.shippingCost, 1)
+  assert.equal(result?.total, 2)
+  await assert.rejects(() => quote([1, 2]), /only for the test/)
+  await assert.rejects(() => quote([2]), /only for the test/)
+})
