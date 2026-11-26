@@ -11,7 +11,7 @@ import {
 } from '../src/lib/angolaShipping.ts'
 import { applyAuthoritativeOrderValues } from '../src/lib/authoritativeOrder.ts'
 
-test('every local courier neighbourhood belongs to exactly one zone, with the agreed default prices', () => {
+test('every Zygo neighbourhood belongs to exactly one zone, with the agreed default prices', () => {
   const all = Object.values(ANGOLA_DELIVERY_ZONES).flat()
   assert.equal(all.length, 21)
   assert.equal(new Set(all).size, 21)
@@ -28,6 +28,8 @@ test('neighbourhood names match regardless of case and accents, and old municipa
   assert.equal(canonicalAngolaNeighbourhood('  talatona '), 'Talatona')
   assert.equal(canonicalAngolaNeighbourhood('HOJI YA HENDA'), 'Hoji ya Henda')
   assert.equal(canonicalAngolaNeighbourhood('vila  alice'), 'Vila Alice')
+  assert.equal(angolaZoneOf('Cazenga'), 'centro')
+  assert.equal(angolaZoneOf('Cassenda'), 'norte')
   assert.equal(angolaZoneOf('zango'), 'periferia')
   for (const gone of ['Luanda', 'Mussulo', 'Samba', 'Mulenvos', 'Ingombota', '', undefined]) assert.equal(canonicalAngolaNeighbourhood(gone), null)
 })

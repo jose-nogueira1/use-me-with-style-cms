@@ -202,7 +202,7 @@ test('unknown payment/delivery method values fall back to the raw stored value i
   assert.equal(paymentMethodLabel('bank_transfer_ao', 'pt'), 'Transferência bancária')
   assert.equal(paymentMethodLabel('some_future_method', 'en'), 'some_future_method')
   assert.equal(paymentMethodLabel(undefined, 'en'), undefined)
-  assert.equal(deliveryMethodLabel('courier_ao', 'en'), 'Local courier')
+  assert.equal(deliveryMethodLabel('courier_ao', 'en'), 'Zygo')
   assert.equal(deliveryMethodLabel(null, 'pt'), undefined)
 })
 
@@ -474,13 +474,13 @@ test('the point of reference is printed with the delivery address, in the custom
 })
 
 test('with a tracking number the email leads with the courier card; the order link becomes a quiet text link', () => {
-  const courier = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', courierTrackingCode: 'ZG-2026-004815', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'courier_ao' })
-  assert.match(courier.html, /Referência do estafeta/)
-  assert.match(courier.html, /ZG-2026-004815/)
-  assert.match(courier.html, /Indique esta referência/)
-  assert.doesNotMatch(courier.html, /zygo\.ao/)
-  assert.match(courier.html, /Ver a minha encomenda/)
-  assert.doesNotMatch(courier.html, /ACOMPANHAR A MINHA ENCOMENDA/) // no second big button competing with the reference
+  const zygo = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', courierTrackingCode: 'ZG-2026-004815', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'zygo' })
+  assert.match(zygo.html, /Rastreio Zygo/)
+  assert.match(zygo.html, /ZG-2026-004815/)
+  assert.match(zygo.html, /Cole este número/)
+  assert.match(zygo.html, /SEGUIR NA ZYGO/)
+  assert.match(zygo.html, /Ver a minha encomenda/)
+  assert.doesNotMatch(zygo.html, /ACOMPANHAR A MINHA ENCOMENDA/) // no second big button competing with Zygo's
   // without a number the order button stays the main action
   const plain = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt' })
   assert.match(plain.html, /ACOMPANHAR A MINHA ENCOMENDA/)
@@ -488,10 +488,10 @@ test('with a tracking number the email leads with the courier card; the order li
 })
 
 test('the tracking follow-up is its own short email, not a second "shipped" notice', () => {
-  const email = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'tracking', courierTrackingCode: 'ZG-1', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'courier_ao' })
+  const email = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'pt', stage: 'tracking', courierTrackingCode: 'ZG-1', courierTrackingUrl: 'https://www.zygo.ao/rastreio', courierProvider: 'zygo' })
   assert.match(email.subject, /^Rastreio da encomenda/)
   assert.match(email.html, /Já pode acompanhar/)
   assert.doesNotMatch(email.html, /foi enviada e está a caminho/)
-  const en = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'tracking', courierTrackingCode: 'ZG-1', courierProvider: 'courier_ao' })
+  const en = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'tracking', courierTrackingCode: 'ZG-1', courierProvider: 'zygo' })
   assert.match(en.subject, /^Tracking for order/)
 })

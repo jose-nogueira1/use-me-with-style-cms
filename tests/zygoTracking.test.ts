@@ -4,25 +4,26 @@ import test from 'node:test'
 import { Orders } from '../src/collections/Orders.ts'
 import { orderLookupEndpoint } from '../src/endpoints/orderLookup.ts'
 import { buildOrderStatusEmail } from '../src/lib/email.ts'
-import { buildTrackingUrl, trackingProviderFor } from '../src/lib/messaging.ts'
+import { buildTrackingUrl, trackingProviderFor, ZYGO_TRACKING_URL } from '../src/lib/messaging.ts'
 
-test('Local courier references have no external tracking link, Portugal keeps CTT', () => {
-  assert.equal(trackingProviderFor('AO'), 'courier_ao')
+test('Angola orders link to Zygo\'s tracking page, Portugal keeps CTT', () => {
+  assert.equal(trackingProviderFor('AO'), 'zygo')
   assert.equal(trackingProviderFor('PT'), 'ctt')
-  assert.equal(buildTrackingUrl('AO', 'ZY-12345'), undefined)
-  assert.match(buildTrackingUrl('PT', 'RR123456789PT') ?? '', /ctt\.pt.*RR123456789PT/)
+  assert.equal(buildTrackingUrl('AO', 'ZY-12345'), ZYGO_TRACKING_URL)
+  assert.equal(ZYGO_TRACKING_URL, 'https://www.zygo.ao/rastreio')
+  assert.match(buildTrackingUrl('PT', 'RR123456789PT'), /ctt\.pt.*RR123456789PT/)
 })
 
-test('the shipped email shows the local courier reference without an external tracking link', () => {
+test('the shipped email shows the Zygo number and a Zygo link', () => {
   const email = buildOrderStatusEmail({
     to: 'a@example.com', orderNumber: 'AO-1', customerName: 'Ana', lang: 'pt', stage: 'shipped',
-    courierTrackingCode: 'ZY-12345', courierProvider: 'courier_ao',
+    courierTrackingCode: 'ZY-12345', courierTrackingUrl: ZYGO_TRACKING_URL, courierProvider: 'zygo',
   })
   assert.match(email.html, /ZY-12345/)
-  assert.match(email.html, /Referência do estafeta/)
-  assert.doesNotMatch(email.html, /href="https:\/\/www\.zygo\.ao\/rastreio"/)
+  assert.match(email.html, /SEGUIR NA ZYGO/)
+  assert.match(email.html, /href="https:\/\/www\.zygo\.ao\/rastreio"/)
   assert.doesNotMatch(email.html, /CTT/)
-  assert.match(buildOrderStatusEmail({ to: 'a@example.com', orderNumber: 'AO-1', customerName: 'Ana', lang: 'en', stage: 'shipped', courierTrackingCode: 'ZY-1', courierProvider: 'courier_ao' }).html, /Courier reference/)
+  assert.match(buildOrderStatusEmail({ to: 'a@example.com', orderNumber: 'AO-1', customerName: 'Ana', lang: 'en', stage: 'shipped', courierTrackingCode: 'ZY-1', courierTrackingUrl: ZYGO_TRACKING_URL, courierProvider: 'zygo' }).html, /TRACK WITH ZYGO/)
 })
 
 test('the tracking number rule depends on the market', () => {
@@ -44,11 +45,11 @@ test('order lookup tells the storefront who carries the order and where to follo
     payload: { find: async () => ({ docs: [order] }), logger: { info: () => {}, warn: () => {} } },
   }
   const body = await (await orderLookupEndpoint.handler(req as never)).json() as { order: Record<string, unknown> }
-  assert.equal(body.order.trackingProvider, 'courier_ao')
-  assert.equal(body.order.trackingUrl, null)
+  assert.equal(body.order.trackingProvider, 'zygo')
+  assert.equal(body.order.trackingUrl, ZYGO_TRACKING_URL)
 })
 
-test('a courier reference saved before dispatch rides on the shipped email; saved after, it is sent on its own', async () => {
+test('a Zygo number saved before dispatch rides on the shipped email; saved after, it is sent on its own', async () => {
   const { notifyOrderEvent } = await import('../src/hooks/notifyOrderEvent.ts')
   process.env.RESEND_API_KEY = 'test-key' // the sender is a fake payload.sendEmail below
   const base = { orderNumber: 'AO-1', market: 'AO', customerEmail: 'a@example.com', customerName: 'Ana', lang: 'pt', paymentStatus: 'paid' }
@@ -60,11 +61,11 @@ test('a courier reference saved before dispatch rides on the shipped email; save
   }
   // code typed while still processing: no "shipped" email yet
   assert.equal((await run({ status: 'processing' }, { status: 'processing', cttTrackingCode: 'ZY-12345' })).length, 0)
-  // then marked shipped: one email, with the code without a carrier link
+  // then marked shipped: one email, with the code and the Zygo link
   const shipped = await run({ status: 'processing', cttTrackingCode: 'ZY-12345' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })
   assert.equal(shipped.length, 1)
   assert.match(shipped[0].html, /ZY-12345/)
-  assert.doesNotMatch(shipped[0].html, /zygo\.ao\/rastreio/)
+  assert.match(shipped[0].html, /zygo\.ao\/rastreio/)
   // shipped first, number arrives later: ONE short tracking email (not a repeat of "shipped")
   const late = await run({ status: 'shipped' }, { status: 'shipped', cttTrackingCode: 'ZY-12345' })
   assert.equal(late.length, 1)

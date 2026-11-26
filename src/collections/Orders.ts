@@ -44,7 +44,7 @@ export const PAYMENT_METHODS = [
 export const DELIVERY_METHODS = [
   { label: 'CTT Standard - untracked (PT)', value: 'ctt' },
   { label: 'CTT Registered - tracked (PT)', value: 'courier_pt' },
-  { label: 'Local courier (AO)', value: 'courier_ao' },
+  { label: 'Zygo (AO)', value: 'courier_ao' },
   { label: 'Manual coordination (AO, legacy)', value: 'manual_ao' },
 ] as const
 
@@ -200,7 +200,7 @@ export const Orders: CollectionConfig = {
       type: 'text',
       maxLength: 200,
       label: 'Delivery point of reference (AO)',
-      admin: { description: 'Landmark the local courier uses to find the address -- collected on the Angola checkout since 2026-10-08.' },
+      admin: { description: 'Landmark the courier (Zygo) uses to find the address -- collected on the Angola checkout since 2026-10-08.' },
     },
     {
       name: 'postalCode',
@@ -351,19 +351,19 @@ export const Orders: CollectionConfig = {
       name: 'cttTrackingCode',
       type: 'text',
       index: true,
-      label: 'Courier tracking code (CTT / local courier)',
+      label: 'Courier tracking code (CTT / Zygo)',
       hooks: {
         beforeValidate: [({ value }) => typeof value === 'string' ? value.trim().toUpperCase().replace(/\s/g, '') || null : value],
       },
       validate: (value: unknown, { siblingData }: { siblingData?: { market?: string } }) => {
         if (!value) return true
-        // Local courier references in Angola accept letters, digits and - _ . /
+        // Zygo's code format is not documented, so Angola accepts letters, digits and - _ . /
         return siblingData?.market === 'AO'
-          ? /^[A-Z0-9][A-Z0-9\-_./]{2,39}$/.test(String(value)) || 'Enter the local courier reference (letters, numbers and - _ . / only).'
+          ? /^[A-Z0-9][A-Z0-9\-_./]{2,39}$/.test(String(value)) || 'Enter the Zygo tracking number (letters, numbers and - _ . / only).'
           : /^[A-Z0-9]{8,40}$/.test(String(value)) || 'Enter a valid CTT tracking code (letters and numbers only).'
       },
       admin: {
-        description: 'Portugal: the CTT code for Registered orders. Angola: an optional reference from the local courier. It is emailed to the customer when the order ships and shown in the order lookup.',
+        description: 'Portugal: the CTT code for Registered orders. Angola: the tracking number Zygo gives you. It is emailed to the customer when the order ships and shown in the order lookup.',
       },
     },
     {

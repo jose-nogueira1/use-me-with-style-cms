@@ -1,3 +1,4 @@
+import * as migration_20261126_160000_restore_zygo from './20261126_160000_restore_zygo';
 import * as migration_20260910_160000_hero_image_positions from './20260910_160000_hero_image_positions';
 import * as migration_20261007_120000_vero_invoice_fields from './20261007_120000_vero_invoice_fields';
 import * as migration_20261008_120000_announcement_banner from './20261008_120000_announcement_banner';
@@ -503,4 +504,5 @@ export const migrations = [
   { up: migration_20261009_140000_announcement_message.up, down: migration_20261009_140000_announcement_message.down, name: '20261009_140000_announcement_message' },
   { up: migration_20261009_160000_zygo_tracking_faq.up, down: migration_20261009_160000_zygo_tracking_faq.down, name: '20261009_160000_zygo_tracking_faq' },
   { up: migration_20261010_120000_multicaixa_only_wording.up, down: migration_20261010_120000_multicaixa_only_wording.down, name: '20261010_120000_multicaixa_only_wording' },
+  { up: migration_20261126_160000_restore_zygo.up, down: migration_20261126_160000_restore_zygo.down, name: '20261126_160000_restore_zygo' },
 ];

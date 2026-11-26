@@ -99,7 +99,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
 
   // If the number is added after the shipped email went out, send the short tracking
   // follow-up (not a second "shipped" notice).
-  if (justAddedTracking) {
+  if (justAddedTracking && trackingUrl) {
     await sendOrderStatusEmail(req.payload, {
       to: doc.customerEmail,
       orderNumber: doc.orderNumber,

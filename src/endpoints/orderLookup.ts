@@ -81,9 +81,9 @@ export const orderLookupEndpoint: Endpoint = {
             currency: order.currency,
             deliveryRegion: order.deliveryRegion,
             cttTrackingCode: order.cttTrackingCode,
-            // Who carries it and where the customer can follow it (CTT in Portugal, local courier in Angola).
+            // Who carries it and where the customer can follow it (CTT in Portugal, Zygo in Angola).
             trackingProvider: trackingProviderFor(order.market),
-            trackingUrl: order.cttTrackingCode ? (buildTrackingUrl(order.market, order.cttTrackingCode) ?? null) : null,
+            trackingUrl: order.cttTrackingCode ? buildTrackingUrl(order.market, order.cttTrackingCode) : null,
             updatedAt: order.updatedAt,
             // Phase 2: returns: returns.docs.map(...)
           }

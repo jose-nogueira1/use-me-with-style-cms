@@ -218,7 +218,7 @@ test('Portugal shipping is authoritative, method-specific, and free from EUR 75 
   assert.equal(authoritativeShippingCost('PT', 'courier_pt', 100, freeOn), 0)
   assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Mutamba'), 3500) // Centro
   assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Talatona'), 3500) // Sul
-  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Cazenga'), 3500) // Norte
+  assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Cassenda'), 3500) // Norte
   assert.equal(authoritativeShippingCost('AO', 'courier_ao', 79_999, freeOn, 'Zango'), 5500) // Periferia
   assert.equal(authoritativeShippingCost('AO', 'courier_ao', 80_000, freeOn, 'Zango'), 0)
   const custom = { portugalFreeShippingEnabled: true, portugalStandardShippingPrice: 5.5, portugalTrackedShippingPrice: 8, portugalFreeShippingThreshold: 90 }

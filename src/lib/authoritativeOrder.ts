@@ -111,7 +111,7 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
       if (!deliveryRegion) badRequest('A valid Portuguese postal code is required.')
       return { ...data, country: 'Portugal', deliveryRegion }
     }
-    // Only a changed neighbourhood is validated: orders placed before the local courier
+    // Only a changed neighbourhood is validated: orders placed before the Zygo
     // zones keep their old municipality name and must stay editable.
     if (data.market === 'AO' && data.city && data.city !== originalDoc?.city) {
       const neighbourhood = canonicalAngolaNeighbourhood(data.city)

@@ -1,11 +1,11 @@
-// Angola delivery is done by local courier in Luanda, priced by four zones.
+// Angola delivery is done by Zygo (zygo.ao) in Luanda, priced by four zones.
 // The neighbourhood -> zone map is fixed here; the zone prices and the
 // free-delivery threshold are editable in the market settings. The order's
 // `city` stores the neighbourhood the customer picked.
 export const ANGOLA_DELIVERY_ZONES = {
-  centro: ['Ingombotas', 'Maianga', 'Alvalade', 'Maculusso', 'Mutamba', 'Cassenda'],
+  centro: ['Ingombotas', 'Maianga', 'Alvalade', 'Maculusso', 'Mutamba', 'Cazenga'],
   sul: ['Talatona', 'Patriota', 'Belas', 'Camama', 'Benfica'],
-  norte: ['Vila Alice', 'Sambizanga', 'Rangel', 'Cazenga', 'Hoji ya Henda'],
+  norte: ['Vila Alice', 'Sambizanga', 'Rangel', 'Cassenda', 'Hoji ya Henda'],
   periferia: ['Viana', 'Kilamba', 'Zango', 'Cacuaco', 'Funda'],
 } as const
 
@@ -42,7 +42,7 @@ const comparable = (value: string) =>
   value.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLocaleLowerCase('pt').replace(/\s+/g, ' ')
 
 // Case/accent-insensitive lookup that returns the canonical spelling, or null
-// when the neighbourhood is not one the courier serves for us.
+// when the neighbourhood is not one Zygo serves for us.
 export function canonicalAngolaNeighbourhood(value: unknown): string | null {
   const submitted = comparable(String(value ?? ''))
   for (const names of Object.values(ANGOLA_DELIVERY_ZONES)) {
