@@ -173,10 +173,9 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     badRequest('Order must contain between 1 and 50 items.')
   }
 
-  const testDelivery = market === 'AO' && data.city === 'Zona de teste'
-  if (testDelivery && (paymentMethod === 'stripe' || paymentMethod === 'paypal')) {
-    badRequest('Test delivery requires payment in kwanza.')
-  }
+  const neighbourhood = market === 'AO' ? canonicalAngolaNeighbourhood(data.city) : null
+  if (market === 'AO' && !neighbourhood) badRequest('Select a valid delivery neighbourhood.')
+
   const requestedByVariant = new Map<string, number>()
   const authoritativeItems = []
   let totalWeightGrams = 0
@@ -250,10 +249,6 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
     }
 
     const product = await loadProduct(productId)
-    if (testDelivery && product.slug !== 't-shirt-de-teste') {
-      badRequest('Test delivery is available only for the test T-shirt.')
-    }
-
     const isAvailable = product.active && (market === 'AO' ? product.availableAO : product.availablePT)
     if (!isAvailable) badRequest('A selected product is unavailable.')
 
@@ -380,15 +375,13 @@ export const applyAuthoritativeOrderValues: CollectionBeforeValidateHook = async
   }
 
   const merchandiseTotalAfterDiscount = Math.max(0, subtotal - discountAmount)
-  const neighbourhood = testDelivery ? 'Zona de teste' : market === 'AO' ? canonicalAngolaNeighbourhood(data.city) : null
-  if (market === 'AO' && !neighbourhood) badRequest('Select a valid delivery neighbourhood.')
   const deliveryRegion = market === 'PT' ? portugalDeliveryRegion(data.postalCode) : null
   if (market === 'PT' && !deliveryRegion) badRequest('A valid Portuguese postal code is required.')
   const portugalSettings = normalizePortugalShipping(shippingSettings)
   if (market === 'PT' && totalWeightGrams > portugalSettings.standardWeightLimitGrams && deliveryMethod !== 'courier_pt') {
     badRequest('Parcels over the standard weight limit require tracked delivery.')
   }
-  const shippingCost = testDelivery ? 1 : freeShipping
+  const shippingCost = freeShipping
     ? 0
     : authoritativeShippingCost(market, deliveryMethod, merchandiseTotalAfterDiscount, shippingSettings, neighbourhood ?? undefined, totalWeightGrams, String(data.postalCode ?? ''))
 
