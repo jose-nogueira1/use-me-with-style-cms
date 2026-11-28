@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as returnRules from '../src/lib/returns.ts'
-import { buildReturnStatusEmail } from '../src/lib/email.ts'
+import type { Payload } from 'payload'
+import { buildReturnStatusEmail, sendReturnStatusEmail } from '../src/lib/email.ts'
 
 const { allocateReturnAmounts, requestedRefund } = returnRules
 
@@ -33,4 +34,22 @@ test('return status email is bilingual and escapes customer-controlled fields', 
   assert.match(pt.html, /Artigo recebido/)
   assert.match(en.html, /Item received/)
   assert.doesNotMatch(pt.html, /<Ana>/)
+})
+
+test('return updates route replies to the returns alias with the case reference', async (t) => {
+  const previous = process.env.RESEND_API_KEY
+  process.env.RESEND_API_KEY = 'unit-test'
+  t.after(() => {
+    if (previous === undefined) delete process.env.RESEND_API_KEY
+    else process.env.RESEND_API_KEY = previous
+  })
+  const sendEmail = t.mock.fn(async (_message: { replyTo: string; subject: string; html: string }) => ({}))
+  await sendReturnStatusEmail({ sendEmail } as unknown as Payload, {
+    to: 'customer@example.com', customerName: 'Ana', returnNumber: 'RET-PT-1', orderNumber: 'PT-1',
+    market: 'PT', status: 'received', resolution: 'exchange', amount: 20, currency: 'EUR', lang: 'en',
+  })
+  const [message] = sendEmail.mock.calls[0].arguments
+  assert.equal(message.replyTo, 'returns@usemewithstyle.shop')
+  assert.match(message.subject, /RET-PT-1/)
+  assert.match(message.html, /mailto:returns@usemewithstyle\.shop\?subject=[^"]*RET-PT-1/)
 })

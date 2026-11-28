@@ -6,6 +6,7 @@ export const notifyReturnEvent: CollectionAfterChangeHook = async ({ doc, previo
   if (!changed) return
   if (context.returnSideEffect || doc.customerLastNotifiedStatus === doc.status) return
   await sendReturnStatusEmail(req.payload, {
+    market: doc.market,
     to: doc.customerEmail, customerName: doc.customerName, returnNumber: doc.returnNumber,
     orderNumber: doc.orderNumber, status: doc.status, resolution: doc.resolution,
     amount: Number(doc.approvedAmount ?? doc.requestedAmount ?? 0), currency: doc.currency,

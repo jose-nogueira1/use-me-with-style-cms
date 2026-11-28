@@ -94,6 +94,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       customerFirstName: doc.customerFirstName || undefined,
       lang: doc.lang,
       stage: 'delivered',
+      market: doc.market,
     })
   }
 
@@ -172,6 +173,7 @@ export const notifyOrderEvent: CollectionAfterChangeHook = async ({
       })
 
       await sendOrderConfirmationEmail(payload, {
+        market: order.market,
         to: order.customerEmail,
         orderNumber: order.orderNumber,
         orderDate: order.createdAt,

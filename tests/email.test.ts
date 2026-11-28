@@ -495,3 +495,18 @@ test('the tracking follow-up is its own short email, not a second "shipped" noti
   const en = buildOrderStatusEmail({ ...STATUS_BASE, lang: 'en', stage: 'tracking', courierTrackingCode: 'ZG-1', courierProvider: 'zygo' })
   assert.match(en.subject, /^Tracking for order/)
 })
+
+test('confirmation and delivery include the order reference and the policy for the order market', () => {
+  for (const [market, lang] of [['AO', 'en'], ['PT', 'pt']] as const) {
+    const order = { ...BASE, market, lang, orderNumber: market + '-123' }
+    for (const email of [buildOrderConfirmationEmail(order), buildOrderStatusEmail({ ...order, stage: 'delivered' })]) {
+      const href = email.html.match(/href="(mailto:returns@usemewithstyle\.shop\?subject=[^"]+)"/)?.[1]
+      assert.ok(href)
+      assert.ok(new URL(href).searchParams.get('subject')?.includes(order.orderNumber))
+      assert.ok(email.html.includes(`https://${market.toLowerCase()}.usemewithstyle.shop/ajuda#devolucoes`))
+    }
+    for (const stage of ['tracking', 'shipped'] as const) {
+      assert.doesNotMatch(buildOrderStatusEmail({ ...order, stage }).html, /mailto:returns@/)
+    }
+  }
+})

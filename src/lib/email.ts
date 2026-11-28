@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { storefrontOrigin, type SeoMarket } from './seoFiles'
 
 // Order-confirmation email (JOS-61 follow-up: real transactional email,
 // backing the paid-order confirmation shown on the storefront
@@ -54,6 +55,7 @@ export type OrderConfirmationAddressInput = {
 }
 
 type OrderConfirmationInput = {
+  market?: SeoMarket
   to: string
   orderNumber: string
   // ISO string or Date -- Orders.createdAt. Optional so the type doesn't
@@ -384,6 +386,21 @@ function renderHeaderRow(): string {
           </tr>`
 }
 
+const RETURNS_EMAIL = 'returns@usemewithstyle.shop'
+
+function renderReturnsContact(input: { market?: SeoMarket; orderNumber: string; returnNumber?: string }, lang: EmailLang): string {
+  const market = input.market ?? (input.orderNumber.startsWith('AO-') ? 'AO' : 'PT')
+  const label = market === 'AO'
+    ? (lang === 'pt' ? 'Trocas' : 'Exchanges')
+    : (lang === 'pt' ? 'Trocas e devoluções' : 'Returns & exchanges')
+  const subject = `${label} — ${input.returnNumber ?? input.orderNumber}`
+  const policy = lang === 'pt' ? 'Consultar a política' : 'View the policy'
+  return `<div style="font-family:${SANS};font-size:13px;line-height:22px;margin-top:8px;">
+    ${escapeHtml(label)}: <a href="mailto:${RETURNS_EMAIL}?subject=${encodeURIComponent(subject)}" style="color:${GOLD};">${RETURNS_EMAIL}</a>
+    &middot; <a href="${storefrontOrigin(market)}/ajuda#devolucoes" style="color:${GOLD};">${policy}</a>
+  </div>`
+}
+
 function renderFooterRows(opts: { tagline: string; rights: string; siteUrl: string }): string {
   const instagramUrl = 'https://www.instagram.com/use_me_withstyle/'
   return `
@@ -612,6 +629,7 @@ export function buildOrderConfirmationEmail(input: OrderConfirmationInput): {
               <div style="font-family:${SANS}; font-size:13px; line-height:26px; margin-top:8px;">
                 <a href="mailto:${escapeHtml(supportEmail)}" style="color:${GOLD}; text-decoration:none;">${escapeHtml(copy.emailLinkText)}</a>
               </div>
+              ${renderReturnsContact(input, lang)}
             </td>
           </tr>
           ${renderFooterRows({ tagline: copy.footerTagline, rights: copy.footerRights(year), siteUrl })}`
@@ -667,6 +685,7 @@ export async function sendOrderConfirmationEmail(
 export type OrderStatusEmailStage = 'shipped' | 'tracking' | 'delivered'
 
 type OrderStatusEmailInput = {
+  market?: SeoMarket
   to: string
   orderNumber: string
   customerName: string
@@ -884,6 +903,7 @@ export function buildOrderStatusEmail(input: OrderStatusEmailInput): { subject: 
               <div style="font-family:${SANS}; font-size:13px; line-height:26px; margin-top:8px;">
                 <a href="mailto:${escapeHtml(supportEmail)}" style="color:${GOLD}; text-decoration:none;">${escapeHtml(confirmationCopy.emailLinkText)}</a>
               </div>
+              ${input.stage === 'delivered' ? renderReturnsContact(input, lang) : ''}
             </td>
           </tr>
           ${renderFooterRows({ tagline: confirmationCopy.footerTagline, rights: confirmationCopy.footerRights(year), siteUrl })}`
@@ -912,6 +932,7 @@ export async function sendOrderStatusEmail(payload: Payload, input: OrderStatusE
 }
 
 export type ReturnStatusEmailInput = {
+  market?: SeoMarket
   to: string; customerName: string; returnNumber: string; orderNumber: string
   status: string; resolution: string; amount: number; currency: string; lang?: EmailLang
 }
@@ -926,14 +947,14 @@ export function buildReturnStatusEmail(input: ReturnStatusEmailInput): { subject
   }
   const resolutionLabels: Record<string, Record<EmailLang, string>> = { refund: { pt: 'Reembolso', en: 'Refund' }, exchange: { pt: 'Troca', en: 'Exchange' }, store_credit: { pt: 'Crédito em loja', en: 'Store credit' } }
   const subject = labels.subject
-  const rows = `${renderHeaderRow()}<tr><td class="ums-px" style="padding:40px 32px;"><div style="font-family:${SANS};font-size:11px;letter-spacing:1.5px;color:${GOLD};">${escapeHtml(input.returnNumber)}</div><h1 style="font-family:${SERIF};font-weight:400;color:${INK};">${escapeHtml(labels.heading)}, ${escapeHtml(resolveFirstName(input.customerName) || input.customerName)}.</h1><table role="presentation" width="100%" style="font-family:${SANS};font-size:13px;line-height:26px;color:${INK_SOFT};"><tr><td>${labels.order}</td><td align="right"><b>${escapeHtml(input.orderNumber)}</b></td></tr><tr><td>${labels.status}</td><td align="right"><b>${escapeHtml(statusLabels[input.status]?.[lang] || input.status)}</b></td></tr><tr><td>${labels.resolution}</td><td align="right"><b>${escapeHtml(resolutionLabels[input.resolution]?.[lang] || input.resolution)}</b></td></tr><tr><td>${labels.amount}</td><td align="right"><b>${escapeHtml(String(input.amount))} ${escapeHtml(input.currency)}</b></td></tr></table><p style="font-family:${SANS};font-size:13px;color:${INK_SOFT};margin-top:28px;">${escapeHtml(labels.support)}</p></td></tr>${renderFooterRows({ tagline: 'Use Me With Style', rights: `© ${new Date().getFullYear()} Use Me With Style`, siteUrl: (process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop').replace(/\/$/, '') })}`
+  const rows = `${renderHeaderRow()}<tr><td class="ums-px" style="padding:40px 32px;"><div style="font-family:${SANS};font-size:11px;letter-spacing:1.5px;color:${GOLD};">${escapeHtml(input.returnNumber)}</div><h1 style="font-family:${SERIF};font-weight:400;color:${INK};">${escapeHtml(labels.heading)}, ${escapeHtml(resolveFirstName(input.customerName) || input.customerName)}.</h1><table role="presentation" width="100%" style="font-family:${SANS};font-size:13px;line-height:26px;color:${INK_SOFT};"><tr><td>${labels.order}</td><td align="right"><b>${escapeHtml(input.orderNumber)}</b></td></tr><tr><td>${labels.status}</td><td align="right"><b>${escapeHtml(statusLabels[input.status]?.[lang] || input.status)}</b></td></tr><tr><td>${labels.resolution}</td><td align="right"><b>${escapeHtml(resolutionLabels[input.resolution]?.[lang] || input.resolution)}</b></td></tr><tr><td>${labels.amount}</td><td align="right"><b>${escapeHtml(String(input.amount))} ${escapeHtml(input.currency)}</b></td></tr></table><p style="font-family:${SANS};font-size:13px;color:${INK_SOFT};margin-top:28px;">${escapeHtml(labels.support)}</p>${renderReturnsContact(input, lang)}</td></tr>${renderFooterRows({ tagline: 'Use Me With Style', rights: `© ${new Date().getFullYear()} Use Me With Style`, siteUrl: (process.env.PUBLIC_SITE_URL || 'https://usemewithstyle.shop').replace(/\/$/, '') })}`
   return { subject, html: renderEmailShell({ lang, subject, preheader: subject, rows }) }
 }
 
 export async function sendReturnStatusEmail(payload: Payload, input: ReturnStatusEmailInput): Promise<void> {
   const { subject, html } = buildReturnStatusEmail(input)
   if (!process.env.RESEND_API_KEY) { console.log(`[email:not-configured] would send return notice for ${input.returnNumber} to ${input.to}`); return }
-  try { await payload.sendEmail({ to: input.to, subject, html }) } catch (error) { console.error('[return-email:send-failed]', error) }
+  try { await payload.sendEmail({ to: input.to, replyTo: RETURNS_EMAIL, subject, html }) } catch (error) { console.error('[return-email:send-failed]', error) }
 }
 
 // Help page "send us an email" form (JOS-64 follow-up, added 2026-07-24).
@@ -943,6 +964,7 @@ export async function sendReturnStatusEmail(payload: Payload, input: ReturnStatu
 // notification copy is deliberately not bilingual (the team reads PT) even
 // though the form itself is bilingual on the storefront.
 type ContactMessageInput = {
+  topic?: 'support' | 'returns' | 'legal'
   name: string
   email: string
   phone?: string
@@ -954,8 +976,13 @@ export async function sendContactFormEmail(payload: Payload, input: ContactMessa
   // No dedicated CONTACT_EMAIL configured yet -- falls back to the same
   // address used as the sender for order confirmations. Set CONTACT_EMAIL
   // in Railway once there's a real monitored support inbox.
-  const to = process.env.CONTACT_EMAIL || process.env.RESEND_FROM_EMAIL || 'support@usemewithstyle.shop'
-  const subject = `Nova mensagem do site -- ${input.name}`
+  const recipients = {
+    support: process.env.CONTACT_EMAIL || 'support@usemewithstyle.shop',
+    returns: 'returns@usemewithstyle.shop',
+    legal: 'legal@usemewithstyle.shop',
+  }
+  const to = recipients[input.topic ?? 'support']
+  const subject = `[${input.topic ?? 'support'}] ${input.orderNumber || 'Website'} — ${input.name}`
   const html = `
     <div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
       <h2 style="margin-bottom: 4px;">Nova mensagem via formulário de contacto</h2>
@@ -1007,6 +1034,7 @@ export async function sendContactFormEmail(payload: Payload, input: ContactMessa
 // time expectation, and a recap of what the customer actually submitted (so
 // they can immediately confirm nothing was garbled/dropped).
 export type ContactAutoReplyInput = {
+  topic?: 'support' | 'returns' | 'legal'
   to: string
   name: string
   // The Help page form doesn't currently send `lang` -- see contact.ts and
@@ -1112,7 +1140,7 @@ export async function sendContactAutoReplyEmail(payload: Payload, input: Contact
   }
 
   try {
-    await payload.sendEmail({ to: input.to, subject, html })
+    await payload.sendEmail({ to: input.to, replyTo: `${input.topic ?? 'support'}@usemewithstyle.shop`, subject, html })
   } catch (err) {
     // Never let this fail the contact-form submission -- the internal
     // notification (sendContactFormEmail) is the one that actually needs to

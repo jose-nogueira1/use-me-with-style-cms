@@ -46,7 +46,7 @@ export const orderLookupEndpoint: Endpoint = {
       return Response.json({ error: 'Invalid request.' }, { status: 400 })
     }
 
-    const orderNumber = body?.orderNumber?.trim().toUpperCase()
+    const orderNumber = body?.orderNumber?.trim().replace(/^#/, '').toUpperCase()
     const email = body?.email?.trim().toLowerCase()
     if (!orderNumber || !email || orderNumber.length > 40 || email.length > 254) {
       return Response.json({ order: null })
@@ -79,6 +79,23 @@ export const orderLookupEndpoint: Endpoint = {
             status: order.status,
             paymentStatus: order.paymentStatus,
             paymentRetry: appyPayRetryCredentials(order),
+            customerName: order.customerName,
+            customerEmail: order.customerEmail,
+            createdAt: order.createdAt,
+            address: order.address,
+            addressLine2: order.addressLine2,
+            city: order.city,
+            postalCode: order.postalCode,
+            country: order.country,
+            paymentMethod: order.paymentMethod,
+            deliveryMethod: order.deliveryMethod,
+            subtotal: order.subtotal,
+            discountAmount: order.discountAmount,
+            shippingCost: order.shippingCost,
+            items: (order.items || []).map((item, index) => ({
+              id: String(index), productName: item.productName, qty: item.qty,
+              size: item.size, color: item.color, unitPrice: item.unitPrice,
+            })),
             total: order.total,
             currency: order.currency,
             deliveryRegion: order.deliveryRegion,
